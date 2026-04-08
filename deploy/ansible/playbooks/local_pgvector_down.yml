@@ -1,0 +1,25 @@
+---
+# Stop and remove the local pgvector container. By default the data volume
+# is preserved so a subsequent up brings the same state back. Pass
+# `-e remove_volumes=true` to also delete the volume.
+
+- name: Stop local pgvector container
+  hosts: local
+  gather_facts: false
+
+  vars:
+    container_name: retrieval-hub-pgvector
+    volume_name: retrieval-hub-pgvector-data
+    remove_volumes: false
+
+  tasks:
+    - name: Stop and remove the container
+      containers.podman.podman_container:
+        name: "{{ container_name }}"
+        state: absent
+
+    - name: Remove the data volume (optional)
+      containers.podman.podman_volume:
+        name: "{{ volume_name }}"
+        state: absent
+      when: remove_volumes | bool

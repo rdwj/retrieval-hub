@@ -1,0 +1,84 @@
+---
+# Bring up the local pgvector podman container for retrieval-hub physical
+# indexes. Idempotent: re-running updates the container if the image changed.
+#
+# Runs the pgvector/pgvector image, exposes localhost:5433, persists data to a
+# named podman volume so restarts preserve state. Creates the CREATE EXTENSION
+# vector statement on first boot via the container's standard init.
+#
+# Usage:
+#   ansible-playbook -i deploy/ansible/inventory/local \
+#     deploy/ansible/playbooks/local_pgvector_up.yml
+
+- name: Start local pgvector container
+  hosts: local
+  gather_facts: false
+
+  vars:
+    container_name: retrieval-hub-pgvector
+    image: docker.io/pgvector/pgvector:pg16
+    host_port: 5433
+    db_name: retrievalhub_vectors
+    db_user: retrievalhub
+    db_password: retrievalhub
+    volume_name: retrieval-hub-pgvector-data
+
+  tasks:
+    - name: Check podman is available
+      ansible.builtin.command: podman --version
+      changed_when: false
+      register: podman_version_check
+
+    - name: Print podman version
+      ansible.builtin.debug:
+        msg: "Using {{ podman_version_check.stdout }}"
+
+    - name: Ensure the pgvector data volume exists
+      containers.podman.podman_volume:
+        name: "{{ volume_name }}"
+        state: present
+
+    - name: Pull pgvector image
+      containers.podman.podman_image:
+        name: "{{ image }}"
+        state: present
+
+    - name: Run pgvector container
+      containers.podman.podman_container:
+        name: "{{ container_name }}"
+        image: "{{ image }}"
+        state: started
+        recreate: false
+        restart_policy: unless-stopped
+        ports:
+          - "127.0.0.1:{{ host_port }}:5432"
+        env:
+          POSTGRES_DB: "{{ db_name }}"
+          POSTGRES_USER: "{{ db_user }}"
+          POSTGRES_PASSWORD: "{{ db_password }}"
+        volumes:
+          - "{{ volume_name }}:/var/lib/postgresql/data"
+        healthcheck: "pg_isready -U {{ db_user }} -d {{ db_name }}"
+
+    - name: Wait for pgvector to accept connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ host_port }}"
+        state: started
+        delay: 1
+        timeout: 60
+
+    - name: Install vector extension
+      ansible.builtin.command:
+        cmd: >-
+          podman exec {{ container_name }}
+          psql -U {{ db_user }} -d {{ db_name }}
+          -c "CREATE EXTENSION IF NOT EXISTS vector"
+      register: extension_cmd
+      changed_when: "'CREATE EXTENSION' in extension_cmd.stdout"
+
+    - name: Print connection string
+      ansible.builtin.debug:
+        msg: >-
+          pgvector ready:
+          postgresql+psycopg://{{ db_user }}:{{ db_password }}@localhost:{{ host_port }}/{{ db_name }}

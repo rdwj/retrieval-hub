@@ -1,0 +1,24 @@
+---
+# Stop and remove the local catalog Postgres container. Preserves the data
+# volume by default.
+
+- name: Stop local catalog Postgres container
+  hosts: local
+  gather_facts: false
+
+  vars:
+    container_name: retrieval-hub-catalog-pg
+    volume_name: retrieval-hub-catalog-pg-data
+    remove_volumes: false
+
+  tasks:
+    - name: Stop and remove the container
+      containers.podman.podman_container:
+        name: "{{ container_name }}"
+        state: absent
+
+    - name: Remove the data volume (optional)
+      containers.podman.podman_volume:
+        name: "{{ volume_name }}"
+        state: absent
+      when: remove_volumes | bool

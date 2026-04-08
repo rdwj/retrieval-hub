@@ -1,0 +1,64 @@
+---
+# Bring up the local catalog Postgres container for retrieval-hub's catalog
+# database (Source, RecipeVersion, PhysicalIndex, etc.). Separate from the
+# pgvector container so schema concerns and vector workload concerns don't
+# interfere with each other.
+
+- name: Start local catalog Postgres container
+  hosts: local
+  gather_facts: false
+
+  vars:
+    container_name: retrieval-hub-catalog-pg
+    image: docker.io/library/postgres:16
+    host_port: 5434
+    db_name: retrievalhub
+    db_user: retrievalhub
+    db_password: retrievalhub
+    volume_name: retrieval-hub-catalog-pg-data
+
+  tasks:
+    - name: Check podman is available
+      ansible.builtin.command: podman --version
+      changed_when: false
+
+    - name: Ensure the catalog data volume exists
+      containers.podman.podman_volume:
+        name: "{{ volume_name }}"
+        state: present
+
+    - name: Pull Postgres image
+      containers.podman.podman_image:
+        name: "{{ image }}"
+        state: present
+
+    - name: Run catalog Postgres container
+      containers.podman.podman_container:
+        name: "{{ container_name }}"
+        image: "{{ image }}"
+        state: started
+        recreate: false
+        restart_policy: unless-stopped
+        ports:
+          - "127.0.0.1:{{ host_port }}:5432"
+        env:
+          POSTGRES_DB: "{{ db_name }}"
+          POSTGRES_USER: "{{ db_user }}"
+          POSTGRES_PASSWORD: "{{ db_password }}"
+        volumes:
+          - "{{ volume_name }}:/var/lib/postgresql/data"
+        healthcheck: "pg_isready -U {{ db_user }} -d {{ db_name }}"
+
+    - name: Wait for catalog Postgres to accept connections
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ host_port }}"
+        state: started
+        delay: 1
+        timeout: 60
+
+    - name: Print connection string
+      ansible.builtin.debug:
+        msg: >-
+          catalog Postgres ready:
+          postgresql+psycopg://{{ db_user }}:{{ db_password }}@localhost:{{ host_port }}/{{ db_name }}

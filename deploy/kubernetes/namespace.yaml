@@ -1,0 +1,34 @@
+# retrieval-hub namespace for cluster deployment.
+#
+# Single authoritative manifest for the OpenShift/Kubernetes namespace that
+# all retrieval-hub peer components (core library, -auth, -mcp, -ui) will
+# deploy into. This is the first and currently only file in deploy/kubernetes/.
+# The full cluster-deploy story (Operator, CRDs, SCCs, routes, etc.) lands in
+# later steps per docs/SYSTEMS.md and docs/operator.md.
+#
+# Apply with: kubectl apply -f deploy/kubernetes/namespace.yaml
+#
+# For OpenShift specifically, `oc new-project retrieval-hub` does the same
+# thing plus creates the default SCC bindings and a project-scoped RoleBinding
+# for the creator.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retrieval-hub
+  labels:
+    app.kubernetes.io/name: retrieval-hub
+    app.kubernetes.io/part-of: retrieval-hub
+    # Pod Security Standards: restricted by default. Peer components run as
+    # non-root (user 1001 per the Containerfiles) and should not need any
+    # elevated SCCs.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    # OpenShift display name + description for the RHOAI dashboard.
+    openshift.io/display-name: "retrieval-hub"
+    openshift.io/description: >-
+      Platform component for OpenShift AI providing curated retrieval sources
+      for RAG-enabled agents, with per-source query rewriting as the
+      differentiator.
