@@ -1,0 +1,95 @@
+# Python bytecode and packaging
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.env.local
+.env.*.local
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Node / Vite (retrieval-hub-ui/frontend)
+node_modules/
+.vite/
+.vite-cache/
+*.tsbuildinfo
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Local config
+*.local
+
+# Alembic local DBs / SQLite test artifacts
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets (defensive — none should ever land here)
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+credentials.json
+secrets.yaml
+secrets.yml
+*_key.txt
+*_token.txt
+*_secret.txt
+api_keys.txt
+tokens.txt
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/

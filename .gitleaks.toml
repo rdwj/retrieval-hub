@@ -1,0 +1,36 @@
+[allowlist]
+  description = "retrieval-hub project allowlist for gitleaks false positives"
+
+  # Ignore based on file paths
+  paths = [
+    # Test fixtures and mock data
+    '''tests/fixtures/''',
+    '''tests/.*_test\.py''',
+
+    # Documentation with example keys/tokens
+    '''docs/.*\.md$''',
+    '''README\.md$''',
+    '''retrospectives/.*\.md$''',
+
+    # Ephemeral test keys generated at runtime in retrieval-hub-auth tests
+    '''retrieval-hub-auth/tests/.*\.py$''',
+
+    # UI mockup test data
+    '''retrieval-hub-ui/frontend/src/data/.*\.ts$''',
+  ]
+
+  # Ignore based on line content — documentation placeholders and examples
+  regexes = [
+    # Common documentation placeholders
+    '''<your-.*-here>''',
+    '''YOUR_.*_HERE''',
+    '''REPLACE_WITH_YOUR''',
+    '''example\.com''',
+
+    # Mock client IDs and secrets in docs
+    '''client_id:\s*["']?test["']?''',
+    '''client_secret:\s*["']?test["']?''',
+
+    # SPIFFE IDs in documentation examples
+    '''spiffe://cluster\.local/ns/[a-z-]+/sa/[a-z-]+''',
+  ]
