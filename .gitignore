@@ -93,3 +93,9 @@ logs/
 *.temp
 tmp/
 temp/
+
+# Step 4 ingestion caches
+.model_cache/
+.hf_cache/
+.ansible-cache/
+.ansible/tmp/
