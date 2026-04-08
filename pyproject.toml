@@ -49,9 +49,16 @@ dev = [
 # Heavy runtime deps for real ingestion runs. Not required for `make test`
 # or `make lint` — tests mock sentence-transformers and Docling. Install
 # with `pip install -e '.[ingest]'` before running the step 4 scripts.
+#
+# einops is a transitive runtime dependency of the custom modeling code
+# shipped by nomic-ai/nomic-embed-text-v1.5 (loaded via trust_remote_code).
+# Without it, model load fails with an ImportError from inside the
+# downloaded modeling_hf_nomic_bert.py file. Declaring it here keeps the
+# ingest extra self-contained.
 ingest = [
     "sentence-transformers>=3.0",
     "docling>=2.0",
+    "einops>=0.7",
 ]
 
 [project.urls]

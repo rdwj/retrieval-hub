@@ -1,14 +1,13 @@
 ---
-# Convenience playbook: bring up every local dependency for retrieval-hub dev.
-# Currently the catalog Postgres + the pgvector container. Future additions
-# (Keycloak for auth, MLflow for experiments, etc.) get chained in here.
+# Convenience playbook: bring up every local dev dependency for retrieval-hub
+# dev. Currently the catalog Postgres + the pgvector container. Future
+# additions (Keycloak for auth, MLflow for experiments, etc.) get chained in
+# here.
+#
+# Note: `import_playbook` statements must appear at the top level of a
+# playbook file, not inside a play's tasks list. Each import_playbook below
+# is its own top-level entry, not a task.
 
-- name: Bring up all local dev dependencies
-  hosts: local
-  gather_facts: false
-  tasks:
-    - name: Include catalog Postgres playbook
-      ansible.builtin.import_playbook: local_catalog_pg_up.yml
+- ansible.builtin.import_playbook: local_catalog_pg_up.yml
 
-    - name: Include pgvector playbook
-      ansible.builtin.import_playbook: local_pgvector_up.yml
+- ansible.builtin.import_playbook: local_pgvector_up.yml

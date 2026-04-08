@@ -114,19 +114,33 @@ def fetch_pdf_url(
     )
 
 
+# File stems that are conventionally documentation-about-the-directory
+# rather than corpus content, and should be skipped when loading a
+# fallback corpus. Case-insensitive comparison against `Path.stem`.
+_FALLBACK_CORPUS_SKIP_STEMS = frozenset({"readme", "index", "license", "contributing"})
+
+
 def load_fallback_corpus(corpus_dir: Path) -> list[FetchedDocument]:
     """Load a directory of hand-written Markdown files as a fallback corpus.
 
     Used when real network fetches fail (rate limiting, offline, etc.). Each
     ``.md`` file in the directory becomes a ``FetchedDocument`` whose URL is
     a synthetic ``file://`` identifier and whose title is the file stem.
+
+    Meta-files like ``README.md`` are skipped — they're about the corpus,
+    not content of the corpus. The skip list is in
+    ``_FALLBACK_CORPUS_SKIP_STEMS``.
     """
     corpus_dir = Path(corpus_dir)
     if not corpus_dir.is_dir():
         raise FetchError(f"Fallback corpus directory does not exist: {corpus_dir}")
 
     docs: list[FetchedDocument] = []
+    skipped: list[str] = []
     for md_path in sorted(corpus_dir.glob("*.md")):
+        if md_path.stem.lower() in _FALLBACK_CORPUS_SKIP_STEMS:
+            skipped.append(md_path.name)
+            continue
         text = md_path.read_text(encoding="utf-8")
         docs.append(
             FetchedDocument(
@@ -139,6 +153,9 @@ def load_fallback_corpus(corpus_dir: Path) -> list[FetchedDocument]:
             )
         )
     logger.info(
-        "fetch.load_fallback_corpus dir=%s count=%d", corpus_dir, len(docs)
+        "fetch.load_fallback_corpus dir=%s count=%d skipped=%s",
+        corpus_dir,
+        len(docs),
+        skipped,
     )
     return docs
