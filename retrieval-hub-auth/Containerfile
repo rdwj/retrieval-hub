@@ -1,0 +1,33 @@
+# retrieval-hub-auth service image.
+#
+# Peer component of retrieval-hub per docs/PLATFORM_COMPONENT_PATTERN.md.
+# Runs a FastAPI service that issues and validates retrieval-hub JWTs.
+#
+# Build (on Mac, for OpenShift):
+#   podman build --platform linux/amd64 -t retrieval-hub-auth:latest \
+#     -f Containerfile .
+
+FROM registry.access.redhat.com/ubi9/python-311:latest
+
+LABEL name="retrieval-hub-auth" \
+      summary="retrieval-hub auth service (OAuth 2.1 client_credentials, JWKS)" \
+      io.k8s.description="FastAPI auth service for retrieval-hub." \
+      io.openshift.tags="retrieval-hub,auth,oauth,jwt,python"
+
+# UBI Python images already provide a non-root user (1001).
+USER 1001
+
+WORKDIR /opt/app-root/src
+
+COPY --chown=1001:0 pyproject.toml README.md ./
+COPY --chown=1001:0 src/ ./src/
+COPY --chown=1001:0 alembic/ ./alembic/
+
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir .
+
+EXPOSE 8000
+
+# Default: run migrations and then start the FastAPI server.
+# In production the migrations should be run as a separate init container.
+CMD ["uvicorn", "retrieval_hub_auth.main:app", "--host", "0.0.0.0", "--port", "8000"]

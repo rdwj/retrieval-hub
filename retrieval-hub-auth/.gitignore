@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.log
+
+# Local key material for `make run-dev`
+dev-keys/
+*.pem
