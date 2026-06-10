@@ -21,15 +21,32 @@ make migrate      # apply alembic migrations against $RETRIEVAL_HUB_DB_URL
 
 The default database URL points at a local Postgres for development; override it via the `RETRIEVAL_HUB_DB_URL` environment variable.
 
+## Running the UI demo
+
+The `retrieval-hub-ui/` directory contains a PatternFly mockup of the catalog interface. It runs entirely on static data — no backend required.
+
+Prerequisites: [Node.js](https://nodejs.org/) 18+.
+
+```bash
+git clone https://github.com/rdwj/retrieval-hub.git
+cd retrieval-hub/retrieval-hub-ui/frontend
+npm install
+npm run dev
+```
+
+Then open http://localhost:5173. The demo includes a catalog browser, source detail views, a query playground, and an admin page.
+
 ## Layout
 
 ```
 retrieval-hub/
-├── src/retrieval_hub/   # core library (models, schemas, policy)
-├── alembic/             # database migrations
-├── tests/               # unit tests for the core library
-├── docs/                # architecture, subsystem designs
+├── src/retrieval_hub/        # core library (models, schemas, policy)
+├── retrieval-hub-ui/         # PatternFly catalog UI (React + Vite)
+├── retrieval-hub-auth/       # auth service
+├── alembic/                  # database migrations
+├── tests/                    # unit tests for the core library
+├── docs/                     # architecture, subsystem designs
 ├── pyproject.toml
 ├── Makefile
-└── Containerfile        # core-library image (UBI9 Python 3.11)
+└── Containerfile             # core-library image (UBI9 Python 3.11)
 ```
