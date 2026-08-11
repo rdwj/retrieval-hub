@@ -28,7 +28,7 @@ The auth service does **not** own the source-access policy. It owns identities, 
 - **Key material**: signing keys live in OpenShift Secrets, mounted into the container at known paths. The auth service does not generate keys; key generation is an operator action (manual in v1, Operator-driven later).
 - **Test framework**: pytest, 80% target.
 
-It is built remotely on `ec2-dev-2` like every other peer component, and deployed as its own Deployment + Service + Route in the `retrieval-hub` OpenShift project.
+It is built remotely on an x86_64 host like every other peer component, and deployed as its own Deployment + Service + Route in the `retrieval-hub` OpenShift project.
 
 ## The grant: OAuth 2.1 `client_credentials`
 

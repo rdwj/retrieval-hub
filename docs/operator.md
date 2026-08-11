@@ -21,7 +21,7 @@ When we do write the Operator, this is roughly the shape we expect.
 
 ### Deployment
 
-A peer top-level component, `retrieval-hub-operator/`, with the same Containerfile / Makefile / openshift.yaml structure as the other peer components. Built remotely on `ec2-dev-2`, deployed as its own Deployment in a cluster-namespace appropriate for an Operator (typically `openshift-operators` or a dedicated namespace). It runs with a ServiceAccount that has the cluster-scoped permissions it needs to manage retrieval-hub instances across whatever namespaces the cluster admin authorizes.
+A peer top-level component, `retrieval-hub-operator/`, with the same Containerfile / Makefile / openshift.yaml structure as the other peer components. Built remotely on an x86_64 host, deployed as its own Deployment in a cluster-namespace appropriate for an Operator (typically `openshift-operators` or a dedicated namespace). It runs with a ServiceAccount that has the cluster-scoped permissions it needs to manage retrieval-hub instances across whatever namespaces the cluster admin authorizes.
 
 ### Framework choice
 

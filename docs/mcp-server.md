@@ -20,7 +20,7 @@ It is the **only** peer component, other than the auth service, that agents are 
 - **Core library coupling**: in-process import of `retrieval_hub` (the core lib lives at `src/retrieval_hub/` in the repo and is installed into the MCP container as a dependency at build time). The MCP server does not hold its own copy of domain logic.
 - **Test framework**: pytest with the structure that the template ships with. 80% coverage target.
 
-The expected build command is the standard remote-build flow on `ec2-dev-2`, since the deploy target is OpenShift and the developer machine is a Mac. Local builds are fine for syntax-checking the Containerfile but not for deploying.
+The expected build command is a remote build on an x86_64 host, since the deploy target is OpenShift and the developer machine may be ARM-based. Local builds are fine for syntax-checking the Containerfile but not for deploying.
 
 ## Tool design
 
