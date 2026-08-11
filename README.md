@@ -56,3 +56,19 @@ retrieval-hub/
 ├── Makefile
 └── Containerfile             # core-library image (UBI9 Python 3.11)
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, and the PR workflow.
+
+## License
+
+Copyright 2026 Red Hat, Inc. Licensed under the [Apache License, Version 2.0](LICENSE).
+
+## Security
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md). Do not file public issues for security concerns.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant v2.1](CODE_OF_CONDUCT.md).

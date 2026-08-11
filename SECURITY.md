@@ -1,31 +1,54 @@
 # Security Policy
 
-## Reporting a vulnerability
+retrieval-hub is a retrieval platform for AI agents running on OpenShift. It manages access to data sources on behalf of agents and users under a scoped, governed model. Taking vulnerability reports seriously is a first-class concern.
 
-If you discover a security vulnerability in this project, please **report it privately** rather than opening a public issue.
+**Please do not file public GitHub issues for security vulnerabilities.**
 
-**Contact:** [@rdwj](https://github.com/rdwj)
+Report vulnerabilities privately through GitHub's private vulnerability reporting:
+
+- Go to the repository **Security** tab and select **Report a vulnerability**
+- Or navigate directly to `https://github.com/rdwj/retrieval-hub/security/advisories/new`
+
+If for any reason you cannot use GitHub's reporting flow, open a minimal public issue asking for a private contact channel (without disclosing details of the vulnerability).
 
 When reporting, please include:
 
-- A clear description of the issue
-- Steps to reproduce, if applicable
-- The affected version(s) or commit hash
-- Any mitigation or workaround you have identified
+- A description of the issue and the affected component (`retrieval_hub` core library, `retrieval-hub-mcp`, `retrieval-hub-auth`, `retrieval-hub-ui`, or the deploy manifests)
+- Steps to reproduce or a minimal proof of concept
+- The version or commit SHA you observed the issue on
+- The impact you believe the issue has (confidentiality, integrity, availability; scoped or cross-tenant)
 
-We will acknowledge your report within 5 business days and work with you on a reasonable disclosure timeline. Please give us an opportunity to investigate and patch before public disclosure.
+You should receive an acknowledgement within a few business days. We will work with you to confirm the issue, assess impact, and coordinate a fix and disclosure timeline.
 
-## Supported versions
+## Supported Versions
 
-| Version | Supported          |
-|---------|--------------------|
-| latest  | :white_check_mark: |
-| older   | Best-effort        |
+retrieval-hub is pre-1.0 and under active development. Fixes are applied to `main`; only the latest release of each published package receives security updates:
+
+| Package | Supported |
+|---------|-----------|
+| `retrieval-hub` (core library) | Latest release |
+| `retrieval-hub-mcp` | Latest deployed revision |
+| `retrieval-hub-auth` | Latest deployed revision |
+| Others | `main` branch only |
 
 ## Scope
 
-This policy covers vulnerabilities in the code and configurations maintained in **this** repository. Issues in upstream dependencies should be reported to those projects directly.
+In scope:
 
-## Recognition
+- Authentication and authorization bypass
+- Source access policy violations (cross-scope data access)
+- Credential or token leakage
+- Injection vulnerabilities in MCP tools, the auth server, or the UI BFF
+- Provenance or content integrity bypass (forged signatures, tampered content hashes)
+- Container or deployment misconfigurations that weaken FIPS or compliance posture
 
-We appreciate responsible disclosure. If you would like to be credited in the release notes for a fix, let us know in your report.
+Out of scope:
+
+- Findings that require compromising the underlying OpenShift cluster or PostgreSQL instance
+- Denial-of-service via resource exhaustion against unauthenticated endpoints (rate limiting is a deployment concern)
+- Issues only reproducible against example or scaffold code in `scripts/` or sample datasets
+- Best-practice recommendations without a demonstrated impact
+
+## Disclosure
+
+We prefer coordinated disclosure. Once a fix is available, we will credit the reporter (unless anonymity is requested) in the release notes and any GitHub Security Advisory published for the issue.
