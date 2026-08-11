@@ -87,7 +87,7 @@ export default function ActionBar({ source, canQuery }: ActionBarProps) {
         </Tooltip>
       </FlexItem>
       <FlexItem>
-        <Button variant="secondary" icon={<CopyIcon />} onClick={copyMcp}>
+        <Button variant="secondary" icon={<CopyIcon />} onClick={copyMcp} data-tour-id="copy-mcp-config">
           Copy MCP Config
         </Button>
       </FlexItem>

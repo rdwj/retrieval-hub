@@ -18,13 +18,15 @@ import {
   ToolbarGroup,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { MoonIcon, SunIcon } from '@patternfly/react-icons';
+import { MoonIcon, PlayIcon, SunIcon } from '@patternfly/react-icons';
 
 import { usePersona } from '../context/PersonaContext';
+import { useTour } from '../context/TourContext';
 import type { PersonaId } from '../types/source';
 
 export default function Header() {
   const { persona, allPersonas, setPersonaId } = usePersona();
+  const tour = useTour();
   const [personaOpen, setPersonaOpen] = useState(false);
   const [dark, setDark] = useState(false);
   const location = useLocation();
@@ -48,16 +50,18 @@ export default function Header() {
     setPersonaOpen(false);
   };
 
-  const activePath = location.pathname.startsWith('/admin')
-    ? '/admin'
-    : '/catalog';
+  const activePath = location.pathname === '/'
+    ? '/'
+    : location.pathname.startsWith('/admin')
+      ? '/admin'
+      : '/catalog';
 
   return (
     <Masthead>
       <MastheadMain>
         <MastheadBrand>
           <Link
-            to="/catalog"
+            to="/"
             style={{
               textDecoration: 'none',
               color: 'inherit',
@@ -87,6 +91,12 @@ export default function Header() {
               <Nav aria-label="Primary" variant="horizontal">
                 <NavList>
                   <NavItem
+                    itemId="home"
+                    isActive={activePath === '/'}
+                  >
+                    <Link to="/">Overview</Link>
+                  </NavItem>
+                  <NavItem
                     itemId="catalog"
                     isActive={activePath === '/catalog'}
                   >
@@ -114,7 +124,18 @@ export default function Header() {
                 </Button>
               </ToolbarItem>
               <ToolbarItem>
+                <Button
+                  variant="plain"
+                  onClick={() => tour.start()}
+                  aria-label="Start guided tour"
+                  data-tour-id="tour-trigger"
+                >
+                  <PlayIcon />
+                </Button>
+              </ToolbarItem>
+              <ToolbarItem>
                 <Dropdown
+                  data-tour-id="persona-switcher"
                   isOpen={personaOpen}
                   onOpenChange={(open) => setPersonaOpen(open)}
                   toggle={(toggleRef) => (

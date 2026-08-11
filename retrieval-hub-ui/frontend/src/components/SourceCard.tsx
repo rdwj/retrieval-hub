@@ -119,6 +119,9 @@ export default function SourceCard({ source }: SourceCardProps) {
       isCompact
       onClick={() => navigate(`/sources/${source.slug}`)}
       style={{ height: '100%' }}
+      {...(source.slug === 'va-clinical-guidelines'
+        ? { 'data-tour-id': 'source-card-clinical' }
+        : {})}
     >
       <CardHeader>
         <Flex

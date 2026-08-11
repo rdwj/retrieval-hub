@@ -99,6 +99,7 @@ export default function CatalogPage() {
           <ToolbarContent>
             <ToolbarItem style={{ minWidth: '20rem' }}>
               <SearchInput
+                data-tour-id="catalog-search"
                 placeholder="Search by name, slug, description, tag..."
                 value={q}
                 onChange={(_e, v) => updateParam('q', v)}
@@ -229,6 +230,7 @@ export default function CatalogPage() {
               lg: '340px',
               xl: '360px',
             }}
+            data-tour-id="catalog-gallery"
           >
             {filtered.map((s) => (
               <SourceCard key={s.id} source={s} />

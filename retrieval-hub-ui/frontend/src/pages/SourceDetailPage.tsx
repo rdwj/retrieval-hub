@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -39,6 +39,7 @@ import {
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 
 import AccessRequiredBanner from '../components/AccessRequiredBanner';
+import { useTour } from '../context/TourContext';
 import ActionBar from '../components/ActionBar';
 import DomainTags from '../components/DomainTags';
 import FamilyIcon from '../components/FamilyIcon';
@@ -56,10 +57,30 @@ import {
 } from '../utils/formatters';
 import type { EvalResult, Source } from '../types/source';
 
+const VALID_TABS = ['overview', 'recipe', 'evaluations', 'rewriter', 'prompts', 'access', 'lineage'];
+
 export default function SourceDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { persona } = usePersona();
-  const [activeTab, setActiveTab] = useState<string | number>('overview');
+  const { isActive: tourActive, stepDef } = useTour();
+  const location = useLocation();
+
+  const hashTab = location.hash.slice(1);
+  const initialTab = VALID_TABS.includes(hashTab) ? hashTab : 'overview';
+  const [activeTab, setActiveTab] = useState<string | number>(initialTab);
+
+  useEffect(() => {
+    if (tourActive && stepDef?.tabKey) {
+      setActiveTab(stepDef.tabKey);
+    }
+  }, [tourActive, stepDef?.tabKey]);
+
+  useEffect(() => {
+    const tab = location.hash.slice(1);
+    if (!tourActive && VALID_TABS.includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.hash, tourActive]);
 
   const source = MOCK_SOURCES.find((s) => s.slug === slug);
 
@@ -157,6 +178,7 @@ export default function SourceDetailPage() {
           activeKey={activeTab}
           onSelect={(_e, key) => setActiveTab(key)}
           aria-label="Source detail tabs"
+          data-tour-id="source-detail-tabs"
         >
           <Tab eventKey="overview" title={<TabTitleText>Overview</TabTitleText>}>
             <OverviewTab source={source} />
@@ -168,10 +190,14 @@ export default function SourceDetailPage() {
             eventKey="evaluations"
             title={<TabTitleText>Evaluations</TabTitleText>}
           >
-            <EvaluationsTab source={source} />
+            <div data-tour-id="eval-tab-content">
+              <EvaluationsTab source={source} />
+            </div>
           </Tab>
           <Tab eventKey="rewriter" title={<TabTitleText>Rewriter</TabTitleText>}>
-            <RewriterTab source={source} />
+            <div data-tour-id="rewriter-tab-content">
+              <RewriterTab source={source} />
+            </div>
           </Tab>
           <Tab
             eventKey="prompts"
@@ -180,7 +206,9 @@ export default function SourceDetailPage() {
             <SamplePromptsTab source={source} />
           </Tab>
           <Tab eventKey="access" title={<TabTitleText>Access</TabTitleText>}>
-            <AccessTab source={source} />
+            <div data-tour-id="access-tab-content">
+              <AccessTab source={source} />
+            </div>
           </Tab>
           <Tab eventKey="lineage" title={<TabTitleText>Lineage</TabTitleText>}>
             <LineageTab source={source} />

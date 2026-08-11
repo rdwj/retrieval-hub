@@ -25,6 +25,12 @@ The default database URL points at a local Postgres for development; override it
 
 The `retrieval-hub-ui/` directory contains a PatternFly mockup of the catalog interface. It runs entirely on static data — no backend required.
 
+**Deployed instance:** https://retrieval-hub-ui-retrieval-hub.apps.cluster-nshpp.nshpp.sandbox3237.opentlc.com/
+
+The landing page explains the value proposition and includes a guided tour that walks through the key features. The catalog, source detail views, query playground, and admin page are all available from the nav.
+
+### Running locally
+
 Prerequisites: [Node.js](https://nodejs.org/) 18+.
 
 ```bash
@@ -34,7 +40,7 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173. The demo includes a catalog browser, source detail views, a query playground, and an admin page.
+Then open http://localhost:5173.
 
 ## Layout
 

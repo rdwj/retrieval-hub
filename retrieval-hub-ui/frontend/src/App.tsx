@@ -1,18 +1,20 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { Page } from '@patternfly/react-core';
 
+import GuidedTour from './components/GuidedTour';
 import Header from './components/Header';
-import CatalogPage from './pages/CatalogPage';
-import SourceDetailPage from './pages/SourceDetailPage';
 import AdminPage from './pages/AdminPage';
-import PlaygroundPage from './pages/PlaygroundPage';
+import CatalogPage from './pages/CatalogPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PlaygroundPage from './pages/PlaygroundPage';
+import SourceDetailPage from './pages/SourceDetailPage';
+import ValuePropPage from './pages/ValuePropPage';
 
 export default function App() {
   return (
     <Page header={<Header />}>
       <Routes>
-        <Route path="/" element={<Navigate to="/catalog" replace />} />
+        <Route path="/" element={<ValuePropPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/sources/:slug" element={<SourceDetailPage />} />
         <Route
@@ -22,6 +24,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <GuidedTour />
     </Page>
   );
 }
