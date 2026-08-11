@@ -99,3 +99,10 @@ temp/
 .hf_cache/
 .ansible-cache/
 .ansible/tmp/
+
+# Internal working notes (session summaries, retros, competitive analysis)
+.internal/
+
+# Claude Code and MemoryHub local config
+.claude/
+.memoryhub.yaml
