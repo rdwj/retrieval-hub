@@ -88,7 +88,7 @@ Data returned by a retrieval system is external input to an agent. It enters the
 
 ### Standards alignment
 
-The provenance posture is designed to produce retrieval responses that a trust-aware agent system can consume with appropriate confidence. The reference framework is the Trust Bricks composition model (PTC, Provenance Trust Context, and GAL, Graduated Autonomy Lattice), which defines how data provenance flows through an agent mesh and how a receiving agent derives trust from the evidence carried by incoming data.
+The provenance posture is designed to produce retrieval responses that a trust-aware agent system can consume with appropriate confidence. The reference framework is the [Trust Bricks](https://wjatx.github.io/trust-bricks/) composition model (PTC, Provenance Trust Context, and GAL, Graduated Autonomy Lattice), which defines how data provenance flows through an agent mesh and how a receiving agent derives trust from the evidence carried by incoming data. The [standards landscape](https://wjatx.github.io/trust-bricks/standards.html) documents the adopted standards (DSSE, Ed25519, SPIFFE/WIMSE, in-toto, MCP, A2A), the evaluated-and-declined alternatives (Cedar, OPA/Rego), and the conceptual ancestry (Sheridan-Verplanck autonomy levels, FDA PCCP, ODD).
 
 retrieval-hub aligns with three tiers of provenance assurance, corresponding to PTC's trust tiers:
 
@@ -165,6 +165,32 @@ Provenance is woven into every phase:
 Most retrieval systems are opaque pipes: data goes in, chunks come out, and the consuming agent has no basis for trust beyond "I called the API and got a response." retrieval-hub is a transparent pipe: every chunk carries evidence of where it came from, how it was prepared, whether it has been modified, and who contributed it. The consuming system can verify that evidence independently, set trust levels accordingly, and reconstruct the full provenance chain after the fact.
 
 For an organization evaluating retrieval solutions, "does this system produce provenance-aware responses that my agent trust framework can verify?" is a binary question with a clear answer. Most retrieval systems cannot produce verifiable provenance. retrieval-hub can.
+
+### Why PTC alignment differentiates
+
+Adopting PTC is not a compliance checkbox. It changes what the consuming agent is *allowed to do* with retrieved data.
+
+**PTC directly governs the agent's autonomy ceiling.** GAL stores authority as state per (principal, action-class), and the [PTC data flow](https://wjatx.github.io/trust-bricks/data-flow.html) specifies that a capability's autonomy rung is capped by what the mesh can currently prove about its inputs. The three PTC trust tiers are not abstract categories; they are concrete gates on agent behavior:
+
+- **Tier 1 (taint-bit):** the consuming agent trusts the sender, but cannot prove the origin of the data. Autonomy is capped at low-blast, simulated effects. An agent receiving Tier 1 provenance can reason about the data but cannot take real-world actions based on it without human approval.
+- **Tier 2 (lineage):** a human can see the true origin of the data. Real actions become possible with human approval. The human reviewer has enough evidence to make a judgment call.
+- **Tier 3 (signed lineage):** the receiver cannot be lied to. Acting rungs (on-loop and out-of-loop) become eligible. The agent can take consequential actions because the provenance is cryptographically verifiable.
+
+A retrieval system that provides no provenance locks every consuming agent at Tier 1 or below. The agent can retrieve data, but the moment it tries to act on that data (write to an external system, publish to another agent, execute a transaction), the broker's gate escalates to human approval because it has no basis for trusting the data's origin.
+
+retrieval-hub at Tier 2 enables human-approved real actions. retrieval-hub at Tier 3 enables autonomous real actions within the bounds the GAL grant allows. The retrieval source's provenance posture becomes a constraint on the entire agent mesh's operational capability.
+
+**Most retrieval systems have no provenance story at all.** The typical RAG pipeline returns a list of text chunks with similarity scores. There is no content hash, no corpus version, no ingestion lineage, no source classification, and no signature. A PTC-compatible broker receiving these chunks has no evidence to work with. It must treat the data as untrusted external input at the lowest integrity level, regardless of how carefully the corpus was curated. The curation quality is invisible to the consuming system.
+
+This is the gap retrieval-hub fills. The curation work that a source owner puts into building a high-quality, reviewed, evaluated corpus is captured in the provenance metadata and made visible to the consuming trust framework. A well-curated source with `curated_reviewed` classification, content integrity hashes, and signed lineage earns a higher trust level in the consuming mesh than an ad hoc corpus with no provenance. The quality signal propagates through the trust framework rather than being lost at the retrieval boundary.
+
+**PTC alignment is composable across the mesh.** PTC rides transport orthogonally: an MCP `_meta` field, an A2A extension, or a native channel binding. When an agent retrieves data from retrieval-hub through MCP, the provenance metadata travels with the data. If that agent then publishes a derived result to another agent via A2A, the provenance chain extends: the receiving agent sees not just "Agent A sent me this" but "Agent A derived this from chunks retrieved from retrieval-hub source Y, corpus version Z, with these content hashes." The chain is append-only and independently verifiable at each hop.
+
+This composability matters for multi-agent systems where data flows through several agents before reaching a decision point. The provenance of the original retrieval survives the entire chain. A compliance officer investigating a bad outcome can trace from the final action, through the agent chain, back to the specific chunks and corpus version that seeded the reasoning. That trace is possible only if the retrieval source started the chain with real provenance.
+
+**The standards landscape is forming now.** PTC and GAL are at 0.2.1-draft, extracted from a running reference implementation. The [standards landscape](https://wjatx.github.io/trust-bricks/standards.html) documents which standards were adopted, which were evaluated and declined with published evidence, and which conceptual precedents informed the design. The closest prior art for a general-purpose trust-context standard is AP2, which is payments-only. The general seam remains unowned.
+
+This is an early-mover opportunity. Retrieval systems built today without provenance will need to retrofit it when trust frameworks mature and organizations start requiring verifiable data lineage for agent-driven decisions. retrieval-hub builds provenance in from the start, using the same standards (DSSE, Ed25519, SPIFFE/WIMSE, in-toto) that PTC specifies. When an organization adopts PTC for its agent mesh, retrieval-hub is already a compatible data source. Competing retrieval systems that return bare chunks will need architectural changes to produce the evidence PTC requires.
 
 ---
 
