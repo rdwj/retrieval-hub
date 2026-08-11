@@ -1,0 +1,32 @@
+# retrieval-hub-ui static demo image.
+#
+# Peer component of retrieval-hub per docs/PLATFORM_COMPONENT_PATTERN.md.
+# Multi-stage: builds the Vite+React app, then serves via UBI nginx.
+#
+# Build (on Mac, for OpenShift):
+#   podman build --platform linux/amd64 -t retrieval-hub-ui:latest \
+#     -f Containerfile .
+
+# --- stage 1: build ---
+FROM node:18-alpine AS build
+
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# --- stage 2: serve ---
+FROM registry.access.redhat.com/ubi9/nginx-124:latest
+
+LABEL name="retrieval-hub-ui" \
+      summary="retrieval-hub catalog UI demo (PatternFly mockup)" \
+      io.k8s.description="Static PatternFly catalog demo for retrieval-hub." \
+      io.openshift.tags="retrieval-hub,ui,patternfly,nginx"
+
+COPY nginx.conf "${NGINX_DEFAULT_CONF_PATH}/spa-routing.conf"
+COPY --from=build /app/dist .
+
+EXPOSE 8080
+
+CMD ["nginx", "-g", "daemon off;"]

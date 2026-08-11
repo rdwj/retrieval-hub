@@ -28,9 +28,28 @@ oc apply -f deploy/kubernetes/namespace.yaml
 - **Per-component labels** follow `app.kubernetes.io/name: <component>`,
   `app.kubernetes.io/part-of: retrieval-hub`.
 
+## Current manifests
+
+### `ui/` — demo UI (stage 2 mockup)
+
+Deploys the static PatternFly catalog demo via UBI nginx. Built via an OpenShift binary BuildConfig.
+
+```bash
+# Create the BuildConfig (first time only)
+oc new-build --name=retrieval-hub-ui --binary=true --strategy=docker \
+  --to=retrieval-hub-ui:latest --context=<ctx> -n retrieval-hub
+oc patch bc/retrieval-hub-ui --context=<ctx> -n retrieval-hub \
+  --type=json -p '[{"op":"add","path":"/spec/strategy/dockerStrategy","value":{"dockerfilePath":"Containerfile"}}]'
+
+# Build and deploy
+oc start-build retrieval-hub-ui --from-dir=retrieval-hub-ui --follow --context=<ctx> -n retrieval-hub
+oc apply -f deploy/kubernetes/ui/ --context=<ctx> -n retrieval-hub
+oc rollout restart deployment/retrieval-hub-ui --context=<ctx> -n retrieval-hub
+```
+
 ## Future structure
 
-When the cluster deploy lands in later steps, this directory will grow to:
+When the full cluster deploy lands, this directory will grow to:
 
 ```
 deploy/kubernetes/
