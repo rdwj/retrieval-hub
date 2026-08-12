@@ -203,9 +203,9 @@ The MCP server exposes six tools. The design principle is that agents speak in *
 | Tool | Purpose | Notes |
 |---|---|---|
 | `list_sources` | What sources exist and what can I access? | Returns sources filtered by the caller's identity and the admin-configured inclusion level. Includes access level per source (read, write, requestable, none). |
-| `describe_source` | What is this source and what do I need to know? | Returns the data card: methodology, domain notes, eval scores, rewriter status, agent write policy, data classification. This is the source's contract with the agent: what can and cannot be said about the data. |
+| `describe_source` | What is this source and what do I need to know? | Returns the data card: methodology, domain notes, eval scores, rewriter status, agent write policy, data classification, and a structural summary (not the full schema). This is the source's contract with the agent: what can and cannot be said about the data. |
 | `retrieve` | Get data relevant to my query from this source. | Natural language query in, context block out. The adapter handles rewriting, retrieval mechanism dispatch (vector ANN, text-to-SQL, graph traversal, hybrid), and result formatting. The agent does not choose or know the retrieval mechanism. |
-| `refine` | I have context but need to go deeper. | Takes a reference handle from a previous `retrieve` result plus a natural language description of what more the agent wants. The adapter uses family-specific logic to satisfy the request: adjacent chunks for documents, join-following for tabular, graph traversal for knowledge graphs, call-graph walking for code. |
+| `refine` | I have context but need to go deeper. | Takes a reference handle from a previous result (or a source reference from `describe_source`) plus a natural language description of what more the agent wants. The adapter uses family-specific logic to satisfy the request: adjacent chunks for documents, join-following for tabular, graph traversal for knowledge graphs, call-graph walking for code, or schema drill-down for structural detail. |
 | `write` | Store new data in this source. | For agent-writable sources only, scoped by the source's write policy and the caller's identity. Supports append, annotate, and other write modes defined per source. |
 | `request_access` | Request access to a source I can see but cannot query. | Initiates an access request workflow. Only available for sources with the `requestable` flag. The platform handles routing the request to the source owner. |
 
@@ -231,6 +231,32 @@ Sampling keeps the tool surface clean. The agent calls one tool; the server uses
 ### Single-source agents
 
 An agent built for one purpose (e.g., a clinical decision support agent that only queries VA guidelines) does not need the full tool surface. The agent's system prompt names the source slug, the agent calls `retrieve` with that slug, and the token overhead of `list_sources` and `describe_source` is avoided entirely. The full surface is there for general-purpose agents that need to discover and browse; single-source agents pay only for what they use.
+
+### Schema and structural metadata
+
+Structured sources (tabular, graph, FHIR, and similar families) have schemas that can be large. A relational database with 50 tables or a FHIR server with 150+ resource types would consume thousands of tokens if returned in full. The design handles this in two layers.
+
+**`describe_source` returns a structural summary, not the full schema.** The summary is authored by the source owner as part of the recipe, tailored to what an agent needs to decide relevance and formulate queries:
+
+| Family | Structural summary contents |
+|---|---|
+| Tabular | Table count, table names, one-sentence description per table |
+| Graph | Node types, edge types, rough cardinality |
+| FHIR / clinical | Which resource types are indexed, clinical domain covered |
+| Code | Language, repository scope, whether call-graph relationships are available |
+| Document | Not applicable (no schema) |
+
+The data card also includes a **schema complexity indicator** (small, medium, large, or a token-count estimate) so the agent knows upfront whether requesting full structural detail is reasonable or whether it should drill down incrementally.
+
+**`refine` handles schema drill-down on demand.** When the agent needs actual columns, fields, or relationship details, it calls `refine` with a reference to the source and a natural language request for the specific slice it needs:
+
+- "What are the columns of the patients table?" returns that one table's schema.
+- "What fields are available on MedicationRequest?" returns that FHIR resource's structure.
+- "What edge types connect Deployment nodes?" returns the relevant subset of the graph schema.
+
+The agent pays for schema detail only when it needs it, and only for the slice it needs. This keeps the token budget proportional to the agent's actual information needs rather than the source's total structural complexity.
+
+**For sampling-based retrieval, the agent never needs the schema at all.** When `retrieve` is called against a tabular source, the adapter already has the full schema internally to generate SQL via sampling. The schema is a tool-internal resource used by the adapter, not something surfaced to the agent. The agent describes what it wants in natural language; the adapter translates.
 
 ---
 
