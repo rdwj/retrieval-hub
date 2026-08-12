@@ -320,6 +320,98 @@ The confidence card gives the agent a basis for hedging. An agent receiving HIGH
 
 ---
 
+## Data residency
+
+Enterprise data assets have different constraints around where data may live. Some can be fully ingested into a platform-managed store. Others must stay in their system of record. Others already have retrieval infrastructure and need governance and discoverability, not another copy. retrieval-hub supports three residency models.
+
+### Fully managed ("store here")
+
+The ingestion pipeline fetches the origin, chunks, embeds, and writes both the chunks and embeddings into retrieval-hub's own storage (pgvector for vectors and chunk text, MinIO for raw documents and blobs). The platform owns the data lifecycle. This is the simplest model and the right default for corpora where the source owner is comfortable handing the data to the platform: product documentation, clinical practice guidelines, public datasets.
+
+**Provenance depth:** complete. The full chain from origin through every pipeline stage (fetch, parse, normalize, chunk, embed, write, register) is recorded and verifiable.
+
+**Ingestion path:**
+
+1. Source owner creates a recipe: origin URL, embedding model, chunk size/overlap, parsing strategy, rewriter config, data card fields (methodology, supported/unsupported conclusions, guardrails, reasoning considerations).
+2. Source owner submits the recipe. Platform creates a `Draft` source in the catalog.
+3. Ingestion runner executes the pipeline: fetch from origin, parse, normalize, chunk, embed, write chunks + embeddings to pgvector, store raw documents in MinIO, register the physical index.
+4. Source moves to `Curated`. Source owner runs eval, iterates on the recipe if needed.
+5. Source owner publishes. Source moves to `Published`. Agents can query it.
+
+### Embeddings only ("point at the origin, store the vectors")
+
+The source data stays where it is (an S3 bucket, a shared filesystem, an external database, a FHIR server). The ingestion pipeline reads from the origin, chunks and embeds the content, and writes only the embeddings plus chunk metadata (content hashes, lineage, byte offsets or document IDs pointing back to the origin) into retrieval-hub. Chunk text is cached alongside the embedding by default; source owners who require live-fetch mode (to ensure the agent always sees the current version) can configure the adapter to fetch chunk text from the origin at retrieval time.
+
+This is the right model when the data is too large to duplicate, when a data governance policy requires the data to stay in its system of record, or when the source has a high update velocity and embedding refresh runs are scheduled separately from full re-ingestion.
+
+**Provenance depth:** chunk-level lineage is present (content hashes, origin document IDs, ingestion timestamps), but the chain depends on the origin being available for full reconstruction. If the origin changes or disappears between ingestion and retrieval, the cached chunk text may be stale.
+
+**Ingestion path:** same as fully managed, except step 3 reads from a persistent external location rather than a crawlable URL, and raw documents are not stored in MinIO. Refresh runs re-read from the origin and update the index. The origin is the system of record; retrieval-hub's copy is a derived index.
+
+### Index only ("point at everything")
+
+Neither the data nor the embeddings live in retrieval-hub. The source registration points at an external vector store or search index (an existing Elasticsearch cluster, a managed Pinecone instance, a pre-built pgvector database maintained by another team, a FHIR search endpoint). The adapter queries the external index at retrieval time. retrieval-hub provides the catalog entry, the data card, the access control, the rewriter, the provenance metadata, and the interpretation guardrails, but the retrieval mechanics are fully delegated.
+
+This is the right model when an enterprise already has retrieval infrastructure and wants retrieval-hub for governance and discoverability, not for storage. It is also the model for external APIs (ClinicalTrials.gov, PubMed, commercial data services) where ingestion is impossible or unnecessary.
+
+**Provenance depth:** source-level metadata only. Content hashes and ingestion lineage are limited to what the external index provides. The data card, guardrails, and reasoning considerations are still present (authored by the source owner during registration), but the platform cannot independently verify chunk integrity because it did not perform the ingestion.
+
+**Registration path:**
+
+1. Source owner creates a recipe specifying the external index connection (endpoint URL, authentication, query interface) rather than an origin to ingest.
+2. Source owner provides the data card fields manually (methodology, conclusions, guardrails, reasoning considerations), since there is no ingestion pipeline to derive them from.
+3. Platform creates the source. No ingestion runner executes.
+4. The adapter queries the external index at retrieval time. The rewriter still runs (retrieval-hub applies it before dispatching to the external index). Provenance metadata, guardrail evaluation, and confidence card computation still apply.
+5. Same eval and publish flow, though eval queries the external index directly.
+
+### Residency and provenance
+
+The tradeoff across the three models is provenance depth. Fully managed gives the complete chain. Embeddings-only gives chunk-level lineage but depends on origin availability. Index-only gives source-level metadata but no chunk-level provenance unless the external index provides it. The dynamic confidence card reflects this: a fully managed source with complete ingestion lineage earns a higher baseline confidence than an index-only source where the platform cannot verify chunk integrity.
+
+The provenance tier (from the provenance posture section) is orthogonal to the residency model. A fully managed source can operate at Tier 1 (classification only) or Tier 3 (signed lineage). An index-only source can also operate at Tier 3 if the platform signs its retrieval responses, though the signed statement covers "retrieval-hub queried this external index and received these results," not "these chunks were ingested through a verified pipeline." The distinction matters for consuming trust frameworks that evaluate the strength of the provenance evidence.
+
+---
+
+## Source owner role
+
+The source owner is the person (or team) responsible for a data source in the catalog. They are the domain expert: they understand the data, its methodology, its limitations, and who should have access to it. The platform's job is to support source owners in doing their job well, not to replace their judgment.
+
+### Responsibilities
+
+**Data description.** The source owner authors the data card: methodology, supported and unsupported conclusions, interpretation guardrails, reasoning considerations, known biases. This is the most important responsibility because the data card is the contract between the data and every agent that queries it. A well-authored data card prevents misuse; a sparse one allows it.
+
+**Recipe configuration.** The source owner selects the ingestion parameters (embedding model, chunk size/overlap, parsing strategy) and iterates on them based on eval results. For index-only sources, the source owner documents the external index's configuration instead.
+
+**Rewriter curation.** The source owner provides vocabulary mappings, sample queries, and domain notes that parameterize the query rewriter. This is domain expertise encoded as data: the source owner knows that users will say "high blood sugar" when the corpus says "postprandial hyperglycemia," and they capture that mapping.
+
+**Quality ownership.** The source owner runs eval suites, reviews the scores, and decides whether to publish. The platform enforces the publish gate (no publication without a passing eval run), but the source owner decides what "passing" means for their source and iterates on the recipe to improve scores.
+
+**Access governance.** The source owner defines who can query the source (read access), who can write to it (for agent-writable sources), and whether access is requestable by users who do not currently have it. Access grants and revocations are the source owner's decision, enacted through the platform.
+
+**Lifecycle management.** The source owner publishes, retires, or re-curates sources. A retired source is discoverable but not queryable; the record that it existed and was used is preserved. The source owner decides when a source has reached end-of-life.
+
+**Refresh cadence.** For sources that track a changing origin (product documentation that updates with each release, a Wikipedia subset with daily refresh, a clinical dataset with quarterly updates), the source owner sets the refresh schedule and monitors for drift between the origin and the indexed content.
+
+### Platform support for source owners
+
+The platform provides tooling for each responsibility:
+
+**Data card authoring.** The UI provides a structured editor for the data card fields. Required fields (methodology, at least one supported conclusion, at least one unsupported conclusion) are enforced at the `Curated` stage. The CLI accepts data card fields in the recipe YAML. For fully managed sources, the ingestion pipeline can pre-populate some fields (temporal coverage, document count, chunk count) from the ingested content, but methodology and conclusions are always human-authored.
+
+**Recipe iteration.** The source owner submits a recipe, runs ingestion, reviews eval scores, adjusts parameters, and re-ingests. Each recipe version is stored and diffable. The platform tracks which recipe version produced which eval scores, so the source owner can see whether a change improved or degraded retrieval quality.
+
+**Rewriter testing.** The UI and CLI provide a test mode where the source owner submits sample queries, sees the rewritten versions, and reviews the retrieval results side by side (with and without rewriting). Vocabulary mappings and sample queries are editable and version-controlled.
+
+**Eval dashboard.** Per-source eval scores over time, broken out by LLM. The source owner sees trends, compares recipe versions, and identifies degradation. The platform can alert on eval score drops below a configurable threshold.
+
+**Access management.** The UI provides an access control panel per source: current grants, pending requests, grant history. The source owner can grant, revoke, or time-window access. Access requests from agents (via the `request_access` MCP tool) appear in a queue that the source owner triages. The platform handles expiration of time-windowed grants automatically.
+
+**Usage visibility.** The admin dashboard shows the source owner who is querying their source, how often, with what queries, and with what retrieval scores. This helps the source owner identify: agents that are querying poorly (rewriter needs more vocabulary mappings), agents that are querying topics the source does not cover well (gap in the corpus), and agents that have stopped querying (the source may be less useful than expected).
+
+**Audit trail.** Every change to a source (recipe update, access grant, publication, retirement, guardrail edit) is logged with the acting identity and timestamp. The source owner can review the history of their source for compliance or troubleshooting.
+
+---
+
 ## Phased build plan
 
 ### Current state
