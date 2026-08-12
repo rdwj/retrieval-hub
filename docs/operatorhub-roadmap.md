@@ -203,7 +203,7 @@ The MCP server exposes six tools. The design principle is that agents speak in *
 | Tool | Purpose | Notes |
 |---|---|---|
 | `list_sources` | What sources exist and what can I access? | Returns sources filtered by the caller's identity and the admin-configured inclusion level. Includes access level per source (read, write, requestable, none). |
-| `describe_source` | What is this source and what do I need to know? | Returns the data card: methodology, domain notes, eval scores, rewriter status, agent write policy, data classification, and a structural summary (not the full schema). This is the source's contract with the agent: what can and cannot be said about the data. |
+| `describe_source` | What is this source and what do I need to know? | Returns the data card: methodology, supported and unsupported conclusions, interpretation guardrails, reasoning considerations, eval scores, rewriter status, agent write policy, data classification, and a structural summary (not the full schema). This is the source's contract with the agent. See "Data card contents" below. |
 | `retrieve` | Get data relevant to my query from this source. | Natural language query in, context block out. The adapter handles rewriting, retrieval mechanism dispatch (vector ANN, text-to-SQL, graph traversal, hybrid), and result formatting. The agent does not choose or know the retrieval mechanism. |
 | `refine` | I have context but need to go deeper. | Takes a reference handle from a previous result (or a source reference from `describe_source`) plus a natural language description of what more the agent wants. The adapter uses family-specific logic to satisfy the request: adjacent chunks for documents, join-following for tabular, graph traversal for knowledge graphs, call-graph walking for code, or schema drill-down for structural detail. |
 | `write` | Store new data in this source. | For agent-writable sources only, scoped by the source's write policy and the caller's identity. Supports append, annotate, and other write modes defined per source. |
@@ -257,6 +257,66 @@ The data card also includes a **schema complexity indicator** (small, medium, la
 The agent pays for schema detail only when it needs it, and only for the slice it needs. This keeps the token budget proportional to the agent's actual information needs rather than the source's total structural complexity.
 
 **For sampling-based retrieval, the agent never needs the schema at all.** When `retrieve` is called against a tabular source, the adapter already has the full schema internally to generate SQL via sampling. The schema is a tool-internal resource used by the adapter, not something surfaced to the agent. The agent describes what it wants in natural language; the adapter translates.
+
+### Data card contents
+
+The data card returned by `describe_source` is the source's contract with the agent. It tells the agent not just what the data contains, but what can and cannot be said about it, and what the agent should think about before using it. The design draws on the CDC BRFSS data card format (a JSON-LD document encoding methodology, limitations, guardrails, and provenance for public health survey data).
+
+The data card includes:
+
+**Identity and overview.** Source name, slug, family, status, owner, description, data classification, temporal coverage, geographic scope, and update cadence.
+
+**Methodology.** How the data was produced: survey design, sampling method, population coverage, excluded populations (with estimated size and impact), embedding model, chunking strategy, and any transformations applied during ingestion. For derived sources, the provenance link to the parent source.
+
+**Supported conclusions.** What the data can validly support. Authored by the source owner as part of the recipe. Examples: "State-level prevalence comparisons," "Post-2011 trend analysis," "Demographic disparity identification." These are positive assertions about the data's fitness for specific uses.
+
+**Unsupported conclusions.** What the data cannot support, with a reason for each. This field is as important as supported conclusions because it is where agents actually go wrong. Examples: "Causal claims: observational data cannot establish causation," "County-level estimates: sample size insufficient below state level," "Individual risk prediction: population-level prevalence does not apply to individuals." Each entry carries a `reason` and optionally a `context_loss_category` (interpretive, scope, temporal, methodological) to help the agent understand the nature of the limitation.
+
+**Interpretation guardrails.** Machine-actionable rules that the adapter evaluates at retrieval time and includes as warnings in the response when conditions match. Each guardrail has an `id`, a `severity` (critical, high, advisory), and a `rule` (a condition-action pair). Examples:
+
+- `temporal_break`: "IF query time range spans 2011 THEN flag: methodology changed from post-stratification to raking; pre-2011 and post-2011 data are not directly comparable."
+- `crude_prevalence`: "IF comparing across age groups THEN flag: estimates are crude (not age-adjusted); demographic composition differences may account for apparent disparities."
+- `model_uncertainty`: "IF source is model-derived (MRP) THEN flag: estimates are modeled, not directly observed; confidence intervals reflect model uncertainty, not sampling error."
+
+Source owners author guardrails as part of the recipe. The platform evaluates them; the agent receives the warnings.
+
+**Reasoning considerations.** Domain-specific considerations the agent should review before answering a question with this data. The pattern is borrowed from the CDC reasoning protocol, which defines six considerations for public health data (cross-dataset reasoning, methodology awareness, scope adherence, causal inference boundaries, geographic resolution, terminology fluency). retrieval-hub generalizes this: the source owner lists considerations relevant to their domain, and the agent's system prompt can instruct it to check them.
+
+Examples for different domains:
+
+- Clinical source: "Check whether the question implies causation (this is observational data)." "Verify the question is within the population coverage (adults 18+ with telephone access)."
+- Code source: "Check whether the referenced function is deprecated." "Verify the code version matches the user's environment."
+- Legal source: "Verify jurisdiction applicability." "Check whether the statute has been superseded."
+
+The considerations are advisory: the source owner provides them, the platform surfaces them, and each agent decides how to use them based on its own system prompt and use case.
+
+**Eval scores.** Retrieval quality metrics (recall@5, MRR, rewrite lift) keyed by LLM. The agent can see how well the source retrieves before building against it.
+
+**Rewriter status.** Whether the source has a query rewriter, how many vocabulary mappings it carries, and the measured rewrite lift.
+
+**Known biases.** Typed bias entries with direction where applicable. Examples: "Self-report bias: respondents underreport weight and overreport height, leading to BMI underestimation." "Nonresponse bias: direction varies by measure."
+
+**Structural summary.** See "Schema and structural metadata" above.
+
+**Metadata completeness.** Boolean flags indicating which documentation the source owner has provided: `has_methodology`, `has_population_coverage`, `has_eval_scores`, `has_interpretation_guardrails`, `has_reasoning_considerations`. These flags feed the dynamic confidence card on retrieval responses.
+
+### Retrieval response metadata
+
+When `retrieve` returns data, it includes metadata alongside the chunks that helps the agent calibrate its response. This metadata is generated dynamically per retrieval, not statically per source.
+
+**Dynamic confidence card.** A confidence level (HIGH, MODERATE, LOW) computed from the source's metadata completeness flags and the quality of the specific retrieval result. The card includes the level, a one-sentence basis, and a list of gaps (what could not be verified). The computation:
+
+- **HIGH**: methodology documented, eval scores present, interpretation guardrails defined, and the retrieval scored well against the query.
+- **MODERATE**: some methodology context available, but eval scores or guardrails are missing, or the retrieval scores are marginal.
+- **LOW**: methodology undocumented, or the retrieval scores are poor, or the source is in `Draft` or `Curated` status without a passing eval run.
+
+The confidence card gives the agent a basis for hedging. An agent receiving HIGH confidence can state findings directly; an agent receiving LOW confidence should qualify its claims and note the gaps.
+
+**Terminology mapping.** When the query rewriter is active, the response includes a `terminology_note` showing how the user's language was mapped to the source's vocabulary. "Your question about 'high blood sugar' was mapped to 'postprandial hyperglycemia management' using 12 vocabulary mappings from the VA CPG rewriter." This serves two purposes: the agent can explain the mapping to the user, and the provenance chain records what transformation was applied.
+
+**Guardrail warnings.** Interpretation guardrails that fired for this specific retrieval. If the query spans a temporal break, or requests data at a geographic resolution the source cannot support, or involves a comparison that the source's guardrails flag, the warnings appear in the response. Each warning carries the guardrail `id`, `severity`, and the `rule` text. The agent can surface these as caveats or use them to decide whether to answer at all.
+
+**Cross-source context.** When other sources in the catalog cover the same topic, the response notes them as alternatives with a brief explanation of why the agent might want to query them instead or in addition. This supports cross-dataset reasoning without requiring the agent to call `list_sources` and compare manually.
 
 ---
 
