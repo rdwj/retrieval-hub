@@ -21,13 +21,13 @@ Open http://localhost:5173. The landing page has a guided tour that walks throug
 
 ## Understand why
 
-**[Why platform-managed retrieval](docs/operatorhub-roadmap.md#why-platform-managed-retrieval)** makes the case for treating retrieval as a platform concern rather than a per-team bespoke effort. It covers governance, access control, compliance, observability, forensic reconstruction, quality transparency, and the "accidental platform" problem.
+**[Why platform-managed retrieval](docs/vision-and-roadmap.md#why-platform-managed-retrieval)** makes the case for treating retrieval as a platform concern rather than a per-team bespoke effort. It covers governance, access control, compliance, observability, forensic reconstruction, quality transparency, and the "accidental platform" problem.
 
-**[Provenance posture](docs/operatorhub-roadmap.md#provenance-posture)** explains how retrieval-hub produces provenance-aware responses that a trust framework can verify, aligned to the [Trust Bricks](https://wjatx.github.io/trust-bricks/) PTC specification. This is the security differentiator: most retrieval systems return bare chunks with no basis for trust. retrieval-hub returns chunks with content hashes, source classifications, ingestion lineage, and optional cryptographic signatures.
+**[Provenance posture](docs/vision-and-roadmap.md#provenance-posture)** explains how retrieval-hub produces provenance-aware responses that a trust framework can verify, aligned to the [Trust Bricks](https://wjatx.github.io/trust-bricks/) PTC specification. This is the security differentiator: most retrieval systems return bare chunks with no basis for trust. retrieval-hub returns chunks with content hashes, source classifications, ingestion lineage, and optional cryptographic signatures.
 
 ## Understand how
 
-**[MCP tool surface](docs/operatorhub-roadmap.md#mcp-tool-surface)** describes the six tools agents use: `list_sources`, `describe_source`, `retrieve`, `refine`, `write`, and `request_access`. The design principle is that agents speak in intent ("get me data relevant to this query") and the source adapter translates intent into mechanism (vector search, text-to-SQL, graph traversal) based on the source's family.
+**[MCP tool surface](docs/vision-and-roadmap.md#mcp-tool-surface)** describes the six tools agents use: `list_sources`, `describe_source`, `retrieve`, `refine`, `write`, and `request_access`. The design principle is that agents speak in intent ("get me data relevant to this query") and the source adapter translates intent into mechanism (vector search, text-to-SQL, graph traversal) based on the source's family.
 
 **[Architecture](docs/ARCHITECTURE.md)** is the full system overview: components, data flows, deployment topology, integration points. Start here for how the pieces fit together.
 
@@ -35,7 +35,7 @@ Open http://localhost:5173. The landing page has a guided tour that walks throug
 
 ## Understand where it's going
 
-**[OperatorHub roadmap](docs/operatorhub-roadmap.md)** maps the arc from the current state to an installable Kubernetes operator on operatorhub.io, in six phases. Includes the phased build plan, risk register, and dependency graph.
+**[Vision and roadmap](docs/vision-and-roadmap.md)** is the full positioning document: the organizational case, provenance posture, MCP design, data residency, source onboarding, and phased build plan. Start here for the big picture.
 
 **[Systems index](docs/SYSTEMS.md)** lists every subsystem with its current status (Implemented, Skeleton, Design, or TBD) and links to the relevant design doc.
 

@@ -105,7 +105,7 @@ The UI's BFF layer exists so the SPA never has to know about the core library's 
 
 ### Agent issues a retrieval call
 
-The hot path. An agent connects to the MCP server, authenticates, and asks for retrieval against a specific source. The MCP tool surface is six tools (`list_sources`, `describe_source`, `retrieve`, `refine`, `write`, `request_access`), specified in [`operatorhub-roadmap.md`](operatorhub-roadmap.md#mcp-tool-surface). What this diagram shows is the *shape* of the retrieval call.
+The hot path. An agent connects to the MCP server, authenticates, and asks for retrieval against a specific source. The MCP tool surface is six tools (`list_sources`, `describe_source`, `retrieve`, `refine`, `write`, `request_access`), specified in [`vision-and-roadmap.md`](vision-and-roadmap.md#mcp-tool-surface). What this diagram shows is the *shape* of the retrieval call.
 
 ```mermaid
 sequenceDiagram
@@ -288,7 +288,7 @@ These are choices we're committed to in round 1. Future docs should treat these 
 
 These are the questions round 1 does not answer. They are not blockers, but they are flagged honestly so subsequent rounds know what's still moving.
 
-- **MCP tool inventory.** Specified in [`operatorhub-roadmap.md`](operatorhub-roadmap.md#mcp-tool-surface): six tools (`list_sources`, `describe_source`, `retrieve`, `refine`, `write`, `request_access`). The design principle is that agents speak in intent and source adapters translate intent into mechanism. Validation against real sources is Phase 1 of the build plan.
+- **MCP tool inventory.** Specified in [`vision-and-roadmap.md`](vision-and-roadmap.md#mcp-tool-surface): six tools (`list_sources`, `describe_source`, `retrieve`, `refine`, `write`, `request_access`). The design principle is that agents speak in intent and source adapters translate intent into mechanism. Validation against real sources is Phase 1 of the build plan.
 - **Card cardinality.** Is one card always one physical index, or can a logical source have multiple physical indexes behind it (for example, the same corpus embedded with two different models for A/B comparison)? Leaning toward "one logical source, one or more physical indexes," but the data-model implications are real. See [`catalog.md`](catalog.md).
 - **Inherited-auth deployment specifics.** retrieval-hub-auth supports running as a JWT validator against an external issuer, but the per-environment specifics (which issuer, which claim mappings, how groups translate, how revocation propagates) are deployment-time questions. See [`auth.md`](auth.md).
 - **The tabular retrieval surface.** Vector search over chunked rows is wrong. Real options are text-to-SQL with curated schema descriptions, a typed query DSL exposed as a tool, or a hybrid. We need to design against a real tabular dataset before committing.

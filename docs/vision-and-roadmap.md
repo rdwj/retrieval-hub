@@ -1,6 +1,6 @@
-# OperatorHub Roadmap
+# Vision and Roadmap
 
-This document maps the arc from retrieval-hub's current state to an installable Kubernetes operator on operatorhub.io. It covers the MCP (Model Context Protocol) tool surface design, the phased build plan, and the organizational case for treating retrieval as a platform-level concern.
+This document is the positioning and design reference for retrieval-hub. It covers why platform-managed retrieval matters, the provenance posture, the MCP (Model Context Protocol) tool surface, data residency models, the source owner role, the source onboarding journey, and the phased build plan from the current state through production deployment.
 
 ## Why platform-managed retrieval
 
