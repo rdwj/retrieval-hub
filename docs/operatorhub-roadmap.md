@@ -412,6 +412,237 @@ The platform provides tooling for each responsibility:
 
 ---
 
+## Source onboarding journey
+
+This is the end-to-end process a data owner follows to get their data represented in retrieval-hub. The journey has decision points that determine which path the source takes, and the platform guides the data owner through each one.
+
+### Step 1: Assess the data
+
+Before anything touches the platform, the data owner answers three questions:
+
+**What kind of data is this?** The answer determines the source family, which determines the parsing strategy, chunking approach, and retrieval pattern.
+
+| If the data is... | Family | Retrieval pattern |
+|---|---|---|
+| Documents, PDFs, HTML, manuals, guidelines | `document` or `clinical_document` | Vector ANN (semantic search) |
+| A relational database, CSV collection, structured records | `tabular` | Text-to-SQL via sampling |
+| A knowledge graph, ontology, entity-relationship store | `graph` | Seed-node lookup + traversal |
+| Source code repositories | `code` | AST-aware vector search + call-graph |
+| An external API or search endpoint (FHIR, PubMed, etc.) | `external` | Passthrough to the external API |
+
+**Where does the data live, and can it move?** The answer determines the residency model (see "Data residency" above).
+
+| If... | Residency model |
+|---|---|
+| The data can be fully ingested into the platform | Fully managed |
+| The data must stay in its system of record but can be indexed | Embeddings only |
+| The data already has a retrieval index or is an external API | Index only |
+
+**Who needs access, and are there restrictions?** The answer determines the access policy and data classification.
+
+### Step 2: Register the source
+
+The data owner creates a source registration through the CLI or UI. At this stage, the source is a `Draft` with no data behind it. The registration captures:
+
+- Source name, slug, family, and description
+- Data classification (public, internal, restricted, regulated)
+- Residency model and origin/connection details
+- Initial access policy (who can read, who can write, whether access is requestable)
+
+For index-only sources, the registration also includes the external index connection (endpoint, authentication, query interface). No ingestion will run; the platform will query the external index at retrieval time.
+
+### Step 3: Author the data card
+
+This is the most important step. The data owner describes what the data is, what it can and cannot support, and what an agent should think about before using it. The platform provides a structured editor (UI) or YAML template (CLI) with required and optional fields.
+
+**Required fields** (enforced before the source can move to `Curated`):
+
+- Methodology: how the data was produced or collected
+- At least one supported conclusion: what the data can validly support
+- At least one unsupported conclusion: what the data cannot support, with a reason
+- Population or scope: what the data covers and what it excludes
+
+**Recommended fields** (the platform prompts for them but does not block):
+
+- Interpretation guardrails: machine-actionable rules the adapter evaluates at retrieval time
+- Reasoning considerations: domain-specific considerations for agents using this data
+- Known biases: typed bias entries with direction where applicable
+- Temporal coverage and any temporal breaks
+- Geographic scope and resolution
+
+**Auto-populated fields** (filled by the platform after ingestion, if applicable):
+
+- Document count, chunk count, embedding dimensions
+- Ingestion timestamp, corpus version hash
+- Schema summary (for tabular, graph, FHIR sources)
+
+The data card is versioned with the recipe. When the data owner updates the methodology description or adds a guardrail, a new version is created and the change is auditable.
+
+### Step 4: Configure the recipe (fully managed and embeddings-only)
+
+For sources that go through the ingestion pipeline, the data owner configures the recipe: the parameters that control how raw data becomes a queryable index. This step is skipped for index-only sources.
+
+**Decisions the data owner makes:**
+
+| Decision | Options | Guidance |
+|---|---|---|
+| Embedding model | nomic-embed-text-v1.5, bge-small-en-v1.5, starcoder-embed-1b, or any vLLM-compatible model on the cluster | The platform lists available models with their dimension counts and domain notes. Clinical sources should use models tested on medical text. |
+| Chunk size | 256, 512, 1024 tokens (or custom) | Smaller chunks improve precision, larger chunks preserve context. 512 is the default for documents. |
+| Chunk overlap | 0, 32, 64, 128 tokens | Overlap prevents information loss at chunk boundaries. 64 is the default. |
+| Parsing strategy | Docling (documents), clinical post-processor (clinical), tree-sitter (code), schema introspection (tabular), graph parser (graph) | Selected automatically based on family; the data owner can override. |
+| Refresh cadence | One-time, daily, weekly, monthly, or custom cron | For sources that track a changing origin. |
+
+**Optional: AutoRAG recipe tuning.** For `document` and `clinical_document` sources, the data owner can run AutoRAG to find a good initial recipe instead of choosing parameters manually. AutoRAG declares a search space (embedding models, chunk sizes, overlap values, top-k settings), runs trials against the corpus, and returns a recommended recipe with a scoreboard. The data owner reviews the recommendation as a diff against their current recipe and decides whether to adopt it. AutoRAG runs as a subprocess sidecar, never as an in-process import. The data owner always makes the final decision; AutoRAG suggests, the platform presents, and the human approves.
+
+### Step 5: Run ingestion
+
+The data owner triggers ingestion through the CLI (`retrieval-hub source ingest <slug>`) or the UI. The platform executes the seven-stage pipeline:
+
+1. **Fetch**: pull raw content from the origin (URL crawl, S3 download, git clone, database query). Produces a manifest of what was fetched, with content hashes.
+2. **Parse**: turn raw bytes into structured intermediate representation (Docling for documents, tree-sitter for code, schema introspection for tabular).
+3. **Normalize**: clean and standardize text, extract sections, resolve encodings.
+4. **Chunk**: split into retrieval units using the recipe's chunking strategy. Each chunk carries lineage back to its source document, section, and byte range.
+5. **Embed**: generate vector embeddings using the recipe's embedding model.
+6. **Write**: store chunks and embeddings in the retrieval backend (pgvector for fully managed; pgvector for embeddings-only with origin references).
+7. **Register**: register the physical index with the catalog. Source moves from `Draft` to `Curated`.
+
+The data owner can monitor progress through the UI or CLI. Each stage is a checkpoint; if a later stage fails, the run can resume from the failed stage without redoing earlier ones.
+
+### Step 6: Configure the query rewriter (optional)
+
+If the source's domain has specialized vocabulary that users are unlikely to use in their queries, the data owner configures the query rewriter. This is optional but strongly recommended for clinical, legal, and other domain-specific sources.
+
+**What the data owner provides:**
+
+- **Vocabulary mappings**: lay term to domain term pairs. "High blood sugar" maps to "hyperglycemia." "Heart attack" maps to "myocardial infarction." The rewriter uses these to transform user queries into the language the corpus actually uses.
+- **Sample queries**: example pairs of (raw user question, good rewritten queries). These serve as few-shot examples in the rewriter template. 10-20 pairs are typically enough.
+- **Domain notes**: free-text notes about the domain's conventions, structure, or terminology that the rewriter should be aware of.
+
+The data owner tests the rewriter through the UI or CLI: submit sample queries, see the rewritten versions, review the retrieval results side by side (with and without rewriting). Iterate until the rewriter produces good transformations.
+
+### Step 7: Generate eval test cases
+
+The source needs eval scores before it can be published. Eval scores require test cases: (query, expected result) pairs that measure how well the retrieval works.
+
+**Three paths to test cases:**
+
+1. **Synthetic generation (default).** The platform uses SDG Hub (or an equivalent generator) to produce synthetic Q&A pairs from the ingested corpus. The generator reads chunks, formulates questions a user might ask, and identifies the chunks that should be retrieved. This is the lowest-effort path and works for most sources.
+2. **Hand curation.** The data owner writes test cases manually. Higher quality, but more effort. Recommended as an augmentation to synthetic generation for critical sources.
+3. **Mixed.** Synthetic generation to build the bulk, then the data owner reviews and curates a subset. The curated cases are flagged so eval scoring can break out synthetic vs. curated performance.
+
+The test cases are stored in the eval suite, versioned independently from the source.
+
+### Step 8: Run evaluation
+
+The data owner triggers an eval run against one or more LLMs. The eval run:
+
+1. Executes each test case query against the source's physical index.
+2. Compares retrieved chunks against expected results.
+3. Computes metrics: recall@k (at k=1, 3, 5, 10), MRR, NDCG@k, latency percentiles.
+4. If the rewriter is configured, runs the same test cases with rewriting disabled and computes the **rewrite lift** (the delta in recall@5 between rewritten and raw queries).
+5. Produces an eval report with per-metric scores, per-LLM breakdowns, and a pass/fail determination against the source's quality threshold.
+
+The data owner reviews the scores. If they are unsatisfactory:
+
+- **Poor retrieval across the board**: revisit the recipe (Step 4). Try a different embedding model, chunk size, or overlap. Run AutoRAG if available.
+- **Poor retrieval on domain-specific queries**: add vocabulary mappings and sample queries to the rewriter (Step 6).
+- **Poor retrieval on specific topics**: the corpus may have gaps. The data owner identifies the missing content and adds it to the origin for the next ingestion run.
+- **Good retrieval without rewriting, marginal lift from rewriting**: the rewriter may not be necessary for this source. The data owner can disable it.
+
+The eval-iterate cycle is the core quality loop. The platform supports rapid iteration: change a recipe parameter, re-ingest, re-eval, compare scores across recipe versions.
+
+### Step 9: Publish
+
+When the data owner is satisfied with the eval scores, they publish the source. Publication requires:
+
+- A passing eval run (enforced by the platform)
+- All required data card fields populated (methodology, supported/unsupported conclusions)
+- Access policy configured
+
+The source moves from `Curated` to `Published`. Agents with appropriate access can now discover it through `list_sources`, read its data card through `describe_source`, and query it through `retrieve`.
+
+### Step 10: Operate
+
+After publication, the data owner's ongoing responsibilities:
+
+- **Monitor usage.** The admin dashboard shows query volumes, retrieval scores, and which agents are querying. Low retrieval scores on real queries are a signal to tune the rewriter or enrich the corpus.
+- **Manage access.** Triage access requests from agents (via `request_access`). Grant, revoke, or time-window access as needed. Review the access log for compliance.
+- **Refresh the index.** For sources with a refresh cadence, the platform runs scheduled re-ingestion. The data owner monitors for drift between the origin and the index, reviews any ingestion failures, and verifies that eval scores remain stable after a refresh.
+- **Re-evaluate periodically.** Eval scores can degrade as the corpus changes or as agent query patterns shift. The platform can alert on eval score drops below a configurable threshold. The data owner investigates and iterates.
+- **Update the data card.** As the data owner learns how agents are using the source (from query patterns and feedback), they refine the data card: add guardrails for common misuses, update unsupported conclusions, add vocabulary mappings for queries the rewriter is handling poorly.
+- **Retire when appropriate.** When a source reaches end-of-life (superseded by a new version, data no longer maintained, regulatory change), the data owner retires it. Retired sources are discoverable but not queryable. The record that the source existed and was used is preserved.
+
+### Decision flowchart
+
+```
+Data owner has data
+       │
+       ▼
+  What kind of data?
+       │
+       ├─ Documents/PDFs ──────────── family: document
+       ├─ Clinical documents ──────── family: clinical_document
+       ├─ Relational/tabular ──────── family: tabular
+       ├─ Knowledge graph ─────────── family: graph
+       ├─ Source code ─────────────── family: code
+       └─ External API ────────────── family: external
+       │
+       ▼
+  Where does the data live?
+       │
+       ├─ Can be fully ingested ───── residency: fully managed
+       ├─ Must stay in place ──────── residency: embeddings only
+       └─ Already has an index ────── residency: index only
+       │
+       ▼
+  Register source (Draft)
+       │
+       ▼
+  Author data card
+  (methodology, conclusions, guardrails)
+       │
+       ▼
+  ┌──────────────────────────────┐
+  │ Index only?                  │
+  │   YES → skip to Step 9      │
+  │   NO  → continue            │
+  └──────────────────────────────┘
+       │
+       ▼
+  Configure recipe
+  (embedding model, chunk size, overlap)
+       │
+       ├─ Optional: run AutoRAG
+       │   to find a good recipe
+       │
+       ▼
+  Run ingestion (7-stage pipeline)
+       │
+       ▼
+  Configure rewriter (optional)
+  (vocabulary mappings, sample queries)
+       │
+       ▼
+  Generate eval test cases
+  (synthetic, curated, or mixed)
+       │
+       ▼
+  Run evaluation
+       │
+       ├─ Scores unsatisfactory?
+       │   ├─ Adjust recipe → re-ingest → re-eval
+       │   ├─ Adjust rewriter → re-eval
+       │   └─ Enrich corpus → re-ingest → re-eval
+       │
+       ▼
+  Publish (requires passing eval + complete data card)
+       │
+       ▼
+  Operate (monitor, manage access, refresh, re-eval, retire)
+```
+
+---
+
 ## Phased build plan
 
 ### Current state
