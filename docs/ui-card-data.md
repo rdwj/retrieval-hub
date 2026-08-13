@@ -57,6 +57,10 @@ The grid card uses a **composite best-score** approach rather than a full per-LL
 | 10 | **"See all N scores" drill-down** | A small affordance below the best score: `3 LLMs evaluated · see all scores`. Hover expands a tooltip showing every evaluated LLM's `recall_at_5` and rewrite lift; click goes to the detail page's Evaluations tab. |
 | 11 | **Rewriter available badge** | A prominent badge indicating the rewriter is enabled on this source. Agent developers looking for rewriter support can filter by this. |
 | 12 | **Latency hint** | Approximate p95 latency for a typical query (from recent eval runs), formatted as "~1.8s p95" or similar. Helps developers decide whether a source fits their per-turn latency budget. |
+| 8a | **Answer quality** | The `answer_correctness` score from the most recent end-to-end eval run, rendered as a second large number below the retrieval best score. Example: `AQ 0.79 . granite-3.3-8b`. The pinned LLM name appears because all end-to-end evals use the same cluster-level pinned model for comparability. Only shown when the source has at least one end-to-end eval run. |
+| 8b | **Faithfulness** | The `faithfulness` score from the same end-to-end eval run, rendered as a smaller annotation next to the answer quality score. Example: `Faith. 0.88`. Tells data owners "how well does my data keep agents grounded?" |
+
+The retrieval score (R@5) remains the primary quality signal on the card. When end-to-end eval data is available, the answer quality and faithfulness line appears below it, giving the card two complementary views of quality: one for retrieval accuracy, one for agent answer correctness. Sources without end-to-end evals show only the retrieval score, so nothing changes for existing sources.
 
 ### Size and freshness
 
@@ -81,6 +85,7 @@ The grid card uses a **composite best-score** approach rather than a full per-LL
 | 18 | **Retrieval patterns supported** | Small icons for each supported pattern: `vector_ann`, `vector_with_filters`, `graph_traverse_from_seed`, `structured_query`, `hybrid`. The developer can tell at a glance what query shapes the source handles. |
 | 19 | **Agent writable badge** | If `agent_write_policy.allowed = true`, a badge ("Accepts agent writes") with hover tooltip showing the allowed modes. Most sources will not have this. |
 | 20 | **Owner team** | Small text at the bottom. E.g. "clinical-informatics." A developer who wants to ask a question knows who to ask. |
+| 21 | **Card completeness** | A small progress indicator next to the owner team name showing how completely the card's judgment-intensive fields are filled in (e.g., a ring showing 68% or a fraction like "8/12 fields"). Creates visibility into card quality without cluttering the card. Only counts judgment-intensive fields (guardrails, intended use, limitations, population coverage, conclusions), not mechanical fields (name, family, recipe). |
 
 ### Interaction affordances on the card
 
@@ -105,6 +110,7 @@ Four primary actions that live above the tabs and are visible on every sub-view 
 | **📋 Copy MCP Config** | Copies a ready-to-paste MCP configuration snippet to the clipboard. The snippet is tailored to the cluster's available transports (Kagenti MCP Gateway URL if present, LlamaStack connector config if present, direct Route for off-cluster consumers). |
 | **📝 Copy Sample Prompt** | Copies the recommended system prompt for the user's "current LLM family" (settable per-user or picked from the best-evaluated LLM as default). |
 | **📧 Contact Owner** | Opens a `mailto:` link to the source owner's contact emails, pre-populated with the source slug and a suggested question template. |
+| **Download Card (JSON-LD)** | Downloads the source's full data card as a structured JSON-LD document. The export maps all card fields to Schema.org, PROV-O, and retrieval-hub vocabularies. Designed for AI agents and audit tooling that need machine-readable source metadata. |
 
 ### Access-required banner (detail page, shown only when the user lacks access)
 
@@ -127,11 +133,11 @@ Everything from the card, plus:
 
 | Field | Purpose |
 |---|---|
-| **At-a-glance block** | A dense `DescriptionList` with the headline quality/capability facts: best score + LLM + rewrite lift, other evaluated LLMs, latency p50/p95, cost hint, rewriter summary, retrieval patterns, agent write policy, refresh cadence + last refresh. This is the "safety net" — everything on the card plus a few extras, visible without scrolling. |
+| **At-a-glance block** | A dense `DescriptionList` with the headline quality/capability facts: best score + LLM + rewrite lift, other evaluated LLMs, latency p50/p95, cost hint, rewriter summary, retrieval patterns, agent write policy, refresh cadence + last refresh. When end-to-end eval data is available, the block also shows answer quality scores (answer_correctness, faithfulness, answer_relevancy) with the pinned model name and version. This is the "safety net" — everything on the card plus a few extras, visible without scrolling. |
 | **Full description** (markdown-rendered) | Long-form description from the source owner. Can include sections, lists, links, images. Like a HuggingFace model card's main body. |
-| **Intended use** | "This source is intended for..." Owner-declared. Answers "what was this built for?" |
-| **Out-of-scope use** | "This source is NOT intended for..." Owner-declared. Answers "where will this source disappoint you?" Similar to HuggingFace model cards' out-of-scope section. |
+| **Intended use** | Structured display of `intended_use.primary_use` as a headline, `intended_use.secondary_uses` as a secondary list, and `intended_use.out_of_scope_uses` as a prominently displayed list. Replaces the previous free-text intended use and out-of-scope use fields with a structured presentation. |
 | **Known limitations** | "This source does not contain X," "The embedding model has known weaknesses on Y," etc. Important for honest expectation-setting. |
+| **Responsible use guidance** | A collapsible section rendering the source's structured fitness-for-use metadata. Shows `interpretation_guardrails` as a severity-colored list (red border for `error`, yellow for `warning`, blue for `info`), `supported_conclusions` with green accent, `unsupported_conclusions` with yellow accent and category badges (`scope`, `temporal`, `methodological`, `interpretive`), `population_coverage` and `excluded_populations` as a structured block, `measurement_technique` as rendered markdown, and `data_suppression_rules` as a list. Only sections with data are rendered; empty sections are omitted. The section heading shows a small completeness indicator for judgment-intensive fields. |
 | **Quick Start section** | The most important copy-paste affordance: a numbered 3-step list showing (1) copy the MCP config, (2) copy the sample prompt for your LLM family, (3) ask your agent a representative question. If a developer can read this, copy two things, and have their agent answering questions in 5 minutes, retrieval-hub's value proposition is obvious. |
 | **Headline figure** | One visual: a bar chart of eval scores per LLM, a pie chart of document types, a histogram of document ages, etc. Determined by family. |
 | **Citation / how-to-cite** | If the owner wants downstream consumers to cite the source in agent outputs, a suggested citation format. |
@@ -164,6 +170,10 @@ Everything from the card, plus:
 | **Metric plots** | Recall@k over time, MRR over time, latency trend, cost trend. |
 | **Per-LLM headline card** | One card per evaluated LLM with the latest scores. Shows the rewrite_lift delta explicitly. |
 | **MLflow deep link** | Every eval run has a "view in MLflow" link to the full MLflow run for teams that want to drill into per-case results. |
+| **Eval type filter** | A segmented control at the top of the tab: `All` / `Retrieval` / `End-to-End`. Filters the run history, metric plots, and comparison tool by eval suite type. Default is `All`. |
+| **End-to-End Quality Summary** | When end-to-end eval runs exist, a summary card appears above the full run history showing all five RAGAS metrics (answer_correctness, faithfulness, answer_relevancy, context_precision, context_recall) plus retrieval metrics from the same run, the pinned model name and version, and links to MLflow and per-case results. |
+| **Per-case results drill-down** | Each end-to-end eval run has a "View per-case results" link that opens a sortable/filterable table with per-test-case scores. Columns: Query, Answer Correctness, Faithfulness, Context Precision, Context Recall, Intent, Difficulty. Each row expands to show the generated answer, retrieved contexts, and reference answer side by side. |
+| **Answer quality metric plots** | When end-to-end eval runs exist, new metric-over-time plots appear: answer_correctness over time and faithfulness over time, alongside the existing recall@k and MRR plots. |
 | **Comparison** | Pick any two eval runs (different recipes, different LLMs, rewrite on/off) and see a side-by-side metric comparison. |
 
 ### Rewriter tab
@@ -209,6 +219,7 @@ Everything from the card, plus:
 | **Ingestion runs** | Full history of ingestion runs with status, duration, document count, failures. Each run has a detail drill-down. |
 | **Data snapshots** | For sources that keep historical snapshots, a list with timestamps and sizes. |
 | **Contributors** | If the source accepts agent writes, a summary of who has contributed (by identity group). |
+| **Measurement technique** | How the upstream source data was created or curated (e.g., "Expert committee consensus guidelines using GRADE methodology"). Distinct from the origin field which describes how retrieval-hub fetched the data. Rendered as markdown. |
 
 ### Audit tab (admin only)
 
@@ -334,8 +345,6 @@ Formal schema for every field listed above. Columns:
 | `visibility` | `enum` | catalog | badge with icon | `public` | grid + detail | — |
 | `description_short` | `string` (≤280 chars) | catalog | as-is | `"VA/DoD clinical practice guidelines..."` | grid + detail | — |
 | `description_long` | `markdown` | catalog | rendered markdown | (multi-paragraph) | detail | — |
-| `intended_use` | `markdown` | catalog | rendered markdown | `"For agents answering clinical guideline questions..."` | detail | — |
-| `out_of_scope_use` | `markdown` | catalog | rendered markdown | `"Not intended for individual patient-specific medical advice..."` | detail | — |
 | `known_limitations` | `markdown` | catalog | rendered markdown | `"Corpus does not include..."` | detail | — |
 | `domain_tags` | `list[string]` | catalog | tag pills | `["clinical", "regulated", "public"]` | grid + detail | — |
 | `languages` | `list[string]` | catalog | flag pills; hidden if only `["en"]` | `["en"]`, `["en", "es"]` | grid (conditional) + detail | — |
@@ -409,6 +418,16 @@ Formal schema for every field listed above. Columns:
 | `card_evaluated_llms[n].source_system` | `enum` | catalog | small badge | `llamastack` / `native` / `imported` | detail | where the eval was computed |
 | `latency_p95_hint` | `string` | computed | e.g. `"~1.8s p95"` | `"~1.8s p95"` | grid + detail | averaged from recent eval runs |
 | `cost_estimate_hint` | `string` | computed | e.g. `"~1.2k tokens/query"` | `"~1.2k tokens/query"` | detail | averaged from recent eval runs |
+| `card_answer_quality` | `object` | computed | large number + LLM name | `{llm: "granite-3.3-8b", answer_correctness: 0.79, faithfulness: 0.88}` | grid + detail at-a-glance | projection from most recent end-to-end eval run |
+| `card_answer_quality.llm` | `string` | computed | as-is, secondary text | `granite-3.3-8b` | grid | from `e2e_pinned_llm` on the eval run |
+| `card_answer_quality.answer_correctness` | `float` | computed | 2 decimal places, large font | `0.79` | grid | from most recent end-to-end eval run scores |
+| `card_answer_quality.faithfulness` | `float` | computed | 2 decimal places, smaller font | `0.88` | grid | from most recent end-to-end eval run scores |
+| `card_has_e2e_eval` | `bool` | computed | controls AQ line visibility | `true` | grid | `EXISTS(end-to-end eval run for this source)` |
+| `card_answer_quality.answer_relevancy` | `float` | computed | 2 decimal places | `0.83` | detail at-a-glance | from most recent end-to-end eval run scores |
+| `card_answer_quality.context_precision` | `float` | computed | 2 decimal places | `0.72` | detail at-a-glance | from most recent end-to-end eval run scores |
+| `card_answer_quality.context_recall` | `float` | computed | 2 decimal places | `0.81` | detail at-a-glance | from most recent end-to-end eval run scores |
+| `e2e_pinned_llm` | `string` | admin config | monospace, secondary text | `granite-3.3-8b-instruct` | detail | cluster-level admin setting |
+| `e2e_pinned_llm_version` | `string` | admin config | monospace, secondary text | `v2026.04` | detail | cluster-level admin setting |
 | `full_eval_history` | `list[EvalRun]` | catalog (with MLflow links) | filterable table | (all eval runs) | detail | — |
 | `eval_suite` | `EvalSuite` | catalog | detail card | (full suite) | detail | — |
 
@@ -455,6 +474,41 @@ Formal schema for every field listed above. Columns:
 | `ingestion_runs[n].started_at` | `timestamp` | catalog | absolute | `2026-04-05T12:00:00Z` | detail | — |
 | `ingestion_runs[n].document_count` | `int` | catalog | formatted | `184,302` | detail | — |
 | `ingestion_runs[n].triggered_by` | `string` | catalog | as-is | `user:alice` or `scheduler:refresh-cron` | detail | — |
+
+### Responsible use metadata
+
+| Field name | Type | Source of truth | Display format | Example | Visibility | Derived from |
+|---|---|---|---|---|---|---|
+| `responsible_use.measurement_technique` | `markdown` | catalog | rendered markdown | `"Expert committee consensus..."` | detail (overview + lineage) | -- |
+| `responsible_use.interpretation_guardrails` | `list[object]` | catalog | severity-colored list | (list of guardrail objects) | detail | -- |
+| `responsible_use.interpretation_guardrails[n].guardrail` | `string` | catalog | as-is | `"This source does not contain post-2024 guidelines"` | detail | -- |
+| `responsible_use.interpretation_guardrails[n].severity` | `enum(error, warning, info)` | catalog | colored badge | `error` (red) | detail | -- |
+| `responsible_use.interpretation_guardrails[n].explanation` | `string` | catalog | expandable text | `"The corpus freeze date..."` | detail | -- |
+| `responsible_use.supported_conclusions` | `list[object]` | catalog | green-accented list | (list) | detail | -- |
+| `responsible_use.supported_conclusions[n].conclusion` | `string` | catalog | as-is | `"Treatment recommendations for adult hypertension"` | detail | -- |
+| `responsible_use.supported_conclusions[n].basis` | `string` | catalog | secondary text | `"Comprehensive VA/DoD CPG..."` | detail | -- |
+| `responsible_use.unsupported_conclusions` | `list[object]` | catalog | yellow-accented list | (list) | detail | -- |
+| `responsible_use.unsupported_conclusions[n].conclusion` | `string` | catalog | as-is | `"Pediatric treatment protocols"` | detail | -- |
+| `responsible_use.unsupported_conclusions[n].category` | `enum(scope, temporal, methodological, interpretive)` | catalog | badge | `scope` | detail | -- |
+| `responsible_use.unsupported_conclusions[n].reason` | `string` | catalog | secondary text | `"Guidelines are adult-focused..."` | detail | -- |
+| `responsible_use.population_coverage` | `object` | catalog | structured block | (object) | detail | -- |
+| `responsible_use.population_coverage.target_population` | `string` | catalog | as-is | `"US military veterans..."` | detail | -- |
+| `responsible_use.population_coverage.sampling_frame` | `string` | catalog | as-is | `"VA/DoD clinical practice..."` | detail | -- |
+| `responsible_use.population_coverage.estimated_coverage` | `string` | catalog | as-is | `"Adult populations served by VA..."` | detail | -- |
+| `responsible_use.excluded_populations` | `list[string]` | catalog | bulleted list | `["Pediatric patients...", ...]` | detail | -- |
+| `responsible_use.data_suppression_rules` | `list[object]` | catalog | list (shown only when present) | (list) | detail | -- |
+| `responsible_use.data_suppression_rules[n].rule` | `string` | catalog | as-is | `"Patient identifiers removed"` | detail | -- |
+| `responsible_use.data_suppression_rules[n].method` | `string` | catalog | secondary text | `"De-identification per HIPAA Safe Harbor"` | detail | -- |
+| `responsible_use.intended_use` | `object` | catalog | structured display | (object) | detail | -- |
+| `responsible_use.intended_use.primary_use` | `string` | catalog | headline text | `"RAG context for agents..."` | detail | -- |
+| `responsible_use.intended_use.secondary_uses` | `list[string]` | catalog | bulleted list | `["Clinical decision support..."]` | detail | -- |
+| `responsible_use.intended_use.out_of_scope_uses` | `list[string]` | catalog | prominent bulleted list | `["Direct patient-facing medical advice..."]` | detail | -- |
+| `card_completeness` | `object` | computed | progress ring on grid; full breakdown on detail | `{overall: 0.82, mechanical: 0.95, judgment: 0.68}` | grid (ring) + detail + admin | computed from field population checks |
+| `card_completeness.overall` | `float` | computed | percentage or ring | `0.82` | grid + admin | fraction of all recommended fields populated |
+| `card_completeness.mechanical` | `float` | computed | percentage | `0.95` | detail + admin | name, version, family, recipe, lineage fields |
+| `card_completeness.judgment` | `float` | computed | percentage | `0.68` | detail + admin | guardrails, limitations, intended_use, population_coverage, conclusions |
+| `card_completeness.missing_fields` | `list[string]` | computed | list | `["data_suppression_rules", "supported_conclusions"]` | detail (owner) | field names not yet populated |
+| `jsonld_export_url` | `string` | computed | download button | `/sources/va-clinical-guidelines/card.jsonld` | detail (action bar) | source slug + endpoint |
 
 ### Access and write policy
 
@@ -553,6 +607,7 @@ These fields exist specifically to render badges and icons on the grid card with
 | `admin.top_sources[n].last_refresh_at` | `timestamp` | catalog | relative + color indicator | `"2 hours ago"` (green) | admin + owner (filtered) | |
 | `admin.top_sources[n].physical_index_health` | `enum` | catalog | badge | `ok` / `degraded` / `failed` | admin + owner (filtered) | active_physical_index.health |
 | `admin.top_sources[n].grafana_source_dashboard_url` | `string` (URL, nullable) | computed | per-row deep link | (URL with label filter) | admin | `GRAFANA_DASHBOARD_URL` + `?var-source=<slug>` |
+| `admin.top_sources[n].card_completeness_judgment` | `float` | computed | percentage with color indicator | `0.68` (yellow) | admin + owner (filtered) | `card_completeness.judgment` |
 
 ### Admin dashboard — recent catalog changes panel
 
@@ -584,6 +639,7 @@ These fields exist specifically to render badges and icons on the grid card with
 
 ### Quality signals
 - **Composite best-score on the grid card**, not a full per-LLM table. The card shows the highest `recall_at_5` across evaluated LLMs with the LLM name, plus the rewrite lift on that LLM. Full per-LLM breakdown is one click away in the detail page's At-a-glance block and Evaluations tab, and one hover away via tooltip on the card.
+- **End-to-end answer quality scores on the card** when available. Two headline metrics: `answer_correctness` (the AI-developer number: "does this source make my app more knowledgeable?") and `faithfulness` (the data-owner number: "does my data keep agents grounded?"). Three detail metrics (answer_relevancy, context_precision, context_recall) appear on the detail page's At-a-glance block and Evaluations tab. All end-to-end evals use a cluster-level pinned LLM so scores are comparable across sources.
 - **Eval results can come from LlamaStack (primary), retrieval-hub native orchestrator (fallback), or be imported from external runs** (e.g., LlamaStack eval runs that happened outside retrieval-hub's workflow). The `source_system` field on each evaluated-LLM row shows which backend produced the result.
 - **MLflow deep links** for full eval run details when MLflow is present. We do not reimplement MLflow's UI; we link into it.
 
@@ -603,6 +659,11 @@ These fields exist specifically to render badges and icons on the grid card with
 - **Source owners see the admin dashboard filtered to their owned sources.** Same UI, different scope. Implemented at the catalog query layer via a `scope_to_owned_by` parameter applied when the caller does not hold `admin.read`.
 - **Round 2 admin panels** (anomaly detection, top consumers, agent write activity drill-down, abuse response actions) are deferred. "Block identity" button UI exists but is stubbed in round 1 — it logs and alerts rather than actually blocking. Real semantics land in round 2+.
 
+### Responsible use and governance
+- **Responsible use guidance section on the detail page** shows structured fitness-for-use metadata: interpretation guardrails (with severity coloring), supported/unsupported conclusions (with category badges), population coverage and exclusions, measurement technique, and data suppression rules. All fields are optional and owner-declared. Only populated sections are rendered.
+- **Card completeness** is a computed governance metric shown as a subtle indicator on the grid card and as a column in the admin dashboard's top sources panel. It distinguishes mechanical field completion from judgment-intensive field completion, creating healthy pressure on source owners to document guardrails and limitations.
+- **JSON-LD card export** is available as a "Download Card" action on the detail page and via API. Designed for AI agents and audit tooling.
+
 ### General principles
 - **No invented fields for visual polish**. Every field on the card has a real use case behind it. No "featured source" stickers, no fake popularity counts.
 - **Computed projections are explicit**. Anything displayed that isn't stored directly in the catalog is marked as `computed` in the data dictionary with its derivation documented.
@@ -612,6 +673,8 @@ These fields exist specifically to render badges and icons on the grid card with
 ## What's Open
 
 - **Visual hierarchy of the quality signals section** — how to weight the LLM score rows against the rewrite lift delta and the latency hint. This is a stage-2 design call, not a data-dictionary one, but it affects how card real estate is allocated.
+- **Visual hierarchy when both retrieval and answer quality scores are present.** The grid card now has two quality-signal rows (retrieval R@5 + rewrite lift, and answer quality AQ + faithfulness). Stage 2 needs to design how these two rows relate visually -- whether the AQ line is the same size as the R@5 line or slightly smaller, and how to handle the case where a source has retrieval scores but no end-to-end scores yet.
+- **Answer quality trend over recipe changes.** The Evaluations tab could show how end-to-end scores change across recipe versions, which would help source owners see whether a recipe change improved agent answer quality, not just retrieval metrics. Requires enough data points (multiple recipe versions with end-to-end evals) to be useful.
 - **The `headline_llms` admin setting.** Round-1 default is "the three most recently evaluated LLMs on the cluster," but the admin may want to pin a specific set. UI for setting this is round 2.
 - **Featured / curated / recommended sources.** HuggingFace has "trending" and "featured" model lists. We could too, but it's editorial overhead and risks the catalog becoming a popularity contest rather than a reliable reference. Deferred.
 - **Community feedback mechanisms.** HuggingFace has comments, discussions, and likes. We probably don't want comments on sources (the feedback loop is owner-run curation, not community discussion), but some form of "this source worked for me" signal from consumers is worth thinking about. Round 2 or later.
@@ -622,6 +685,8 @@ These fields exist specifically to render badges and icons on the grid card with
 - **The "contact" or "ask a question" affordance.** A button that opens an email to the owner team? A link to a per-source discussion channel? Depends on the customer environment. Out of round 1.
 - **Comparison view.** HuggingFace lets you compare models side by side. A "compare sources" affordance would be useful for developers deciding between two similar sources (e.g., two clinical-document sources with different chunk sizes). Stage-2 feature.
 - **Search across field content.** Should the grid search hit `description_short`, `domain_tags`, `intended_use`, recipe parameters, etc.? Probably yes for name and tags, probably no for long-form text (too much noise). Needs design.
+- **Whether card completeness should factor into the publish gate.** Currently publishing requires an eval run, a healthy index, and a sample prompt. Adding a minimum card completeness threshold (e.g., all judgment-intensive fields populated) would enforce documentation quality. This is a governance decision, not a technical one.
+- **Interaction between interpretation guardrails and the MCP layer.** Error-level guardrails could be surfaced automatically in retrieval responses, but the design of that surface (inline warning in the response? separate guardrails field on RetrievalResult?) is open.
 
 ## Cross-references
 

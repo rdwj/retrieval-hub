@@ -110,6 +110,10 @@ description_short: |
 description_long: |
   (markdown — full description, intended audience, gotchas, etc.)
 
+known_limitations: |
+  Corpus freeze date is December 2024. Pediatric sections are
+  incomplete for most conditions.
+
 recipe:
   version: 3                            # bumped on any field change
   parser:
@@ -160,16 +164,36 @@ sample_prompts:
       ...
 
 evals:
+  # Retrieval-only runs (one per evaluated LLM)
   - llm: granite-3.3-8b-instruct
     suite: rh-docs-eval-v2
     suite_version: 2
-    score: { recall_at_5: 0.81, mrr: 0.74 }
+    suite_type: retrieval
+    scores: { recall_at_5: 0.81, mrr: 0.74 }
     run_at: 2026-04-02T03:14:00Z
   - llm: gpt-4o
     suite: rh-docs-eval-v2
     suite_version: 2
-    score: { recall_at_5: 0.86, mrr: 0.79 }
+    suite_type: retrieval
+    scores: { recall_at_5: 0.86, mrr: 0.79 }
     run_at: 2026-04-02T03:18:00Z
+
+  # End-to-end run (pinned LLM, carries both retrieval and RAGAS metrics)
+  - llm: granite-3.3-8b-instruct
+    suite: rh-docs-e2e-eval
+    suite_version: 1
+    suite_type: end_to_end
+    scores:
+      recall_at_5: 0.81
+      mrr: 0.74
+      faithfulness: 0.88
+      answer_relevancy: 0.83
+      answer_correctness: 0.79
+      context_precision: 0.72
+      context_recall: 0.81
+      e2e_pinned_llm: granite-3.3-8b-instruct
+      e2e_pinned_llm_version: v2026.04
+    run_at: 2026-04-15T03:14:00Z
 
 rewriter_metadata:
   enabled: true
@@ -204,12 +228,107 @@ lineage:
     last_refresh_run_id: run_01HXY...
   ingestion_runs: [ ... ]                # bounded history; full history in audit log
 
+responsible_use:
+  intended_use:
+    primary_use: "RAG context for agents answering clinical guideline questions from VA/DoD healthcare providers"
+    secondary_uses:
+      - "Clinical decision support reference for formulary questions"
+      - "Training data curation for clinical NLP models"
+    out_of_scope_uses:
+      - "Direct patient-facing medical advice without clinician review"
+      - "Pediatric treatment planning"
+      - "Non-US clinical practice guidance"
+
+  measurement_technique: |
+    Expert committee consensus guidelines developed by VA/DoD Evidence-Based
+    Practice Work Groups. Each guideline undergoes systematic literature review,
+    evidence grading (GRADE methodology), committee deliberation, and external
+    peer review. Guidelines are updated on a 3-5 year cycle.
+
+  interpretation_guardrails:
+    - guardrail: "This source does not contain post-2024 clinical guidelines"
+      severity: error
+      explanation: "The corpus freeze date is December 2024. Queries about guidelines updated after that date will return stale or missing results."
+    - guardrail: "Pediatric dosing information is incomplete"
+      severity: warning
+      explanation: "The VA guidelines primarily cover adult populations. Pediatric dosing sections exist for some conditions but are not comprehensive."
+    - guardrail: "Drug interaction data should be cross-referenced"
+      severity: info
+      explanation: "Interaction tables are present but sourced from 2022 reference data. Cross-reference with a current drug interaction database for clinical decisions."
+
+  supported_conclusions:
+    - conclusion: "Treatment recommendations for adult hypertension management"
+      basis: "Comprehensive VA/DoD CPG with evidence grading, updated 2023"
+    - conclusion: "First-line medication classes for type 2 diabetes"
+      basis: "Full pharmacotherapy chapter with RCT citations"
+
+  unsupported_conclusions:
+    - conclusion: "Pediatric treatment protocols"
+      category: scope
+      reason: "Guidelines are adult-focused; pediatric sections are incomplete"
+    - conclusion: "Cost-effectiveness comparisons between treatment options"
+      category: methodological
+      reason: "Guidelines assess clinical efficacy, not economic outcomes"
+    - conclusion: "Applicability to non-US healthcare systems"
+      category: scope
+      reason: "Guidelines reflect VA/DoD formulary and US clinical practice norms"
+
+  population_coverage:
+    target_population: "US military veterans and active-duty service members"
+    sampling_frame: "VA/DoD clinical practice guideline development committees"
+    estimated_coverage: "Adult populations served by VA and DoD healthcare systems"
+
+  excluded_populations:
+    - "Pediatric patients (< 18 years) except where explicitly noted"
+    - "Non-US patient populations"
+    - "Patients with rare conditions not covered by existing CPGs"
+
+  data_suppression_rules:
+    - rule: "Patient identifiers removed from all case examples"
+      method: "De-identification per HIPAA Safe Harbor"
+
 access:
   visibility: public
   allowed_identities: []                  # empty = anyone authenticated
 ```
 
 The card the UI shows is a projection of this record. Not everything on the source is on the card surface — `physical_indexes` and `lineage.ingestion_runs` are owner-facing detail, not browse-time data.
+
+The `suite_type` field on each eval entry lets the card projection distinguish retrieval-only runs from end-to-end runs. When end-to-end runs are available, the card shows the most recent end-to-end run's `answer_correctness` and `faithfulness` as headline scores. Sources without end-to-end evals continue to show retrieval-only scores.
+
+End-to-end eval suites carry an `e2e_config` block that controls the generation step:
+
+```yaml
+e2e_config:
+  use_pinned_llm: true
+  generation_prompt_source: source_sample_prompts
+  max_answer_tokens: 512
+  temperature: 0.0
+```
+
+`e2e_config` is present only on end-to-end eval suites. `use_pinned_llm: true` signals the eval orchestrator to use the cluster-level pinned model for the generation step, rather than a per-suite or per-run model. `generation_prompt_source: source_sample_prompts` tells the orchestrator to use the source's own sample prompts as the system prompt, making the eval realistic. `max_answer_tokens` and `temperature` control generation parameters for reproducibility.
+
+## Responsible use metadata
+
+The `responsible_use` block on the source record groups fields that help consumers assess fitness-for-use *before* querying a source. These fields complement the eval scores (which measure pipeline performance) with source-level documentation of what the data can and cannot support. All fields in this block are optional but recommended, especially for sources in regulated domains.
+
+**`interpretation_guardrails`** are the most novel field. Each guardrail carries a severity level that signals how dangerous it is to ignore:
+
+- `error` means ignoring this constraint will produce invalid results. The MCP layer could surface error-level guardrails in retrieval responses, and agents could check them before relying on results.
+- `warning` means results may be unreliable in the described area.
+- `info` is supplementary caution: worth knowing, unlikely to invalidate results.
+
+**`supported_conclusions`** and **`unsupported_conclusions`** with category tagging (`scope`, `temporal`, `methodological`, `interpretive`) enable programmatic filtering. An agent or tool can check whether a proposed query falls within the source's supported scope before issuing a retrieval call. The categories let tooling distinguish "this source doesn't cover that topic" (scope) from "this source covers the topic but the data is too old" (temporal) or "the methodology doesn't support that kind of inference" (methodological).
+
+**`population_coverage`** and **`excluded_populations`** are critical for regulated domains. The data card framework literature notes that exclusions are often more important than inclusions for analytical validity. A source that covers "US military veterans" says something useful; a source that explicitly excludes "pediatric patients" and "non-US populations" says something essential.
+
+**`measurement_technique`** describes how the upstream data was created. This is distinct from `lineage.origin`, which describes how retrieval-hub fetched it. `lineage.origin` might say "web crawl from healthquality.va.gov"; `measurement_technique` says "expert committee consensus using GRADE methodology." The data card framework literature calls this the "epistemological foundation" of the dataset.
+
+**`data_suppression_rules`** document any redaction or anonymization applied to the source content. For clinical sources this typically means HIPAA-compliant de-identification; for other domains it might mean PII scrubbing or confidential-business-information redaction.
+
+**`intended_use`** is a structured object replacing any free-text intended-use field. It separates primary use, secondary uses, and out-of-scope uses into distinct fields so that tooling can check programmatically whether a proposed application falls within the source owner's intended scope.
+
+**`card_completeness`** is a computed field (not owner-written) that tracks how completely the card is filled in. It carries four subfields: `overall` (fraction of all recommended fields populated), `mechanical` (completion rate for name, slug, family, recipe, lineage fields), `judgment` (completion rate for guardrails, intended use, limitations, population coverage, conclusions), and `missing_fields` (a list of field names not yet populated, visible to owners). The mechanical/judgment split matters because mechanical fields can be auto-populated or validated by linters, while judgment-intensive fields require domain expertise and are the ones most likely to be left blank.
 
 ## Recipes are versioned, physical indexes are realizations
 
@@ -302,7 +421,7 @@ stateDiagram-v2
 
 - **`Draft`** — the source exists in the catalog but has no physical index yet. Recipe is being authored. Not visible to agents. Visible in the UI only to the owner and maintainers.
 - **`Curated`** — at least one physical index exists. The owner is iterating: re-ingesting, tuning the recipe, running evals, drafting the rewrite prompt. Not visible to agents. Visible in the UI to the owner, maintainers, and platform admins.
-- **`Published`** — the source is visible to agents through MCP, listed in the catalog, and registered with AI Assets if integration is enabled. Publishing requires (a) at least one healthy physical index, (b) at least one eval run with results recorded, and (c) at least one sample prompt. Those minimums are enforced by the publish action, not by hope.
+- **`Published`** — the source is visible to agents through MCP, listed in the catalog, and registered with AI Assets if integration is enabled. Publishing requires (a) at least one healthy physical index, (b) at least one eval run with results recorded, and (c) at least one sample prompt. Those minimums are enforced by the publish action, not by hope. End-to-end eval runs are not required for the publish gate; at least one retrieval-only eval run remains the requirement. When end-to-end runs exist, their scores appear on the card alongside retrieval scores, giving consumers a fuller picture.
 - **`Retired`** — no longer maintained. Hidden from default catalog views and from the agent-facing list. Existing retrieval calls against a retired source return a structured "retired" error so agents can handle it gracefully. The data and history are preserved for lineage and audit.
 
 Publishing is intentionally a heavyweight action. The whole point of the catalog is that *published* means "you can trust this," which only works if publish has teeth.
@@ -369,6 +488,9 @@ The full per-field tables live in the integration docs ([`integrations/mlflow.md
 | Eval run history (full per-run metrics, parameters) | **MLflow run** when present, retrieval-hub Postgres when absent | Catalog stores headline projection + lineage pointer |
 | **Headline eval scores on the card** | **retrieval-hub Postgres** | Always — projection from whichever execution backend ran the eval. Core to the value proposition. |
 | Eval execution (the actual metric computation) | **LlamaStack `/v1/eval` (Ragas)** when present, retrieval-hub native orchestrator when absent | The catalog never holds metric-computation logic; it holds the result |
+| End-to-end eval headline scores (answer_correctness, faithfulness) | **retrieval-hub Postgres** (projected from EvalRun, same as retrieval scores) | Same projection pattern as retrieval headline scores |
+| End-to-end eval execution | **LlamaStack `/v1/eval` (Ragas)** when present, retrieval-hub native with bundled Ragas when absent | Uses cluster-pinned model for generation step |
+| Pinned model configuration | **retrieval-hub admin config** | Cluster-level setting consumed by end-to-end eval orchestrator |
 | `rewrite_lift` metric | **retrieval-hub** (computed in our code from two-run delta) | Always |
 | Shared rewriter template (text + version history) | **MLflow prompt registry** when present, core library file when absent | Catalog caches active version pointer |
 | Per-source override prompts (rare) | **MLflow prompt registry** when present, retrieval-hub Postgres when absent | Same pattern as shared template |
@@ -396,6 +518,170 @@ If the annotation is absent, the namespace name itself is used as the tenant id.
 
 In non-Kagenti deploys, `rh_tenant` stays at `"default"` and policy ignores it. The same source records and access checks work in both modes.
 
+## Structured card export (JSON-LD)
+
+Every source in the catalog can be exported as a self-describing JSON-LD document that maps retrieval-hub fields to standard vocabularies. This format is designed for machine consumption: an AI agent that needs to understand a source's full metadata, limitations, and quality scores can read the JSON-LD export rather than parsing the UI. Audit tooling can ingest the export to check compliance posture across all sources in the catalog.
+
+The export is available via `GET /sources/<slug>/card.jsonld` and as a "Download Card" action on the detail page.
+
+Three vocabulary layers provide the mapping:
+
+- **Schema.org** for base metadata (name, description, creator, dates, measurement technique).
+- **PROV-O** for provenance (where the data came from).
+- **A custom `rh:` namespace** (`https://retrieval-hub.example.org/vocab/v1/`) for retrieval-hub-specific fields that have no standard equivalent (guardrails, eval scores, retrieval patterns).
+
+### Vocabulary mapping
+
+| retrieval-hub field | JSON-LD mapping |
+|---|---|
+| `name` | `schema:name` |
+| `description_short` | `schema:description` |
+| `owner_team` / `owner_contacts` | `schema:creator` |
+| `created_at` | `schema:datePublished` |
+| `updated_at` | `dct:modified` |
+| `recipe.version` | `schema:version` |
+| `measurement_technique` | `schema:measurementTechnique` |
+| `known_limitations` | `rh:knownLimitations` |
+| `intended_use` | `rh:intendedUse` |
+| `interpretation_guardrails` | `rh:interpretationGuardrails` |
+| `supported_conclusions` | `rh:supportedConclusions` |
+| `unsupported_conclusions` | `rh:unsupportedConclusions` |
+| `population_coverage` | `rh:populationCoverage` |
+| `excluded_populations` | `rh:excludedPopulations` |
+| `data_suppression_rules` | `rh:dataSuppressionRules` |
+| `lineage.origin` | `prov:wasDerivedFrom` |
+| `refresh_cadence` | `rh:updateCadence` |
+| `card_best_score` | `rh:retrievalQuality` |
+| `card_answer_quality` | `rh:answerQuality` |
+| `family` | `rh:sourceFamily` |
+| `retrieval.supported_patterns` | `rh:retrievalPatterns` |
+| `card_completeness` | `rh:cardCompleteness` |
+
+### Example export
+
+A complete JSON-LD export for the VA clinical guidelines source:
+
+```json
+{
+  "@context": {
+    "schema": "https://schema.org/",
+    "dct": "http://purl.org/dc/terms/",
+    "prov": "http://www.w3.org/ns/prov#",
+    "rh": "https://retrieval-hub.example.org/vocab/v1/"
+  },
+  "@type": "schema:Dataset",
+  "schema:name": "VA Clinical Practice Guidelines",
+  "schema:description": "VA/DoD clinical practice guidelines covering hypertension, diabetes, PTSD, and 12 other conditions.",
+  "schema:creator": {
+    "@type": "schema:Organization",
+    "schema:name": "clinical-informatics",
+    "schema:email": "alice@example.com"
+  },
+  "schema:datePublished": "2026-01-15",
+  "dct:modified": "2026-04-08",
+  "schema:version": "3",
+  "schema:measurementTechnique": "Expert committee consensus guidelines developed by VA/DoD Evidence-Based Practice Work Groups using GRADE methodology with systematic literature review and external peer review.",
+  "rh:sourceFamily": "clinical_document",
+  "rh:intendedUse": {
+    "rh:primaryUse": "RAG context for agents answering clinical guideline questions from VA/DoD healthcare providers",
+    "rh:secondaryUses": [
+      "Clinical decision support reference for formulary questions",
+      "Training data curation for clinical NLP models"
+    ],
+    "rh:outOfScopeUses": [
+      "Direct patient-facing medical advice without clinician review",
+      "Pediatric treatment planning",
+      "Non-US clinical practice guidance"
+    ]
+  },
+  "rh:knownLimitations": [
+    "Corpus freeze date is December 2024",
+    "Pediatric sections are incomplete for most conditions"
+  ],
+  "rh:interpretationGuardrails": [
+    {
+      "rh:guardrail": "This source does not contain post-2024 clinical guidelines",
+      "rh:severity": "error",
+      "rh:explanation": "The corpus freeze date is December 2024. Queries about guidelines updated after that date will return stale or missing results."
+    },
+    {
+      "rh:guardrail": "Pediatric dosing information is incomplete",
+      "rh:severity": "warning",
+      "rh:explanation": "The VA guidelines primarily cover adult populations."
+    }
+  ],
+  "rh:supportedConclusions": [
+    {
+      "rh:conclusion": "Treatment recommendations for adult hypertension management",
+      "rh:basis": "Comprehensive VA/DoD CPG with evidence grading, updated 2023"
+    }
+  ],
+  "rh:unsupportedConclusions": [
+    {
+      "rh:conclusion": "Pediatric treatment protocols",
+      "rh:category": "scope",
+      "rh:reason": "Guidelines are adult-focused; pediatric sections are incomplete"
+    }
+  ],
+  "rh:populationCoverage": {
+    "rh:targetPopulation": "US military veterans and active-duty service members",
+    "rh:samplingFrame": "VA/DoD clinical practice guideline development committees",
+    "rh:estimatedCoverage": "Adult populations served by VA and DoD healthcare systems"
+  },
+  "rh:excludedPopulations": [
+    "Pediatric patients (< 18 years) except where explicitly noted",
+    "Non-US patient populations"
+  ],
+  "rh:dataSuppressionRules": [
+    {
+      "rh:rule": "Patient identifiers removed from all case examples",
+      "rh:method": "De-identification per HIPAA Safe Harbor"
+    }
+  ],
+  "prov:wasDerivedFrom": {
+    "@type": "prov:Entity",
+    "schema:name": "VA/DoD Clinical Practice Guideline Repository",
+    "schema:url": "https://www.healthquality.va.gov/"
+  },
+  "rh:updateCadence": "weekly",
+  "rh:retrievalQuality": {
+    "rh:bestRecallAt5": 0.74,
+    "rh:bestLlm": "granite-3.3-8b-instruct",
+    "rh:rewriteLift": 0.27
+  },
+  "rh:answerQuality": {
+    "rh:answerCorrectness": 0.79,
+    "rh:faithfulness": 0.88,
+    "rh:pinnedLlm": "granite-3.3-8b-instruct"
+  },
+  "rh:retrievalPatterns": ["vector_ann", "vector_with_filters"],
+  "rh:cardCompleteness": {
+    "rh:overall": 0.92,
+    "rh:mechanical": 1.0,
+    "rh:judgment": 0.85
+  }
+}
+```
+
+### Regulatory compliance mapping
+
+The table below maps regulatory requirements to the retrieval-hub fields that provide the documentation substrate each requirement calls for. This mapping is a reference for enterprise customers assessing compliance posture. retrieval-hub does not certify regulatory compliance, but the card fields provide the documentation that compliance requires. The JSON-LD export makes this documentation machine-readable for audit tooling.
+
+| Regulation | Requirement | retrieval-hub field(s) |
+|---|---|---|
+| EU AI Act Article 10(2)(b) | Statistical properties of training data | `card_best_score`, `card_answer_quality`, eval metrics |
+| EU AI Act Article 10(2)(f) | Bias examination procedures and outcomes | `population_coverage`, `excluded_populations`, `known_limitations` |
+| EU AI Act Article 10(2)(a) | Data governance and management practices | `measurement_technique`, `lineage`, `recipe` |
+| NIST AI RMF GOVERN 1.5 | Ongoing monitoring of AI data | `refresh_cadence`, eval re-run triggers, `card_answer_quality` |
+| NIST AI RMF MAP 2.3 | Scientific integrity of data | `measurement_technique`, `supported_conclusions`, eval metrics |
+| NIST AI RMF MEASURE 2.6 | Bias assessment | `population_coverage`, `excluded_populations`, `known_limitations` |
+| NIST AI RMF MEASURE 2.7 | AI accuracy under deployment conditions | `supported_conclusions`, `interpretation_guardrails`, eval metrics |
+| ISO/IEC 42001 Annex A.7 | Data for AI systems | All 12+ card fields, eval metrics |
+| ISO/IEC 42001 Annex B.4 | Data provenance and lineage | `lineage`, `measurement_technique`, `prov:wasDerivedFrom` |
+| ISO/IEC 5259-2 | Data quality dimensions | `card_best_score`, `card_answer_quality`, `card_completeness` |
+| California AB 2013 | 12-category training data summary | Minimum card fields (name, description, creator, etc.) |
+| Colorado SB 24-205 | Documented bias testing | `population_coverage`, `excluded_populations`, `interpretation_guardrails` |
+
 ## What's Decided
 
 - **A source has a hard `family` discriminator** that selects the source adapter at retrieval time. The four families targeted in round 1 are `document`, `clinical_document`, `code`, and `tabular`, with `graph` and `external` as named slots that may or may not ship in v1. The family determines which **retrieval patterns** the source supports.
@@ -408,6 +694,9 @@ In non-Kagenti deploys, `rh_tenant` stays at `"default"` and policy ignores it. 
 - **Agents may write data into existing sources via MCP**, scoped by `agent_write_policy` on the source plus auth scope on the caller. Three write modes: `append`, `upsert`, `annotate`. **Catalog mutation** (create/edit/publish/retire) is not exposed to agents and remains a human action through the UI or CLI.
 - **`agent_write_policy.allowed` defaults to `false`.** Agent-writability is opt-in per source.
 - **The four v0 sources stay heterogeneous on purpose.** They are the data model's regression test.
+- **Responsible use metadata is a structured, optional section on the source record.** Fields include `interpretation_guardrails` (with severity levels), `supported_conclusions` / `unsupported_conclusions` (with category tagging), `population_coverage`, `excluded_populations`, `measurement_technique`, `data_suppression_rules`, and a restructured `intended_use` object.
+- **Every source has a JSON-LD structured export** (`GET /sources/<slug>/card.jsonld`) that maps card fields to Schema.org, PROV-O, and a custom `rh:` namespace. The export is designed for machine consumption by AI agents and audit tooling.
+- **Card completeness is a computed field** tracking how completely the card is filled in, split into mechanical vs. judgment-intensive field completion rates.
 
 ## What's Open
 
@@ -420,3 +709,6 @@ In non-Kagenti deploys, `rh_tenant` stays at `"default"` and policy ignores it. 
 - **Whether and when to wire up the AutoRAG-driven recipe tuning capability** described in "Automated recipe tuning (considered)" above. The design exists in [`integrations/autorag.md`](integrations/autorag.md); the decision to ship it is open. Most likely path: ship the v0 vertical slice without it, then add it as a v0.5 capability against the Red Hat docs source.
 - **Storage shape of eval results.** Per-(LLM, suite, run) row is the obvious model, but we may need a richer eval object once we get into reranker scores, latency-by-LLM, cost-per-query estimates, etc. Round 2.
 - **Audit trail location.** Inline on the source record or in a separate audit table. Probably separate, but not committed.
+- **Whether `error`-severity interpretation guardrails should be surfaced in MCP retrieval responses automatically**, or whether agents should query guardrails separately before relying on results. Automatic surfacing is simpler for agent developers; separate querying keeps the retrieval response lean.
+- **How to enforce or incentivize completion of judgment-intensive card fields** (guardrails, intended use, population coverage). Possible approaches: require them for the `Published` state, show card completeness on the admin dashboard, or rely on visibility and healthy pressure.
+- **The `rh:` namespace URL** (`https://retrieval-hub.example.org/vocab/v1/`) is a placeholder. The production namespace needs a stable, resolvable URL.

@@ -10,6 +10,33 @@ Most RAG implementations ship without real evals. The team picks parameters that
 
 retrieval-hub's bet is the opposite: **publishing a source requires an eval run, and the results are visible on every card**. Comparing two sources is comparing eval scores. Comparing two recipes is comparing eval scores at different recipe versions. Proving the rewriter is earning its keep is comparing eval scores with rewrite enabled vs. disabled. The only way this works is if the eval system is real, repeatable, and tightly integrated with the lifecycle.
 
+## The eval stack
+
+Evaluation in retrieval-hub is not a single measurement. The pipeline from raw document to agent answer has distinct stages, and quality can degrade at any one of them. A high-level "answer quality" score that comes back low tells you something is wrong but not where. Five eval surfaces, each targeting a different pipeline stage, form a diagnostic chain that makes failures localizable.
+
+```
+raw document ──► parse/normalize ──► index ──► retrieve ──► rewrite ──► generate answer
+                      │                           │            │              │
+                 [1] Ingestion              [2] Retrieval  [3] Rewrite   [5] End-to-end
+                     fidelity                  quality    effectiveness   answer quality
+
+                            [4] Provenance chain correctness (spans all stages)
+```
+
+The five surfaces, in order of the pipeline stage they target:
+
+**Surface 1: Ingestion fidelity.** Did the parse stage faithfully reproduce the document content? Metrics are `section_preservation_rate`, `content_coverage`, `table_extraction_accuracy`, and `metadata_completeness`. These are stored on `IngestionRun.build_metadata` JSONB and surfaced in the Lineage tab. Ingestion fidelity is lower priority for standalone evaluation because parse problems will surface as low `context_recall` in end-to-end eval. When end-to-end scores are bad and retrieval scores are fine, ingestion fidelity metrics help determine whether the parse stage is to blame.
+
+**Surface 2: Retrieval quality.** Given a query, do the right chunks come back? This is the primary focus of the existing eval design in this document: `recall_at_k`, MRR, NDCG, latency, cost, and the rewrite lift delta. The eval suite, eval run, and metrics machinery described in the following sections all serve this surface.
+
+**Surface 3: Rewrite effectiveness.** Does the rewriter improve retrieval without hallucinating queries? The existing `rewrite_lift` metric captures the retrieval improvement. This surface adds `rewrite_faithfulness` as an opt-in LLM-judge metric that scores each rewritten query against the raw query on a 0-1 scale, catching cases where the rewriter invents constraints or topics not present in the original query. Computed during a rewrite-enabled eval pass and stored in the existing `EvalRun.scores` JSONB alongside the other rewrite metrics. No new model is needed.
+
+**Surface 4: Provenance chain correctness.** Are lineage fields accurate end-to-end? This is functional testing, not statistical measurement. During eval runs, the orchestrator asserts that `physical_index_id` matches between the retrieval result and the catalog record, that `recipe_version` matches, that `request_id` values are unique, and that content hashes match between stored and retrieved chunks. These are pass/fail assertions. A failure blocks the eval run from completing and produces a structured error pointing at the broken link in the provenance chain.
+
+**Surface 5: End-to-end agent answer quality.** Does an agent give correct, grounded answers using this source? This surface generates an answer from retrieved context using a pinned LLM, then scores the answer against a reference using RAGAS metrics. It is the subject of a dedicated section later in this document.
+
+The diagnostic property of this chain is the key design feature. Because retrieval-hub logs the full pipeline state for every eval case (raw query, rewritten query, retrieved chunks, corpus version, generation parameters), a bad end-to-end score is always decomposable. Low `answer_correctness` with high `faithfulness` points at retrieval problems (surface 2). Low `faithfulness` with high `context_recall` points at generation problems (surface 5 in isolation). Low `context_recall` with good ingestion fidelity points at indexing or chunking problems. The surfaces are not independent tests run in isolation; they form a causal chain where upstream problems propagate downstream, and the combination of scores across surfaces localizes the root cause.
+
 ## What an eval suite is
 
 An **eval suite** is a versioned, named, reusable collection of test cases against a particular *kind* of source. It is its own catalog object — created, owned, versioned, and audited like a source or a rewriter prompt. Multiple sources can share an eval suite (all `clinical_document` sources can be evaluated by `clinical-doc-eval-v2`); a source declares which suite it uses on its recipe.
@@ -232,6 +259,18 @@ Two metrics are **only present when the eval run is configured with an LLM judge
 
 LLM-in-loop metrics are slower and more expensive, so they're opt-in per eval suite. The default is "no judge, just structural metrics."
 
+Five additional metrics are present when the eval suite type is `end_to_end`. These are computed by RAGAS against a generated answer and a reference answer provided in the test case:
+
+| Metric | What it measures | Why it's on the card |
+|---|---|---|
+| `faithfulness` | Whether the generated answer stays grounded in retrieved context (0-1) | The data-owner headline: "does my data keep agents honest?" |
+| `answer_correctness` | Factual overlap between generated and reference answer (0-1, factual F1 + semantic similarity) | The AI-developer headline: "does this source make my app more knowledgeable?" |
+| `answer_relevancy` | Whether the answer addresses the question asked (0-1) | Diagnostic: catches off-topic generation |
+| `context_precision` | Whether relevant chunks are ranked higher than irrelevant ones (0-1) | Diagnostic: catches ranking problems |
+| `context_recall` | Whether all claims in the reference answer are attributable to retrieved context (0-1) | Diagnostic: catches retrieval gaps |
+
+`answer_correctness` and `faithfulness` are the two headline end-to-end metrics shown on the grid card. The other three are detail metrics shown on the Evaluations tab. See the "End-to-end agent answer quality" section for the full design.
+
 ## Rewrite-vs-no-rewrite as a first-class output
 
 The rewriter is the differentiator. Proving it works requires running every eval **twice** — once with `use_rewrite=False` and once with `use_rewrite=True` — and reporting both results plus the delta on the card.
@@ -269,6 +308,223 @@ When the eval orchestrator runs the suite, it executes each test case twice and 
 The `rewrite_lift_at_5: 0.27` value is what shows up on the card as `(rewrite +0.27 R@5)` next to the score for that LLM. If the lift is small or negative on a particular source, the card shows that just as honestly. The rewriter is not allowed to be a marketing claim; it's a measurement.
 
 The v0 success criterion for the rewriter, restated from [`query-rewriter.md`](query-rewriter.md), is: *on the VA source, `rewrite_lift_at_5` is large enough that nobody who uses the source would turn it off*. We will believe it when we see it.
+
+## End-to-end agent answer quality
+
+The retrieval metrics described above answer "does the source find the right chunks?" End-to-end eval answers the next question: "does an agent using this source give correct, grounded answers?" This is surface 5 in the eval stack, and it is the metric that AI developers and data owners care about most directly.
+
+### Run shape
+
+End-to-end eval runs use the same `EvalRun` ORM model as retrieval-only runs. The discriminator is the eval suite's `case_schema_id` (which is `case_schema_e2e_v1` instead of `case_schema_v1`) and its `metric_set` (which includes RAGAS answer-level metrics). No new ORM tables are required. `EvalRun.scores` JSONB carries both retrieval and end-to-end metrics in the same object, so a single run produces the full picture.
+
+### The pipeline
+
+For each test case, the eval orchestrator executes three steps:
+
+```mermaid
+sequenceDiagram
+    participant Catalog as retrieval-hub<br/>Catalog
+    participant Backend as Eval Backend<br/>(LlamaStack /v1/eval<br/>or native orchestrator)
+    participant Core as Core Library<br/>(retrieval API)
+    participant Adapter as Source Adapter
+    participant LLM as Pinned LLM<br/>(cluster vLLM)
+    participant Scorer as RAGAS Scorer
+
+    Catalog->>Catalog: load suite, test cases<br/>(case_schema_e2e_v1)
+    Catalog->>Backend: start_eval(suite, target=mcp_endpoint,<br/>metric_set, test_cases)
+
+    loop for each test case
+        Note over Backend: Step 1: RETRIEVE
+        Backend->>Core: query(source, case.query, top_k=10, use_rewrite=?)
+        Core->>Adapter: dispatch via family
+        Adapter-->>Core: hits
+        Core-->>Backend: RetrievalResult + retrieved_contexts
+        Backend->>Backend: compute recall@k, MRR, NDCG
+
+        Note over Backend: Step 2: GENERATE
+        Backend->>LLM: chat(system=source.sample_prompts,<br/>user=case.query, context=retrieved_contexts)
+        LLM-->>Backend: generated_answer
+
+        Note over Backend: Step 3: SCORE
+        Backend->>Scorer: score(question, answer, contexts, ground_truth)
+        Scorer-->>Backend: faithfulness, answer_relevancy,<br/>answer_correctness, context_precision,<br/>context_recall
+    end
+
+    Backend->>Backend: aggregate metrics
+    Backend-->>Catalog: eval result (retrieval + e2e scores)
+    Catalog->>Catalog: project headline scores onto card
+```
+
+Step 2 is the key addition over the retrieval-only pipeline. The eval orchestrator generates an answer using a pinned LLM before passing the full tuple (question, answer, contexts, ground_truth) to the scorer. The generation step uses the source's `sample_prompts` as the system prompt, matching how a real agent would use the source.
+
+### RAGAS metrics
+
+The five RAGAS metrics split into two tiers based on their audience.
+
+The **headline metrics** appear on the grid card alongside `recall_at_5` and `rewrite_lift`:
+
+`answer_correctness` (0-1) measures factual F1 combined with semantic similarity against the reference answer. This is the AI-developer metric: "does this source make my app more knowledgeable?" A source with high retrieval recall but low answer correctness is finding relevant chunks but not in a form that lets the LLM produce accurate answers.
+
+`faithfulness` (0-1) measures whether the generated answer stays grounded in the retrieved context. This is the data-owner metric: "does my data keep agents honest?" A source with high faithfulness means agents using it are not hallucinating beyond what the data supports.
+
+The **detail metrics** appear on the Evaluations tab for diagnostic purposes:
+
+`answer_relevancy` catches off-topic generation where the answer drifts from the question asked. `context_precision` catches ranking problems where irrelevant chunks are ranked higher than relevant ones, diluting the context window. `context_recall` catches retrieval gaps where claims in the reference answer cannot be attributed to any retrieved chunk.
+
+### Diagnostic chain
+
+These five metrics, combined with the retrieval metrics from surface 2, decompose failures into actionable categories:
+
+Low correctness with high faithfulness and low context_recall means retrieval is missing chunks. The LLM is faithfully using what it gets, but it is not getting enough. Fix the chunking strategy, the embedding model, or the index configuration.
+
+Low correctness with low faithfulness and high context_recall means the LLM is hallucinating despite having good context. The right chunks are retrieved, but the generation step is not staying grounded. This may indicate a prompt problem or a model that is not well-suited to the domain.
+
+Low correctness with high faithfulness and high context_recall but low context_precision means irrelevant chunks are diluting the context window. The relevant information is present but buried among noise, and the LLM is being faithful to the wrong chunks. Fix the ranking or reduce top_k.
+
+### Pinned model strategy
+
+End-to-end scores must be comparable across sources. If source A is evaluated with GPT-4 and source B with Granite 8B, the scores reflect model capability differences as much as source quality differences. To produce scores that measure the source rather than the model, all end-to-end eval runs use a single **pinned LLM** for the generation step.
+
+The pinned model is a cluster-level admin setting, not per-suite. The initial pinned model is `granite-3.3-8b-instruct`, which is already deployed on the cluster for the query rewriter. Every eval run records `e2e_pinned_llm` and `e2e_pinned_llm_version` in the `scores` JSONB so results are self-documenting.
+
+When an admin changes the pinned model, all published sources queue for re-evaluation so the cards reflect scores from the new model. This uses the same re-eval machinery described in "Re-running evals after changes."
+
+The cluster-level configuration shape:
+
+```yaml
+e2e_eval_config:
+  pinned_llm: "granite-3.3-8b-instruct"
+  pinned_llm_version: "v2026.04"
+  pinned_llm_endpoint: "cluster"
+  judge_llm: "granite-3.3-8b-instruct"
+  judge_llm_endpoint: "cluster"
+```
+
+The `judge_llm` is the model RAGAS uses internally for its LLM-as-judge scoring (faithfulness and answer_relevancy both require an LLM judge). It is configured separately from the pinned generation model so they can diverge if needed, though the default is to use the same model for both.
+
+### End-to-end test case schema
+
+The `case_schema_e2e_v1` extends `case_schema_v1` with fields for the reference answer and answer validation criteria:
+
+```yaml
+id: case_01...
+query: "how do I configure a Tekton pipeline to deploy to OpenShift"
+intent: "how_to"
+expected_documents:
+  - id: doc_id_or_uri
+    relevance: 1.0
+expected_passages:
+  - document_id: ...
+    section: "Triggering Pipelines"
+    snippet: "..."
+expected_answer: |
+  To configure a Tekton pipeline for OpenShift deployment, create a
+  Pipeline resource that includes a deploy task using the openshift-client
+  ClusterTask. The deploy task should reference your deployment manifest
+  and target namespace. Trigger the pipeline using a TriggerTemplate bound
+  to a GitHub webhook EventListener.
+answer_criteria:
+  must_mention:
+    - "Pipeline resource"
+    - "openshift-client"
+    - "TriggerTemplate"
+  answer_type: "procedural"
+metadata:
+  difficulty: medium
+  source_of_case: synthetic
+  generator_model: "granite-3.3-8b-instruct"
+```
+
+The `expected_answer` field is the reference answer that RAGAS uses for `answer_correctness` scoring. The `answer_criteria` field provides structured validation hints: `must_mention` lists terms that a correct answer should include, and `answer_type` categorizes the expected response form. The `generator_model` in metadata records which model produced the reference answer during synthetic test case generation, so the provenance of the ground truth is traceable.
+
+### End-to-end eval suite
+
+An end-to-end eval suite uses the same `EvalSuite` shape as a retrieval-only suite, distinguished by `suite_type`, `case_schema_id`, and an `e2e_config` section:
+
+```yaml
+id: eval_01HYZ...
+slug: rh-docs-e2e-eval
+name: "Red Hat Product Documentation End-to-End Eval Suite"
+version: 1
+owner: platform-docs
+suite_type: end_to_end
+description: |
+  End-to-end evaluation of agent answer quality against Red Hat product
+  documentation sources. Uses synthetic Q&A pairs with reference answers
+  generated from the corpus.
+
+applies_to:
+  family: document
+  domain_hint: redhat-products
+
+generation:
+  source: synthetic
+  generator: sdg-hub
+  generated_at: 2026-05-10T00:00:00Z
+  config_id: sdg_config_01HXX...
+
+test_cases:
+  count: 250
+  storage_uri: minio://retrieval-hub-evals/rh-docs-e2e-eval-v1/cases.parquet
+  schema: case_schema_e2e_v1
+
+metrics:
+  - recall_at_k: { ks: [1, 3, 5, 10] }
+  - mrr: {}
+  - ndcg_at_k: { ks: [5, 10] }
+  - latency: { percentiles: [50, 95, 99] }
+  - cost_estimate: { unit: tokens }
+  - rewrite_lift: { compared_metric: recall_at_5 }
+  - faithfulness: {}
+  - answer_correctness: {}
+  - answer_relevancy: {}
+  - context_precision: {}
+  - context_recall: {}
+
+e2e_config:
+  use_pinned_llm: true
+  generation_prompt_source: source_sample_prompts
+  max_answer_tokens: 512
+  temperature: 0.0
+
+last_modified: 2026-05-10T12:00:00Z
+```
+
+The `e2e_config` section controls the generation step. `use_pinned_llm: true` means the run uses the cluster-level pinned model rather than specifying its own. `generation_prompt_source: source_sample_prompts` means the system prompt for generation comes from the source's `sample_prompts` field, matching how real agents would use the source. `temperature: 0.0` ensures deterministic generation for reproducibility.
+
+### Execution paths
+
+Both the delegated (LlamaStack) and native execution paths support end-to-end eval.
+
+In the **delegated path**, retrieval-hub runs the retrieval step and the generation step itself, then passes the complete tuple (question, generated_answer, retrieved_contexts, ground_truth) to LlamaStack's Ragas provider for scoring. This keeps the generation step under retrieval-hub's control (using the pinned model) while delegating only the metric computation to Ragas.
+
+In the **native path**, retrieval-hub bundles RAGAS as a Python dependency (Apache 2.0 license) and runs scoring directly. The native path calls `ragas.evaluate()` with the same inputs and produces the same metric values. This is the fallback when LlamaStack is not present on the cluster.
+
+When no LLM judge is available for RAGAS scoring (which requires an LLM for faithfulness and answer_relevancy), the fallback is to compute `answer_correctness` as token-level F1 only, without the semantic similarity component. This produces a degraded but still useful score. `faithfulness` and `answer_relevancy` are omitted from the result rather than approximated, and the result is tagged with `judge_available: false` so consumers know the score is partial.
+
+### Combined scores
+
+A single end-to-end eval run produces both retrieval and answer-level metrics in the same `scores` JSONB:
+
+```yaml
+scores:
+  recall_at_5: 0.74
+  mrr: 0.68
+  ndcg_at_5: 0.71
+  latency_p95_ms: 1840
+  cost_estimate_tokens_per_query: 1240
+  recall_at_5_no_rewrite: 0.47
+  rewrite_lift_at_5: 0.27
+  faithfulness: 0.88
+  answer_relevancy: 0.83
+  answer_correctness: 0.79
+  context_precision: 0.72
+  context_recall: 0.81
+  e2e_pinned_llm: "granite-3.3-8b-instruct"
+  e2e_pinned_llm_version: "v2026.04"
+```
+
+The retrieval metrics and end-to-end metrics coexist in a single flat object. The presence of `e2e_pinned_llm` distinguishes an end-to-end run from a retrieval-only run. On the card, headline retrieval metrics (`recall_at_5`, `rewrite_lift`) and headline end-to-end metrics (`answer_correctness`, `faithfulness`) are shown together, giving both AI developers and data owners the numbers they need at a glance.
 
 ## How eval relates to the publish gate
 
@@ -316,6 +572,11 @@ Eval suites are owned. Eval runs are audited. Specifically:
 - **Publishing a source requires at least one eval run.** No score threshold is enforced — the score is shown honestly and the consumer decides.
 - **Re-evals trigger automatically** on new physical index, new recipe, new suite version, new headline LLM, queued behind a concurrency cap.
 - **Eval suites and runs are owned and audited** the same way sources are.
+- **The eval framework covers five surfaces** (ingestion fidelity, retrieval quality, rewrite effectiveness, provenance correctness, end-to-end agent answer quality), forming a diagnostic chain where each surface's scores help localize failures found by later surfaces.
+- **End-to-end eval runs use the same EvalRun model** as retrieval-only runs. The discriminator is the eval suite's `case_schema_id` and `metric_set`. No new ORM tables.
+- **End-to-end evals pin a cluster-level LLM** for the generation step so scores are comparable across sources. The pinned model is an admin setting, not per-suite.
+- **Two headline end-to-end metrics**: `answer_correctness` (the AI-developer number) and `faithfulness` (the data-owner number). Three detail metrics: `answer_relevancy`, `context_precision`, `context_recall`.
+- **The RAGAS library (Apache 2.0) is the scoring engine** for end-to-end metrics, used directly in native mode and via LlamaStack's Ragas provider in delegated mode.
 
 ## What's Open
 
@@ -329,5 +590,8 @@ Eval suites are owned. Eval runs are audited. Specifically:
 - **Whether `cost_estimate` reports tokens, dollars, or both.** Tokens are exact; dollars require a per-model price table. Probably both, with dollars marked as estimates.
 - **Eval result retention.** How many historical eval runs do we keep? Probably "all of them" until storage becomes a problem, then aggregate older runs.
 - **The exact concurrency cap on automatic re-evals.** Two is a guess. Tune it once we have a real cluster.
-- **LLM judge model selection.** When LLM-in-loop metrics are on, which judge model? Probably a reasoning-tuned model, possibly different from the headline LLMs. Round 2.
+- **LLM judge model selection.** When LLM-in-loop metrics are on, which judge model? Probably a reasoning-tuned model, possibly different from the headline LLMs. This decision is related to the end-to-end eval pinned model and judge model choices described below. Round 2.
 - **How retrieval-hub interacts with external eval frameworks** beyond synthetic-QA generation. The generator interface is pluggable for QA creation; full pipeline-evaluation frameworks (AutoRAG's optimization stage, for instance) are a separate integration concern handled in [`integrations/autorag.md`](integrations/autorag.md).
+- **Whether the pinned generation model and the RAGAS judge model should be the same or different.** Using the same model (currently `granite-3.3-8b-instruct` for both) is simpler to operate and reason about. Using a stronger judge may produce more accurate metric scores, but introduces a dependency on a second model deployment. The default is same-model; revisit when we have real scores to compare.
+- **End-to-end test case generation pipeline.** Producing `expected_answer` fields at scale requires generating reference answers from ground-truth documents using a capable LLM. The assumed path is synthetic generation (same as for retrieval test cases, extended to produce answers). The quality bar for these reference answers needs tuning against real data, since a bad reference answer will produce misleading `answer_correctness` scores.
+- **Whether end-to-end eval should be required for the publish gate.** The current position is optional: if a source has end-to-end scores they appear on the card, but they do not gate publishing. The existing retrieval-only requirement remains the gate. This may change once end-to-end eval suites are available for the common source families and the scoring pipeline is proven reliable.
