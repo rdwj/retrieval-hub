@@ -1,0 +1,108 @@
+# Shared embedding model service — Text Embeddings Inference (TEI).
+#
+# Embedding models are cluster infrastructure, not per-service dependencies.
+# Each data source declares what model it needs in its recipe; the platform
+# ensures the model is served here.  Services (MCP server, BFF, agents) call
+# this endpoint instead of loading models in-process.
+#
+# Current model: NeuML/pubmedbert-base-embeddings (768 dims, 110M params)
+# Endpoint:      http://retrieval-hub-embedding:8080
+# API:           POST /embed  {"inputs": ["text1", "text2"]}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: retrieval-hub-embedding-cache
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp3-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retrieval-hub-embedding
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+    model: pubmedbert
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retrieval-hub
+      component: embedding
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub
+        component: embedding
+        model: pubmedbert
+    spec:
+      containers:
+        - name: tei
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+          args:
+            - "--model-id"
+            - "NeuML/pubmedbert-base-embeddings"
+            - "--port"
+            - "8080"
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /data
+          volumeMounts:
+            - name: model-cache
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: retrieval-hub-embedding-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retrieval-hub-embedding
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  selector:
+    app: retrieval-hub
+    component: embedding

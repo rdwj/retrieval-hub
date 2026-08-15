@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: retrieval-hub-ui-live
+  labels:
+    app: retrieval-hub-ui-live
+spec:
+  type: ClusterIP
+  selector:
+    app: retrieval-hub-ui-live
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP

@@ -1,0 +1,17 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: retrieval-hub-embedding
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+spec:
+  to:
+    kind: Service
+    name: retrieval-hub-embedding
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

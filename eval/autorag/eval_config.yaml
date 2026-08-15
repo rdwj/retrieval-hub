@@ -1,0 +1,24 @@
+node_lines:
+  - node_line_name: retrieve_and_rerank
+    nodes:
+      - node_type: retrieval
+        strategy:
+          metrics: [retrieval_f1, retrieval_recall, retrieval_ndcg, retrieval_mrr]
+          speed_threshold: 10
+        top_k: [3, 5, 10]
+        modules:
+          - module_type: vectordb
+            vectordb: default
+          - module_type: bm25
+          - module_type: hybrid_rrf
+            weight_range: (4, 80)
+      - node_type: passage_reranker
+        strategy:
+          metrics: [retrieval_f1, retrieval_recall, retrieval_ndcg, retrieval_mrr]
+          speed_threshold: 10
+        top_k: [3, 5]
+        modules:
+          - module_type: pass_reranker
+          - module_type: sentence_transformer_reranker
+            model_name: cross-encoder/ms-marco-MiniLM-L-6-v2
+            batch: 32

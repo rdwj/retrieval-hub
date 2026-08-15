@@ -1,0 +1,6 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: retrieval-hub-ui-live
+  labels:
+    app: retrieval-hub-ui-live

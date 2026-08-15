@@ -1,0 +1,9 @@
+filename,module_name,module_params,execution_time
+0.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 512, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0030907814671031386
+1.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 512, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0030859020565059225
+2.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 1024, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0030551705476100613
+3.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 1024, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0030615547923279495
+4.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 512, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0005144386940829749
+5.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 512, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0005264295575179773
+6.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 1024, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0004171713092503719
+7.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 1024, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0004183567278372427

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retrieval-hub-pg-init
+  namespace: retrieval-hub
+data:
+  init-vectors-db.sh: |
+    #!/bin/bash
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+        SELECT 'CREATE DATABASE retrievalhub_vectors'
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'retrievalhub_vectors')\gexec
+    EOSQL
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname=retrievalhub_vectors <<-EOSQL
+        CREATE EXTENSION IF NOT EXISTS vector;
+    EOSQL

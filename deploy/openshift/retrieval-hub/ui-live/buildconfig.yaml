@@ -1,0 +1,22 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: retrieval-hub-ui-live
+  labels:
+    app: retrieval-hub-ui-live
+spec:
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: retrieval-hub-ui-live:latest
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi

@@ -1,0 +1,13 @@
+filename,module_name,module_params,execution_time
+0.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 256, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0005749171470609439
+1.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 256, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0006026019995630893
+2.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 512, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0004338652193121155
+3.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 512, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0004351116077025845
+4.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 1024, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0003538070765779634
+5.parquet,llama_index_chunk,"{'chunk_method': 'Sentence', 'chunk_size': 1024, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.000352998290014335
+6.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 256, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.002693975015985813
+7.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 256, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0027738051883844437
+8.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 512, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0027300336323519067
+9.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 512, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0027311733071712216
+10.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 1024, 'chunk_overlap': 0, 'add_file_name': 'en'}",0.0026959645493054357
+11.parquet,llama_index_chunk,"{'chunk_method': 'Token', 'chunk_size': 1024, 'chunk_overlap': 64, 'add_file_name': 'en'}",0.0027011765495006438

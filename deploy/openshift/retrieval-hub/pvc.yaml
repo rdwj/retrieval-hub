@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: retrieval-hub-pg-data
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub-pg
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

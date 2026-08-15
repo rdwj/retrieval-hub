@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: retrieval-hub-ui-live
+  labels:
+    app: retrieval-hub-ui-live
+spec:
+  to:
+    kind: Service
+    name: retrieval-hub-ui-live
+    weight: 100
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

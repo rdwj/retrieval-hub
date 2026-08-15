@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: retrieval-hub-pg
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub-pg
+spec:
+  serviceName: retrieval-hub-pg
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retrieval-hub-pg
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub-pg
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: pgvector
+          image: docker.io/pgvector/pgvector:pg16
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: retrieval-hub-pg
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: retrieval-hub-pg
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: retrieval-hub-pg
+                  key: POSTGRES_DB
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pg-data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+            - name: pg-init
+              mountPath: /docker-entrypoint-initdb.d/
+              readOnly: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - retrievalhub
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - retrievalhub
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: pg-data
+          persistentVolumeClaim:
+            claimName: retrieval-hub-pg-data
+        - name: pg-init
+          configMap:
+            name: retrieval-hub-pg-init
+            defaultMode: 0755

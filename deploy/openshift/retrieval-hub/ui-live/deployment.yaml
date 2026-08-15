@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retrieval-hub-ui-live
+  labels:
+    app: retrieval-hub-ui-live
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retrieval-hub-ui-live
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub-ui-live
+    spec:
+      containers:
+        - name: nginx
+          image: image-registry.openshift-image-registry.svc:5000/retrieval-hub/retrieval-hub-ui-live:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
