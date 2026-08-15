@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import {
   Breadcrumb,
   BreadcrumbItem,
+  Bullseye,
   Button,
   Card,
   CardBody,
@@ -23,32 +24,47 @@ import {
   Title,
 } from '@patternfly/react-core';
 
-import { MOCK_SOURCES } from '../data/mockSources';
-import type { Source } from '../types/source';
+import { useSource } from '../hooks/useSource';
 import { formatScore } from '../utils/formatters';
 
-interface MockHit {
-  id: string;
+interface PlaygroundHit {
   text: string;
   score: number;
-  source_uri: string;
-  physical_index_id: string;
-  recipe_version: number;
+  doc_title: string;
+  doc_url: string;
+  doc_section: string | null;
+}
+
+interface PlaygroundResult {
+  hits: PlaygroundHit[];
+  answer: string;
+  usage_rules: Record<string, unknown> | null;
+  elapsed_ms: number;
+  model: string;
 }
 
 export default function PlaygroundPage() {
   const { slug } = useParams<{ slug: string }>();
-  const source = MOCK_SOURCES.find((s) => s.slug === slug);
+  const { data: source, loading } = useSource(slug!);
 
   const [query, setQuery] = useState('');
   const [topK, setTopK] = useState('10');
   const [useRewrite, setUseRewrite] = useState(
-    source?.rewriter.enabled ?? false,
+    source?.rewriter?.enabled ?? false,
   );
   const [running, setRunning] = useState(false);
-  const [results, setResults] = useState<MockHit[] | null>(null);
-  const [rewrites, setRewrites] = useState<string[] | null>(null);
-  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [result, setResult] = useState<PlaygroundResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <PageSection>
+        <Bullseye style={{ minHeight: '16rem' }}>
+          <Spinner size="xl" aria-label="Loading source" />
+        </Bullseye>
+      </PageSection>
+    );
+  }
 
   if (!source) {
     return (
@@ -64,20 +80,31 @@ export default function PlaygroundPage() {
     );
   }
 
-  const runQuery = () => {
+  const runQuery = async () => {
     if (!query.trim()) return;
     setRunning(true);
-    setResults(null);
-    setRewrites(null);
-    setElapsedMs(null);
-    setTimeout(() => {
-      setResults(makeMockHits(source, parseInt(topK, 10) || 10));
-      if (useRewrite && source.rewriter.enabled) {
-        setRewrites(makeMockRewrites(source, query));
+    setResult(null);
+    setError(null);
+    try {
+      const resp = await fetch('/api/playground/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query,
+          source_slug: source.slug,
+          top_k: parseInt(topK, 10) || 5,
+        }),
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        throw new Error(`API error ${resp.status}: ${detail}`);
       }
-      setElapsedMs(824);
+      setResult(await resp.json());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
       setRunning(false);
-    }, 500);
+    }
   };
 
   return (
@@ -106,8 +133,7 @@ export default function PlaygroundPage() {
             fontSize: '0.9rem',
           }}
         >
-          Issue a mock query against this source. Results are fabricated for
-          the mockup; no real retrieval runs.
+          Query this source with real retrieval and LLM-generated answers.
         </p>
       </PageSection>
       <PageSection>
@@ -133,7 +159,7 @@ export default function PlaygroundPage() {
                   style={{ maxWidth: '8rem' }}
                 />
               </FormGroup>
-              {source.rewriter.enabled && (
+              {source.rewriter?.enabled && (
                 <FormGroup fieldId="use-rewrite">
                   <Checkbox
                     id="use-rewrite"
@@ -160,30 +186,46 @@ export default function PlaygroundPage() {
           </CardBody>
         </Card>
       </PageSection>
-      {results && (
+      {error && (
+        <PageSection>
+          <Card>
+            <CardBody>
+              <p style={{ color: 'var(--pf-v5-global--danger-color--100)' }}>
+                {error}
+              </p>
+            </CardBody>
+          </Card>
+        </PageSection>
+      )}
+      {result && (
         <PageSection>
           <Stack hasGutter>
-            {rewrites && (
-              <StackItem>
-                <Card>
-                  <CardTitle>Rewrites used</CardTitle>
-                  <CardBody>
-                    <ol>
-                      {rewrites.map((r, i) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ol>
-                  </CardBody>
-                </Card>
-              </StackItem>
-            )}
             <StackItem>
               <Card>
-                <CardTitle>Results ({results.length})</CardTitle>
+                <CardTitle>Answer</CardTitle>
+                <CardBody>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                    {result.answer}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: '1rem',
+                      fontSize: '0.75rem',
+                      color: 'var(--pf-v5-global--Color--200)',
+                    }}
+                  >
+                    Generated by {result.model} · {result.elapsed_ms}ms
+                  </div>
+                </CardBody>
+              </Card>
+            </StackItem>
+            <StackItem>
+              <Card>
+                <CardTitle>Retrieved chunks ({result.hits.length})</CardTitle>
                 <CardBody>
                   <Stack hasGutter>
-                    {results.map((hit) => (
-                      <StackItem key={hit.id}>
+                    {result.hits.map((hit, i) => (
+                      <StackItem key={i}>
                         <Card isCompact isFlat isFullHeight>
                           <CardBody>
                             <div
@@ -199,37 +241,32 @@ export default function PlaygroundPage() {
                                 <Label isCompact color="blue">
                                   score {formatScore(hit.score)}
                                 </Label>{' '}
-                                <code>{hit.source_uri}</code>
+                                {hit.doc_title}
+                                {hit.doc_section && ` — ${hit.doc_section}`}
                               </span>
                             </div>
-                            <p style={{ margin: 0 }}>{hit.text}</p>
-                            <div
-                              style={{
-                                fontSize: '0.7rem',
-                                color:
-                                  'var(--pf-v5-global--Color--200)',
-                                marginTop: '0.5rem',
-                                fontFamily:
-                                  'var(--pf-v5-global--FontFamily--monospace)',
-                              }}
-                            >
-                              {hit.physical_index_id} · recipe v
-                              {hit.recipe_version}
-                            </div>
+                            <p style={{ margin: 0, fontSize: '0.85rem' }}>
+                              {hit.text.slice(0, 400)}
+                              {hit.text.length > 400 && '…'}
+                            </p>
+                            {hit.doc_url && (
+                              <div
+                                style={{
+                                  fontSize: '0.7rem',
+                                  color: 'var(--pf-v5-global--Color--200)',
+                                  marginTop: '0.5rem',
+                                }}
+                              >
+                                <a href={hit.doc_url} target="_blank" rel="noreferrer">
+                                  Source document
+                                </a>
+                              </div>
+                            )}
                           </CardBody>
                         </Card>
                       </StackItem>
                     ))}
                   </Stack>
-                  <div
-                    style={{
-                      marginTop: '1rem',
-                      fontSize: '0.75rem',
-                      color: 'var(--pf-v5-global--Color--200)',
-                    }}
-                  >
-                    Served by retrieval-hub · {elapsedMs}ms (mocked)
-                  </div>
                 </CardBody>
               </Card>
             </StackItem>
@@ -238,50 +275,4 @@ export default function PlaygroundPage() {
       )}
     </>
   );
-}
-
-function makeMockHits(source: Source, topK: number): MockHit[] {
-  const count = Math.min(topK, 5);
-  const pidx = source.active_physical_index?.id ?? 'pidx_mock';
-  const recipe = source.recipe.version;
-  const lines = [
-    'Retrieved chunk 1: the relevant excerpt would appear here, highlighting the most important passage matching the query.',
-    'Retrieved chunk 2: a second passage, typically from a different document, discussing a related angle on the question.',
-    'Retrieved chunk 3: a supporting snippet with concrete details, numbers, or procedural guidance.',
-    'Retrieved chunk 4: a contextual passage that provides background for interpretation.',
-    'Retrieved chunk 5: a final excerpt rounding out the top-5 recall set.',
-  ];
-  return Array.from({ length: count }, (_, i) => ({
-    id: `hit_${i + 1}`,
-    text: lines[i] ?? 'Retrieved chunk.',
-    score: Number((0.92 - i * 0.07).toFixed(3)),
-    source_uri: `${source.slug}://doc_${1000 + i}`,
-    physical_index_id: pidx,
-    recipe_version: recipe,
-  }));
-}
-
-function makeMockRewrites(source: Source, rawQuery: string): string[] {
-  // Apply up to 3 mock rewrites using the source's vocabulary mappings.
-  const mappings = source.rewriter.vocabulary_mappings;
-  if (mappings.length === 0) return [rawQuery];
-  const applied: string[] = [];
-  let current = rawQuery;
-  for (const m of mappings) {
-    if (current.toLowerCase().includes(m.lay_term.toLowerCase())) {
-      current = current.replace(
-        new RegExp(m.lay_term, 'ig'),
-        m.canonical_term,
-      );
-      applied.push(current);
-      if (applied.length >= 3) break;
-    }
-  }
-  if (applied.length === 0) {
-    return [
-      `${rawQuery} (rewritten with ${source.family} domain context)`,
-      `${rawQuery} [domain-aware reformulation]`,
-    ];
-  }
-  return applied;
 }

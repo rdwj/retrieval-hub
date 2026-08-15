@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
+  Bullseye,
   Button,
   Card,
   CardBody,
@@ -20,6 +21,7 @@ import {
   FlexItem,
   Label,
   PageSection,
+  Spinner,
   Stack,
   StackItem,
   Title,
@@ -27,7 +29,8 @@ import {
 import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 
 import { usePersona } from '../context/PersonaContext';
-import { MOCK_SOURCES, MOCK_AUDIT_RECORDS } from '../data/mockSources';
+import { MOCK_AUDIT_RECORDS } from '../data/mockSources';
+import { useSources } from '../hooks/useSources';
 import {
   bestScore,
   healthIsProblematic,
@@ -43,6 +46,7 @@ import type { Source } from '../types/source';
 
 export default function AdminPage() {
   const { persona } = usePersona();
+  const { data: allSources, loading: sourcesLoading } = useSources();
   const isAdmin = persona.scopes.includes('admin.read');
   const isOwner = persona.owner_of_teams.length > 0;
 
@@ -61,9 +65,19 @@ export default function AdminPage() {
     );
   }
 
+  if (sourcesLoading) {
+    return (
+      <PageSection>
+        <Bullseye style={{ minHeight: '16rem' }}>
+          <Spinner size="xl" aria-label="Loading sources" />
+        </Bullseye>
+      </PageSection>
+    );
+  }
+
   const scopedSources: Source[] = isAdmin
-    ? MOCK_SOURCES
-    : ownedSources(persona, MOCK_SOURCES);
+    ? allSources
+    : ownedSources(persona, allSources);
 
   // Scoped audit: owner view only shows records for owned sources.
   const scopedAudit = isAdmin
@@ -234,7 +248,7 @@ export default function AdminPage() {
                       const health =
                         s.active_physical_index?.health ?? 'unknown';
                       const isStale =
-                        s.health_flags.some((f) => f.kind === 'stale_refresh');
+                        (s.health_flags ?? []).some((f) => f.kind === 'stale_refresh');
                       return (
                         <Tr key={s.id}>
                           <Td>
@@ -255,7 +269,7 @@ export default function AdminPage() {
                                   : undefined,
                               }}
                             >
-                              {relativeTime(s.lineage.last_refresh_at)}
+                              {relativeTime(s.lineage?.last_refresh_at)}
                             </span>
                           </Td>
                           <Td>

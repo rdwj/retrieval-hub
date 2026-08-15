@@ -75,7 +75,7 @@ export function ownedSources(persona: Persona, sources: Source[]): Source[] {
  * Returns null if there are no eval results yet.
  */
 export function bestScore(source: Source): BestScoreProjection | null {
-  if (source.evals.length === 0) return null;
+  if (!source.evals?.length) return null;
   const best = source.evals.reduce((acc, cur) =>
     cur.recall_at_5 > acc.recall_at_5 ? cur : acc,
   );
@@ -92,7 +92,7 @@ export function bestScore(source: Source): BestScoreProjection | null {
  * Does the source currently have any health flags or a non-ok physical index?
  */
 export function healthIsProblematic(source: Source): boolean {
-  if (source.health_flags.length > 0) return true;
+  if ((source.health_flags?.length ?? 0) > 0) return true;
   const h = source.active_physical_index?.health;
   return h === 'degraded' || h === 'failed';
 }

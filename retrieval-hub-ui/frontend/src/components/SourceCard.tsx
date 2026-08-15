@@ -279,7 +279,7 @@ export default function SourceCard({ source }: SourceCardProps) {
                     borderBottom: '1px dotted var(--pf-v5-global--Color--300)',
                   }}
                 >
-                  {source.recipe.embedding_model}
+                  {source.recipe?.embedding_model ?? 'unknown'}
                 </span>
               </Tooltip>
               <div>
@@ -290,7 +290,7 @@ export default function SourceCard({ source }: SourceCardProps) {
                       borderBottom: '1px dotted var(--pf-v5-global--Color--300)',
                     }}
                   >
-                    {source.recipe.chunker_summary}
+                    {source.recipe?.chunker_summary ?? 'unknown'}
                   </span>
                 </Tooltip>
                 {' · '}
@@ -301,7 +301,7 @@ export default function SourceCard({ source }: SourceCardProps) {
                       borderBottom: '1px dotted var(--pf-v5-global--Color--300)',
                     }}
                   >
-                    {source.recipe.backend_kind}
+                    {source.recipe?.backend_kind ?? 'unknown'}
                   </span>
                 </Tooltip>
               </div>
@@ -327,7 +327,7 @@ export default function SourceCard({ source }: SourceCardProps) {
           <StackItem>
             <RowLabel>Updated</RowLabel>
             <Tooltip
-              content={`Last refreshed from the source's origin. Refresh cadence: ${source.lineage.refresh_cadence}.`}
+              content={`Last refreshed from the source's origin. Refresh cadence: ${source.lineage?.refresh_cadence ?? 'unknown'}.`}
             >
               <span
                 style={{
@@ -339,7 +339,7 @@ export default function SourceCard({ source }: SourceCardProps) {
                   cursor: 'help',
                 }}
               >
-                <ClockIcon /> Refreshed {relativeTime(source.lineage.last_refresh_at)}
+                <ClockIcon /> Refreshed {relativeTime(source.lineage?.last_refresh_at)}
               </span>
             </Tooltip>
           </StackItem>
@@ -370,8 +370,8 @@ export default function SourceCard({ source }: SourceCardProps) {
       <CardFooter>
         <span style={{ fontSize: '0.75rem', color: 'var(--pf-v5-global--Color--200)' }}>
           <UsersIcon /> Owned by {source.owner.team} ·{' '}
-          {formatNumber(source.recipe.version)
-            ? `recipe v${source.recipe.version}`
+          {formatNumber(source.recipe?.version)
+            ? `recipe v${source.recipe?.version}`
             : ''}
         </span>
       </CardFooter>

@@ -20,27 +20,26 @@ interface ActionBarProps {
   canQuery: boolean;
 }
 
-const MCP_CONFIG_TEMPLATE = (slug: string) =>
-  `{
+const MCP_CONFIG_TEMPLATE = (slug: string, mcpUrl?: string | null) => {
+  const url = mcpUrl || 'https://mcp.retrieval-hub.example.com/mcp';
+  return `{
   "mcpServers": {
     "retrieval-hub": {
-      "transport": "streamable-http",
-      "url": "https://mcp.retrieval-hub.example.com/mcp",
-      "tools": ["query_source"],
-      "defaults": {
-        "source_slug": "${slug}",
-        "top_k": 10,
-        "use_rewrite": true
-      }
+      "type": "streamable-http",
+      "url": "${url}"
     }
   }
-}`;
+}
+
+Example query:
+  retrieve({ "query": "your question here", "source": "${slug}", "top_k": 5 })`;
+};
 
 export default function ActionBar({ source, canQuery }: ActionBarProps) {
   const navigate = useNavigate();
 
   const copyMcp = async () => {
-    const snippet = MCP_CONFIG_TEMPLATE(source.slug);
+    const snippet = MCP_CONFIG_TEMPLATE(source.slug, (source as any).mcp_endpoint);
     try {
       await navigator.clipboard.writeText(snippet);
       alert('MCP config snippet copied to clipboard.');

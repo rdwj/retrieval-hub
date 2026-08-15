@@ -1,0 +1,33 @@
+# retrieval-hub-ui live-data image (proxies /api/ to the BFF service).
+#
+# Peer component of retrieval-hub per docs/PLATFORM_COMPONENT_PATTERN.md.
+# Multi-stage: builds the Vite+React app, then serves via UBI nginx
+# with an API reverse proxy to retrieval-hub-bff.
+#
+# Build (on Mac, for OpenShift):
+#   podman build --platform linux/amd64 -t retrieval-hub-ui-live:latest \
+#     -f Containerfile.live .
+
+# --- stage 1: build ---
+FROM node:18-alpine AS build
+
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# --- stage 2: serve ---
+FROM registry.access.redhat.com/ubi9/nginx-124:latest
+
+LABEL name="retrieval-hub-ui-live" \
+      summary="retrieval-hub catalog UI with live BFF proxy" \
+      io.k8s.description="PatternFly catalog UI for retrieval-hub with nginx reverse proxy to BFF." \
+      io.openshift.tags="retrieval-hub,ui,patternfly,nginx,bff"
+
+COPY nginx-live.conf "${NGINX_DEFAULT_CONF_PATH}/spa-routing.conf"
+COPY --from=build /app/dist .
+
+EXPOSE 8080
+
+CMD ["nginx", "-g", "daemon off;"]

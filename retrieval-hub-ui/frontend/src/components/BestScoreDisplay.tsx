@@ -27,7 +27,7 @@ export default function BestScoreDisplay({ source }: BestScoreDisplayProps) {
     );
   }
 
-  const showLift = source.rewriter.enabled && best.rewrite_lift !== null;
+  const showLift = source.rewriter?.enabled && best.rewrite_lift !== null;
 
   return (
     <Stack>
@@ -94,7 +94,7 @@ export default function BestScoreDisplay({ source }: BestScoreDisplayProps) {
                 </Tr>
               </Thead>
               <Tbody>
-                {source.evals.map((e) => (
+                {(source.evals ?? []).map((e) => (
                   <Tr key={e.eval_run_id}>
                     <Td>{e.llm}</Td>
                     <Td>{formatScore(e.recall_at_5)}</Td>

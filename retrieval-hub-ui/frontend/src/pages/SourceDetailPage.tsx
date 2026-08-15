@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   Breadcrumb,
   BreadcrumbItem,
+  Bullseye,
   Button,
   Card,
   CardBody,
@@ -28,6 +29,7 @@ import {
   Label,
   LabelGroup,
   PageSection,
+  Spinner,
   Stack,
   StackItem,
   Tab,
@@ -44,7 +46,7 @@ import ActionBar from '../components/ActionBar';
 import DomainTags from '../components/DomainTags';
 import FamilyIcon from '../components/FamilyIcon';
 import { usePersona } from '../context/PersonaContext';
-import { MOCK_SOURCES } from '../data/mockSources';
+import { useSource } from '../hooks/useSource';
 import { bestScore, canAccess } from '../utils/accessCheck';
 import {
   absoluteTime,
@@ -82,7 +84,17 @@ export default function SourceDetailPage() {
     }
   }, [location.hash, tourActive]);
 
-  const source = MOCK_SOURCES.find((s) => s.slug === slug);
+  const { data: source, loading } = useSource(slug!);
+
+  if (loading) {
+    return (
+      <PageSection>
+        <Bullseye style={{ minHeight: '16rem' }}>
+          <Spinner size="xl" aria-label="Loading source" />
+        </Bullseye>
+      </PageSection>
+    );
+  }
 
   if (!source) {
     return (
@@ -163,7 +175,7 @@ export default function SourceDetailPage() {
             </FlexItem>
             <FlexItem>
               <span style={{ fontSize: '0.85rem' }}>
-                Refreshed {relativeTime(source.lineage.last_refresh_at)}
+                Refreshed {relativeTime(source.lineage?.last_refresh_at)}
               </span>
             </FlexItem>
           </Flex>
@@ -234,7 +246,7 @@ function OverviewTab({ source }: { source: Source }) {
       "defaults": {
         "source_slug": "${source.slug}",
         "top_k": 10,
-        "use_rewrite": ${source.rewriter.enabled}
+        "use_rewrite": ${source.rewriter?.enabled ?? false}
       }
     }
   }
@@ -257,7 +269,7 @@ function OverviewTab({ source }: { source: Source }) {
                 <DescriptionListDescription>
                   {best
                     ? `R@5 ${formatScore(best.value)} on ${best.llm}${
-                        best.rewrite_lift !== null && source.rewriter.enabled
+                        best.rewrite_lift !== null && source.rewriter?.enabled
                           ? ` (${formatSignedDelta(best.rewrite_lift)} with rewriter)`
                           : ''
                       }`
@@ -279,15 +291,15 @@ function OverviewTab({ source }: { source: Source }) {
               <DescriptionListGroup>
                 <DescriptionListTerm>Rewriter</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.rewriter.enabled
-                    ? `Enabled (${source.rewriter.vocabulary_mappings.length} vocabulary mappings)`
+                  {source.rewriter?.enabled
+                    ? `Enabled (${source.rewriter?.vocabulary_mappings?.length ?? 0} vocabulary mappings)`
                     : 'Disabled'}
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>Retrieval patterns</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.retrieval_supported_patterns
+                  {(source.retrieval_supported_patterns ?? [])
                     .map((p) => p.pattern)
                     .join(', ')}
                 </DescriptionListDescription>
@@ -303,8 +315,8 @@ function OverviewTab({ source }: { source: Source }) {
               <DescriptionListGroup>
                 <DescriptionListTerm>Refresh cadence</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.lineage.refresh_cadence} · last{' '}
-                  {relativeTime(source.lineage.last_refresh_at)}
+                  {source.lineage?.refresh_cadence ?? 'unknown'} · last{' '}
+                  {relativeTime(source.lineage?.last_refresh_at)}
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
@@ -463,7 +475,7 @@ function RecipeTab({ source }: { source: Source }) {
                 </Tr>
               </Thead>
               <Tbody>
-                {source.retrieval_supported_patterns.map((p) => (
+                {(source.retrieval_supported_patterns ?? []).map((p) => (
                   <Tr key={p.pattern}>
                     <Td>
                       <code>{p.pattern}</code>
@@ -498,7 +510,7 @@ function EvaluationsTab({ source }: { source: Source }) {
     alert(`Would open MLflow run: ${e.mlflow_run_id ?? e.eval_run_id}`);
   };
 
-  if (source.evals.length === 0) {
+  if (!source.evals?.length) {
     return (
       <EmptyState variant={EmptyStateVariant.sm} style={{ marginTop: '1rem' }}>
         <Title headingLevel="h3">No eval runs yet</Title>
@@ -527,7 +539,7 @@ function EvaluationsTab({ source }: { source: Source }) {
             </Tr>
           </Thead>
           <Tbody>
-            {source.evals.map((e) => (
+            {(source.evals ?? []).map((e) => (
               <Tr key={e.eval_run_id}>
                 <Td>{e.llm}</Td>
                 <Td>{formatScore(e.recall_at_5)}</Td>
@@ -569,7 +581,7 @@ function RewriterTab({ source }: { source: Source }) {
   const [testQuery, setTestQuery] = useState('');
   const [testResult, setTestResult] = useState<string[] | null>(null);
 
-  if (!source.rewriter.enabled) {
+  if (!source.rewriter?.enabled) {
     return (
       <EmptyState variant={EmptyStateVariant.sm} style={{ marginTop: '1rem' }}>
         <Title headingLevel="h3">Rewriter is disabled</Title>
@@ -587,7 +599,7 @@ function RewriterTab({ source }: { source: Source }) {
     // Mock: just substitute the first few known vocabulary terms.
     const base = testQuery.toLowerCase();
     let rewrite = testQuery;
-    for (const m of source.rewriter.vocabulary_mappings.slice(0, 6)) {
+    for (const m of (source.rewriter?.vocabulary_mappings ?? []).slice(0, 6)) {
       if (base.includes(m.lay_term.toLowerCase())) {
         rewrite = rewrite.replace(
           new RegExp(m.lay_term, 'ig'),
@@ -598,7 +610,7 @@ function RewriterTab({ source }: { source: Source }) {
     setTestResult([
       rewrite,
       `${rewrite} (focused on ${source.family})`,
-      `${source.rewriter.domain_notes.split('.')[0] || 'domain-aware'}: ${rewrite}`,
+      `${(source.rewriter?.domain_notes ?? '').split('.')[0] || 'domain-aware'}: ${rewrite}`,
     ]);
   };
 
@@ -613,33 +625,33 @@ function RewriterTab({ source }: { source: Source }) {
                 <DescriptionListTerm>Shared template</DescriptionListTerm>
                 <DescriptionListDescription>
                   <code>
-                    {source.rewriter.shared_template_pointer} v
-                    {source.rewriter.shared_template_version}
+                    {source.rewriter?.shared_template_pointer} v
+                    {source.rewriter?.shared_template_version}
                   </code>
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>Default LLM</DescriptionListTerm>
                 <DescriptionListDescription>
-                  <code>{source.rewriter.default_llm}</code>
+                  <code>{source.rewriter?.default_llm}</code>
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>LLM resolution</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.rewriter.llm_resolution}
+                  {source.rewriter?.llm_resolution}
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>Max rewrites</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.rewriter.max_rewrites}
+                  {source.rewriter?.max_rewrites}
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>Metadata version</DescriptionListTerm>
                 <DescriptionListDescription>
-                  v{source.rewriter.metadata_version}
+                  v{source.rewriter?.metadata_version}
                 </DescriptionListDescription>
               </DescriptionListGroup>
             </DescriptionList>
@@ -649,7 +661,7 @@ function RewriterTab({ source }: { source: Source }) {
       <StackItem>
         <Card>
           <CardTitle>
-            Vocabulary mappings ({source.rewriter.vocabulary_mappings.length})
+            Vocabulary mappings ({source.rewriter?.vocabulary_mappings?.length ?? 0})
           </CardTitle>
           <CardBody>
             <Table variant="compact" aria-label="Vocabulary mappings">
@@ -661,7 +673,7 @@ function RewriterTab({ source }: { source: Source }) {
                 </Tr>
               </Thead>
               <Tbody>
-                {source.rewriter.vocabulary_mappings.map((m) => (
+                {(source.rewriter?.vocabulary_mappings ?? []).map((m) => (
                   <Tr key={m.lay_term}>
                     <Td>{m.lay_term}</Td>
                     <Td>{m.canonical_term}</Td>
@@ -676,7 +688,7 @@ function RewriterTab({ source }: { source: Source }) {
       <StackItem>
         <Card>
           <CardTitle>
-            Sample queries ({source.rewriter.sample_queries.length})
+            Sample queries ({source.rewriter?.sample_queries?.length ?? 0})
           </CardTitle>
           <CardBody>
             <Table variant="compact" aria-label="Sample queries">
@@ -687,7 +699,7 @@ function RewriterTab({ source }: { source: Source }) {
                 </Tr>
               </Thead>
               <Tbody>
-                {source.rewriter.sample_queries.map((q, idx) => (
+                {(source.rewriter?.sample_queries ?? []).map((q, idx) => (
                   <Tr key={idx}>
                     <Td>{q.raw_query}</Td>
                     <Td>
@@ -709,7 +721,7 @@ function RewriterTab({ source }: { source: Source }) {
           <CardTitle>Domain notes</CardTitle>
           <CardBody>
             <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-              {source.rewriter.domain_notes}
+              {source.rewriter?.domain_notes}
             </p>
           </CardBody>
         </Card>
@@ -957,7 +969,7 @@ function LineageTab({ source }: { source: Source }) {
               <DescriptionListGroup>
                 <DescriptionListTerm>Kind</DescriptionListTerm>
                 <DescriptionListDescription>
-                  <code>{source.lineage.origin_kind}</code>
+                  <code>{source.lineage?.origin_kind}</code>
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
@@ -965,7 +977,7 @@ function LineageTab({ source }: { source: Source }) {
                 <DescriptionListDescription>
                   <CodeBlock>
                     <CodeBlockCode>
-                      {JSON.stringify(source.lineage.origin_config, null, 2)}
+                      {JSON.stringify(source.lineage?.origin_config, null, 2)}
                     </CodeBlockCode>
                   </CodeBlock>
                 </DescriptionListDescription>
@@ -973,21 +985,21 @@ function LineageTab({ source }: { source: Source }) {
               <DescriptionListGroup>
                 <DescriptionListTerm>Refresh cadence</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.lineage.refresh_cadence}
+                  {source.lineage?.refresh_cadence}
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>Last refresh</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {relativeTime(source.lineage.last_refresh_at)} (
-                  {absoluteTime(source.lineage.last_refresh_at)})
+                  {relativeTime(source.lineage?.last_refresh_at)} (
+                  {absoluteTime(source.lineage?.last_refresh_at)})
                 </DescriptionListDescription>
               </DescriptionListGroup>
               <DescriptionListGroup>
                 <DescriptionListTerm>Next refresh</DescriptionListTerm>
                 <DescriptionListDescription>
-                  {source.lineage.next_scheduled_refresh_at
-                    ? relativeTime(source.lineage.next_scheduled_refresh_at)
+                  {source.lineage?.next_scheduled_refresh_at
+                    ? relativeTime(source.lineage?.next_scheduled_refresh_at)
                     : 'On demand / not scheduled'}
                 </DescriptionListDescription>
               </DescriptionListGroup>
@@ -998,14 +1010,14 @@ function LineageTab({ source }: { source: Source }) {
       <StackItem>
         <Card>
           <CardTitle>
-            Ingestion runs ({source.lineage.ingestion_runs.length})
+            Ingestion runs ({source.lineage?.ingestion_runs?.length ?? 0})
           </CardTitle>
           <CardBody>
-            {source.lineage.ingestion_runs.length === 0 ? (
+            {!source.lineage?.ingestion_runs?.length ? (
               <p>No ingestion runs recorded yet.</p>
             ) : (
               <DataList aria-label="Ingestion runs" isCompact>
-                {source.lineage.ingestion_runs.map((r) => (
+                {(source.lineage?.ingestion_runs ?? []).map((r) => (
                   <DataListItem key={r.id}>
                     <DataListItemRow>
                       <DataListItemCells

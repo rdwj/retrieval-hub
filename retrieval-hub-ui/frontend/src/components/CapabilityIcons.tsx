@@ -107,7 +107,7 @@ function patternDescription(pattern: RetrievalPattern): React.ReactNode {
 export default function CapabilityIcons({ source }: CapabilityIconsProps) {
   return (
     <Flex spaceItems={{ default: 'spaceItemsSm' }} flexWrap={{ default: 'wrap' }}>
-      {source.rewriter.enabled && (
+      {source.rewriter?.enabled && (
         <FlexItem>
           <Tooltip
             content={
@@ -172,7 +172,7 @@ export default function CapabilityIcons({ source }: CapabilityIconsProps) {
           </Tooltip>
         </FlexItem>
       )}
-      {source.retrieval_supported_patterns.slice(0, 3).map((p) => (
+      {(source.retrieval_supported_patterns ?? []).slice(0, 3).map((p) => (
         <FlexItem key={p.pattern}>
           <Tooltip content={patternDescription(p.pattern)}>
             <span

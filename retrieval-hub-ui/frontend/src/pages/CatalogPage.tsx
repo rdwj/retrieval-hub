@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
+  Bullseye,
   Checkbox,
   EmptyState,
   EmptyStateBody,
@@ -11,6 +12,7 @@ import {
   Select,
   SelectList,
   SelectOption,
+  Spinner,
   Title,
   Toolbar,
   ToolbarContent,
@@ -23,7 +25,7 @@ import { useState } from 'react';
 
 import SourceCard from '../components/SourceCard';
 import { usePersona } from '../context/PersonaContext';
-import { MOCK_SOURCES } from '../data/mockSources';
+import { useSources } from '../hooks/useSources';
 import { bestScore, visibleSourcesForCatalog } from '../utils/accessCheck';
 import type { SourceFamily, Visibility } from '../types/source';
 
@@ -31,6 +33,7 @@ type SortMode = 'alpha' | 'recent' | 'score';
 
 export default function CatalogPage() {
   const { persona } = usePersona();
+  const { data: allSources, loading: sourcesLoading } = useSources();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const q = searchParams.get('q') ?? '';
@@ -51,12 +54,12 @@ export default function CatalogPage() {
   };
 
   const visible = useMemo(
-    () => visibleSourcesForCatalog(persona, MOCK_SOURCES),
-    [persona],
+    () => visibleSourcesForCatalog(persona, allSources),
+    [persona, allSources],
   );
 
   const filtered = useMemo(() => {
-    let out = visible.filter((s) => s.status === 'published');
+    let out = [...visible];
     if (q.trim()) {
       const needle = q.toLowerCase();
       out = out.filter(
@@ -214,7 +217,11 @@ export default function CatalogPage() {
         </Toolbar>
       </PageSection>
       <PageSection>
-        {filtered.length === 0 ? (
+        {sourcesLoading ? (
+          <Bullseye style={{ minHeight: '16rem' }}>
+            <Spinner size="xl" aria-label="Loading sources" />
+          </Bullseye>
+        ) : filtered.length === 0 ? (
           <EmptyState variant={EmptyStateVariant.lg}>
             <Title headingLevel="h2">No sources match your filters</Title>
             <EmptyStateBody>
