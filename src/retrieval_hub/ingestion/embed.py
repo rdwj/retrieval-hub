@@ -78,10 +78,12 @@ class ChunkEmbedder:
         cache_dir: str | None = DEFAULT_MODEL_CACHE_DIR,
         batch_size: int = 32,
         document_prefix: str = "search_document: ",
+        prompt_name: str | None = None,
     ) -> None:
         self.model_name = model_name
         self.batch_size = batch_size
         self._document_prefix = document_prefix
+        self._prompt_name = prompt_name
         self._model = _load_model(model_name, cache_dir=cache_dir)
 
     @property
@@ -98,18 +100,23 @@ class ChunkEmbedder:
         if not chunks:
             return []
         texts = [c.text for c in chunks]
-        prefixed = (
-            [f"{self._document_prefix}{t}" for t in texts]
-            if self._document_prefix
-            else texts
-        )
-        vectors = self._model.encode(
-            prefixed,
-            batch_size=self.batch_size,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
+
+        encode_kwargs: dict = {
+            "batch_size": self.batch_size,
+            "convert_to_numpy": True,
+            "normalize_embeddings": True,
+            "show_progress_bar": False,
+        }
+
+        if self._prompt_name:
+            encode_kwargs["prompt_name"] = self._prompt_name
+            sentences = texts
+        elif self._document_prefix:
+            sentences = [f"{self._document_prefix}{t}" for t in texts]
+        else:
+            sentences = texts
+
+        vectors = self._model.encode(sentences, **encode_kwargs)
         return [list(map(float, v)) for v in vectors]
 
 
@@ -133,21 +140,27 @@ class QueryEmbedder:
         model_name: str = DEFAULT_MODEL_NAME,
         cache_dir: str | None = DEFAULT_MODEL_CACHE_DIR,
         query_prefix: str = "search_query: ",
+        prompt_name: str | None = None,
     ) -> None:
         self.model_name = model_name
         self._query_prefix = query_prefix
+        self._prompt_name = prompt_name
         self._model = _load_model(model_name, cache_dir=cache_dir)
 
     def embed(self, query_text: str) -> list[float]:
-        prefixed = (
-            f"{self._query_prefix}{query_text}"
-            if self._query_prefix
-            else query_text
-        )
-        vector = self._model.encode(
-            [prefixed],
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )[0]
+        encode_kwargs: dict = {
+            "convert_to_numpy": True,
+            "normalize_embeddings": True,
+            "show_progress_bar": False,
+        }
+
+        if self._prompt_name:
+            encode_kwargs["prompt_name"] = self._prompt_name
+            sentences = [query_text]
+        elif self._query_prefix:
+            sentences = [f"{self._query_prefix}{query_text}"]
+        else:
+            sentences = [query_text]
+
+        vector = self._model.encode(sentences, **encode_kwargs)[0]
         return list(map(float, vector))

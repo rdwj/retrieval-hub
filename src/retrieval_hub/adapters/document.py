@@ -92,14 +92,13 @@ class DocumentAdapter(SourceAdapter):
         top_k: int,
         request_id: str,
     ) -> list[Any]:
-        # Imported lazily to avoid pulling sentence-transformers into mere
-        # package-imports during tests that don't exercise the real path.
         from retrieval_hub.ingestion.embed import QueryEmbedder
         from retrieval_hub.retrieval.api import RetrievalResult
 
         embedder = QueryEmbedder(
             model_name=self._embedding_model_name(),
             query_prefix=self._query_prefix(),
+            prompt_name=self._query_prompt_name(),
         )
         query_vec = embedder.embed(query_text)
 
@@ -128,6 +127,12 @@ class DocumentAdapter(SourceAdapter):
         content = self.recipe_version.content or {}
         embedding = content.get("embedding") or {}
         return embedding.get("query_prefix", "search_query: ")
+
+    def _query_prompt_name(self) -> str | None:
+        """Pull the prompt_name from the recipe for models that use it."""
+        content = self.recipe_version.content or {}
+        embedding = content.get("embedding") or {}
+        return embedding.get("query_prompt_name")
 
     def _embedding_model_name(self) -> str:
         """Pull the embedding model name out of the recipe body."""
