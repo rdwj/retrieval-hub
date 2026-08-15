@@ -19,6 +19,7 @@ class SourceFamily(StrEnum):
     CODE = "code"
     TABULAR = "tabular"
     GRAPH = "graph"
+    PROCESS = "process"
     EXTERNAL = "external"
 
 
@@ -90,6 +91,7 @@ class EvalSuiteFamily(StrEnum):
     CODE = "code"
     TABULAR = "tabular"
     GRAPH = "graph"
+    PROCESS = "process"
     EXTERNAL = "external"
 
 
