@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "retrieval-hub": {
+      "type": "streamable-http",
+      "url": "https://retrieval-hub-mcp-retrieval-hub.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/mcp
+    }
+  }
+}

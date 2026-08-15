@@ -61,6 +61,14 @@ class ChunkEmbedder:
 
     The embedder is created once per ingest run and reused across batches so
     the model only loads into memory one time.
+
+    Parameters
+    ----------
+    document_prefix:
+        String prepended to each chunk before encoding.  Defaults to
+        ``"search_document: "`` (the prefix Nomic v1.5 expects for corpus
+        text).  Set to ``""`` for models like PubMedBERT that require no
+        prefix.
     """
 
     def __init__(
@@ -69,9 +77,11 @@ class ChunkEmbedder:
         model_name: str = DEFAULT_MODEL_NAME,
         cache_dir: str | None = DEFAULT_MODEL_CACHE_DIR,
         batch_size: int = 32,
+        document_prefix: str = "search_document: ",
     ) -> None:
         self.model_name = model_name
         self.batch_size = batch_size
+        self._document_prefix = document_prefix
         self._model = _load_model(model_name, cache_dir=cache_dir)
 
     @property
@@ -88,8 +98,11 @@ class ChunkEmbedder:
         if not chunks:
             return []
         texts = [c.text for c in chunks]
-        # Nomic v1.5 wants a ``search_document: `` prefix for corpus text.
-        prefixed = [f"search_document: {t}" for t in texts]
+        prefixed = (
+            [f"{self._document_prefix}{t}" for t in texts]
+            if self._document_prefix
+            else texts
+        )
         vectors = self._model.encode(
             prefixed,
             batch_size=self.batch_size,
@@ -105,6 +118,13 @@ class QueryEmbedder:
 
     Uses the same model as ``ChunkEmbedder`` but the ``search_query: `` prefix
     that Nomic's instructions recommend for queries.
+
+    Parameters
+    ----------
+    query_prefix:
+        String prepended to the query before encoding.  Defaults to
+        ``"search_query: "`` (the prefix Nomic v1.5 expects for queries).
+        Set to ``""`` for models like PubMedBERT that require no prefix.
     """
 
     def __init__(
@@ -112,12 +132,18 @@ class QueryEmbedder:
         *,
         model_name: str = DEFAULT_MODEL_NAME,
         cache_dir: str | None = DEFAULT_MODEL_CACHE_DIR,
+        query_prefix: str = "search_query: ",
     ) -> None:
         self.model_name = model_name
+        self._query_prefix = query_prefix
         self._model = _load_model(model_name, cache_dir=cache_dir)
 
     def embed(self, query_text: str) -> list[float]:
-        prefixed = f"search_query: {query_text}"
+        prefixed = (
+            f"{self._query_prefix}{query_text}"
+            if self._query_prefix
+            else query_text
+        )
         vector = self._model.encode(
             [prefixed],
             convert_to_numpy=True,

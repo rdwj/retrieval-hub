@@ -119,6 +119,9 @@ def fetch_pdf_url(
 # fallback corpus. Case-insensitive comparison against `Path.stem`.
 _FALLBACK_CORPUS_SKIP_STEMS = frozenset({"readme", "index", "license", "contributing"})
 
+# Alias used by both flat and recursive loaders.
+_SKIP_STEMS = _FALLBACK_CORPUS_SKIP_STEMS
+
 
 def load_fallback_corpus(corpus_dir: Path) -> list[FetchedDocument]:
     """Load a directory of hand-written Markdown files as a fallback corpus.
@@ -154,6 +157,72 @@ def load_fallback_corpus(corpus_dir: Path) -> list[FetchedDocument]:
         )
     logger.info(
         "fetch.load_fallback_corpus dir=%s count=%d skipped=%s",
+        corpus_dir,
+        len(docs),
+        skipped,
+    )
+    return docs
+
+
+def load_corpus_tree(
+    corpus_dir: Path,
+    *,
+    url_map: dict[str, str] | None = None,
+) -> list[FetchedDocument]:
+    """Recursively walk *corpus_dir* loading every ``.md`` file.
+
+    Unlike :func:`load_fallback_corpus`, this function descends into
+    subdirectories and derives document titles from the directory structure
+    (``category/slug/doc-type``).
+
+    When *url_map* is provided, each document's URL is resolved by
+    looking up ``"{slug}/{document_type}"`` (e.g.
+    ``"hypertension/full-guideline"``) in the map.  Documents not found
+    in the map fall back to a ``file://`` URL.
+    """
+    corpus_dir = Path(corpus_dir)
+    if not corpus_dir.is_dir():
+        raise FetchError(f"Corpus directory does not exist: {corpus_dir}")
+
+    docs: list[FetchedDocument] = []
+    skipped: list[str] = []
+
+    for md_path in corpus_dir.rglob("*.md"):
+        if md_path.stem.lower() in _SKIP_STEMS:
+            skipped.append(str(md_path.relative_to(corpus_dir)))
+            continue
+
+        relative = md_path.relative_to(corpus_dir)
+        parts = relative.parent.parts
+        title = "/".join(parts) + "/" + relative.stem if parts else relative.stem
+
+        metadata: dict[str, str] = {"source": "corpus_tree"}
+        if len(parts) >= 1:
+            metadata["category"] = parts[0]
+        if len(parts) >= 2:
+            metadata["slug"] = parts[1]
+        metadata["document_type"] = relative.stem
+
+        doc_url = f"file://{md_path.resolve()}"
+        if url_map and len(parts) >= 2:
+            map_key = f"{parts[1]}/{relative.stem}"
+            doc_url = url_map.get(map_key, doc_url)
+
+        text = md_path.read_text(encoding="utf-8")
+        docs.append(
+            FetchedDocument(
+                url=doc_url,
+                title=title,
+                content=text,
+                content_type="text/markdown",
+                raw_bytes=text.encode("utf-8"),
+                metadata=metadata,
+            )
+        )
+
+    docs.sort(key=lambda d: d.title)
+    logger.info(
+        "fetch.load_corpus_tree dir=%s count=%d skipped=%s",
         corpus_dir,
         len(docs),
         skipped,

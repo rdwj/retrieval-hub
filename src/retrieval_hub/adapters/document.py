@@ -97,7 +97,10 @@ class DocumentAdapter(SourceAdapter):
         from retrieval_hub.ingestion.embed import QueryEmbedder
         from retrieval_hub.retrieval.api import RetrievalResult
 
-        embedder = QueryEmbedder(model_name=self._embedding_model_name())
+        embedder = QueryEmbedder(
+            model_name=self._embedding_model_name(),
+            query_prefix=self._query_prefix(),
+        )
         query_vec = embedder.embed(query_text)
 
         rows = self._similarity_search(query_vec, top_k=top_k)
@@ -119,6 +122,12 @@ class DocumentAdapter(SourceAdapter):
         return results
 
     # -- internals --------------------------------------------------------
+
+    def _query_prefix(self) -> str:
+        """Pull the query prefix from the recipe, defaulting to Nomic's."""
+        content = self.recipe_version.content or {}
+        embedding = content.get("embedding") or {}
+        return embedding.get("query_prefix", "search_query: ")
 
     def _embedding_model_name(self) -> str:
         """Pull the embedding model name out of the recipe body."""

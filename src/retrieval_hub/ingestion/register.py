@@ -70,7 +70,9 @@ def register_document_source(
     document_count: int,
     chunk_count: int,
     sample_prompts: list[tuple[str, str]] | None = None,
+    usage_rules: dict[str, Any] | None = None,
     triggered_by: str = "script:step4_ingest",
+    family: SourceFamily = SourceFamily.DOCUMENT,
 ) -> RegistrationResult:
     """Register (or update) a ``document``-family source in the catalog.
 
@@ -118,7 +120,7 @@ def register_document_source(
         source = Source(
             slug=slug,
             name=name,
-            family=SourceFamily.DOCUMENT,
+            family=family,
             status=SourceStatus.CURATED,
             visibility=AccessVisibility.PUBLIC,
             description_short=description_short,
@@ -128,6 +130,7 @@ def register_document_source(
             maintainers=[],
             rewriter_metadata={"enabled": False},
             agent_write_policy={"allowed": False},
+            usage_rules=usage_rules,
             access={"visibility": "public", "allowed_groups": []},
             lineage_origin={
                 "kind": "hand_run_script",
@@ -147,6 +150,8 @@ def register_document_source(
         source.name = name
         source.description_short = description_short
         source.description_long = description_long
+        if usage_rules is not None:
+            source.usage_rules = usage_rules
         source.updated_at = now
         source.updated_by = triggered_by
         logger.info("register.updated_source slug=%s id=%s", slug, source.id)

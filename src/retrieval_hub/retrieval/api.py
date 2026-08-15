@@ -66,7 +66,7 @@ def _build_adapter(
     vectors_db_url: str | None,
 ) -> SourceAdapter:
     """Return the right adapter instance for the source's family."""
-    if source.family == SourceFamily.DOCUMENT:
+    if source.family in (SourceFamily.DOCUMENT, SourceFamily.CLINICAL_DOCUMENT):
         return DocumentAdapter(
             source=source,
             physical_index=physical_index,
@@ -75,7 +75,7 @@ def _build_adapter(
         )
     raise UnsupportedFamilyError(
         f"No adapter implementation for family {source.family!r} yet. "
-        f"Step 4 ships only the 'document' family."
+        f"Supported families: document, clinical_document."
     )
 
 
