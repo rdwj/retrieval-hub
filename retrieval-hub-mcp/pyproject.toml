@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "retrieval-hub-mcp"
+version = "0.1.0"
+description = "MCP server for RetrievalHub — exposes catalog and retrieval tools to AI agents"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = [
+    "fastmcp==4.0.0b1",
+    "retrieval-hub",
+    "sentence-transformers>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]

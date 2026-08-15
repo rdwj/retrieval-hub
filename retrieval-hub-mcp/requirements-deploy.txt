@@ -1,0 +1,25 @@
+# Runtime dependencies for the RetrievalHub MCP server container.
+#
+# Both the core library (retrieval-hub) and the MCP server
+# (retrieval-hub-mcp) are installed from source in the Containerfile.
+# This file lists only their combined third-party deps so pip can
+# resolve them in a single cached layer.
+
+# --- Core library deps ---
+sqlalchemy>=2.0,<3.0
+alembic>=1.13
+pydantic>=2.6,<3.0
+psycopg[binary]>=3.1,<4.0
+httpx>=0.27
+tiktoken>=0.7
+beautifulsoup4>=4.12
+markdownify>=0.13
+pypdf>=4.3
+pgvector>=0.3
+numpy>=1.26,<3.0
+
+# --- Embedding (needed at query time for QueryEmbedder) ---
+sentence-transformers>=3.0
+
+# --- MCP server deps ---
+fastmcp==4.0.0b1

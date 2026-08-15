@@ -1,0 +1,123 @@
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: retrieval-hub-mcp
+  labels:
+    app: retrieval-hub-mcp
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: retrieval-hub-mcp:latest
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  resources:
+    limits:
+      memory: 4Gi
+      cpu: "2"
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: retrieval-hub-mcp
+  labels:
+    app: retrieval-hub-mcp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retrieval-hub-mcp
+  labels:
+    app: retrieval-hub-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retrieval-hub-mcp
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub-mcp
+    spec:
+      containers:
+      - name: retrieval-hub-mcp
+        image: retrieval-hub-mcp:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        env:
+        - name: MCP_TRANSPORT
+          value: "http"
+        - name: MCP_HTTP_HOST
+          value: "0.0.0.0"
+        - name: MCP_HTTP_PORT
+          value: "8080"
+        - name: RETRIEVAL_HUB_DB_URL
+          value: "postgresql+psycopg://retrievalhub:retrievalhub@retrieval-hub-pg:5432/retrievalhub"
+        - name: RETRIEVAL_HUB_VECTORS_DB_URL
+          value: "postgresql+psycopg://retrievalhub:retrievalhub@retrieval-hub-pg:5432/retrievalhub_vectors"
+        - name: SENTENCE_TRANSFORMERS_HOME
+          value: "/opt/app-root/src/.model_cache"
+        - name: HF_HOME
+          value: "/opt/app-root/src/.model_cache"
+        volumeMounts:
+        - name: model-cache
+          mountPath: /opt/app-root/src/.model_cache
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 500m
+          limits:
+            memory: 2Gi
+            cpu: "1"
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: retrieval-hub-model-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retrieval-hub-mcp
+  labels:
+    app: retrieval-hub-mcp
+spec:
+  selector:
+    app: retrieval-hub-mcp
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: retrieval-hub-mcp
+  labels:
+    app: retrieval-hub-mcp
+spec:
+  path: /mcp/
+  to:
+    kind: Service
+    name: retrieval-hub-mcp
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
