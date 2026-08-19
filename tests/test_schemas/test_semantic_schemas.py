@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from retrieval_hub.schemas.semantic import (
     EntityDefinition,
@@ -32,7 +33,7 @@ class TestEntityDefinition:
         assert e.attributes["scoring"]["severe"] == "20-27"
 
     def test_rejects_extra_fields(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EntityDefinition(
                 name="x", entity_type="y", definition="z", unknown_field="bad"
             )
@@ -117,5 +118,5 @@ class TestSemanticContext:
         assert restored == ctx
 
     def test_rejects_extra_fields(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             SemanticContext(unknown="bad")
