@@ -4,12 +4,12 @@
     "raw_hit_rate": 0.9666666666666667,
     "rewrite_hit_rate": 1.0,
     "raw_mrr": 0.9444444444444444,
-    "rewrite_mrr": 0.9344444444444444,
+    "rewrite_mrr": 0.9055555555555556,
     "raw_mean_score": 0.5969408553098879,
-    "rewrite_mean_score": 0.7036215355025779,
+    "rewrite_mean_score": 0.6987730542807788,
     "hit_rate_delta": 0.033333333333333326,
-    "mrr_delta": -0.010000000000000009,
-    "mean_score_delta": 0.10668068019268995
+    "mrr_delta": -0.03888888888888886,
+    "mean_score_delta": 0.10183219897089091
   },
   "by_register": {
     "lay": {
@@ -17,24 +17,24 @@
       "raw_hit_rate": 0.9285714285714286,
       "rewrite_hit_rate": 1.0,
       "raw_mrr": 0.880952380952381,
-      "rewrite_mrr": 0.9428571428571428,
+      "rewrite_mrr": 0.9642857142857143,
       "raw_mean_score": 0.5721671769539114,
-      "rewrite_mean_score": 0.6799025035128101,
+      "rewrite_mean_score": 0.6887084754379068,
       "hit_rate_delta": 0.0714285714285714,
-      "mrr_delta": 0.061904761904761796,
-      "mean_score_delta": 0.10773532655889873
+      "mrr_delta": 0.08333333333333326,
+      "mean_score_delta": 0.11654129848399541
     },
     "clinical": {
       "n": 16,
       "raw_hit_rate": 1.0,
       "rewrite_hit_rate": 1.0,
       "raw_mrr": 1.0,
-      "rewrite_mrr": 0.9270833333333334,
+      "rewrite_mrr": 0.8541666666666666,
       "raw_mean_score": 0.6186178238713675,
-      "rewrite_mean_score": 0.7243756884936249,
+      "rewrite_mean_score": 0.7075795607682916,
       "hit_rate_delta": 0.0,
-      "mrr_delta": -0.07291666666666663,
-      "mean_score_delta": 0.10575786462225734
+      "mrr_delta": -0.14583333333333337,
+      "mean_score_delta": 0.0889617368969241
     }
   },
   "improved_queries": [

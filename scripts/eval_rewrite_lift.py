@@ -35,6 +35,7 @@ from retrieval_hub.retrieval.api import RetrievalResult, query
 from retrieval_hub.rewriter.llm import LlmClient
 from retrieval_hub.rewriter.service import RewriterService
 from retrieval_hub.schemas.rewriter import RewriterMetadata
+from retrieval_hub.schemas.semantic import SemanticContext
 
 logger = logging.getLogger("eval_rewrite_lift")
 
@@ -169,6 +170,7 @@ async def _evaluate_single_query(
     rewriter: RewriterService,
     metadata: RewriterMetadata,
     vectors_db_url: str | None,
+    semantic_context: SemanticContext | None = None,
 ) -> QueryMetrics:
     """Run raw and rewritten retrieval for a single query, compute metrics."""
     metrics = QueryMetrics(
@@ -188,7 +190,9 @@ async def _evaluate_single_query(
     metrics.raw_hit, metrics.raw_mrr = _compute_hit_mrr(raw_results, q["cpg_slug"])
     metrics.raw_mean_score = _mean_score(raw_results)
 
-    rewrite_result = await rewriter.rewrite(q["question"], metadata)
+    rewrite_result = await rewriter.rewrite(
+        q["question"], metadata, semantic_context=semantic_context
+    )
     metrics.rewrites_used = len(rewrite_result.queries)
     metrics.rewrite_texts = [rq.text for rq in rewrite_result.queries]
 
@@ -359,6 +363,10 @@ async def _run_eval(
             return 1
         metadata = RewriterMetadata.model_validate(source.rewriter_metadata)
 
+        semantic = None
+        if source.semantic_context:
+            semantic = SemanticContext.model_validate(source.semantic_context)
+
     if not metadata.enabled:
         logger.error("Rewriter is disabled for source %r", SOURCE_SLUG)
         return 1
@@ -392,6 +400,7 @@ async def _run_eval(
                         rewriter=rewriter,
                         metadata=metadata,
                         vectors_db_url=vectors_db_url,
+                        semantic_context=semantic,
                     )
                 all_metrics.append(m)
 

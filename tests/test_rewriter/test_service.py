@@ -14,6 +14,9 @@ from retrieval_hub.rewriter.llm import LlmClient
 from retrieval_hub.rewriter.schemas import RewriteResult
 from retrieval_hub.rewriter.service import (
     RewriterService,
+    _format_abbreviations,
+    _format_entity_definitions,
+    _format_metrics,
     _format_sample_queries,
     _format_schema_hints,
     _format_vocabulary_mappings,
@@ -23,6 +26,12 @@ from retrieval_hub.schemas.rewriter import (
     RewriterMetadata,
     SampleQueryExample,
     VocabularyMapping,
+)
+from retrieval_hub.schemas.semantic import (
+    EntityDefinition,
+    MetricDefinition,
+    MetricThreshold,
+    SemanticContext,
 )
 
 # ---------------------------------------------------------------------------
@@ -81,7 +90,8 @@ def _write_template(tmp_path: Path, **overrides: object) -> Path:
         "name": "test-template",
         "version": "42",
         "system": "System: {vocabulary_mappings} {domain_notes} "
-        "{sample_queries} {max_rewrites} {schema_hints}",
+        "{sample_queries} {max_rewrites} {schema_hints} "
+        "{entity_definitions} {abbreviations} {metric_definitions}",
         "user": "Query: {raw_query}",
     }
     tpl.update(overrides)
@@ -188,6 +198,93 @@ class TestFormatSchemaHints:
     def test_no_hints(self) -> None:
         md = _make_metadata(schema_hints=None)
         assert _format_schema_hints(md) == "No schema hints."
+
+
+# ---------------------------------------------------------------------------
+# Semantic context formatting
+# ---------------------------------------------------------------------------
+
+
+def _make_semantic(**overrides: object) -> SemanticContext:
+    defaults: dict = {
+        "entities": [
+            EntityDefinition(
+                name="PTSD",
+                entity_type="condition",
+                definition="Post-traumatic stress disorder. A psychiatric condition.",
+                aliases=["shell shock"],
+            ),
+        ],
+        "abbreviations": {"PTSD": "post-traumatic stress disorder", "CBT": "cognitive behavioral therapy"},
+        "metrics": [
+            MetricDefinition(
+                name="PHQ-9",
+                metric_type="scoring_cutpoint",
+                definition="Depression severity scale.",
+                unit="score",
+                thresholds=[
+                    MetricThreshold(label="mild", value="5-9"),
+                    MetricThreshold(label="severe", value="20-27"),
+                ],
+            ),
+        ],
+    }
+    defaults.update(overrides)
+    return SemanticContext(**defaults)
+
+
+class TestFormatEntityDefinitions:
+    def test_renders_entities_with_aliases(self) -> None:
+        result = _format_entity_definitions(_make_semantic())
+        assert "PTSD" in result
+        assert "shell shock" in result
+        assert "condition" in result
+
+    def test_none_semantic(self) -> None:
+        assert "No entity" in _format_entity_definitions(None)
+
+    def test_empty_entities(self) -> None:
+        ctx = _make_semantic(entities=[])
+        assert "No entity" in _format_entity_definitions(ctx)
+
+    def test_truncates_definition_to_first_sentence(self) -> None:
+        result = _format_entity_definitions(_make_semantic())
+        assert "A psychiatric condition" not in result
+        assert "Post-traumatic stress disorder." in result
+
+
+class TestFormatAbbreviations:
+    def test_renders_table(self) -> None:
+        result = _format_abbreviations(_make_semantic())
+        assert "| PTSD |" in result
+        assert "| CBT |" in result
+        assert "| Abbreviation |" in result
+
+    def test_none_semantic(self) -> None:
+        assert "No abbreviation" in _format_abbreviations(None)
+
+    def test_empty_abbreviations(self) -> None:
+        ctx = _make_semantic(abbreviations={})
+        assert "No abbreviation" in _format_abbreviations(ctx)
+
+
+class TestFormatMetrics:
+    def test_renders_thresholds(self) -> None:
+        result = _format_metrics(_make_semantic())
+        assert "PHQ-9" in result
+        assert "mild=5-9" in result
+        assert "severe=20-27" in result
+
+    def test_includes_unit(self) -> None:
+        result = _format_metrics(_make_semantic())
+        assert "score" in result
+
+    def test_none_semantic(self) -> None:
+        assert "No metric" in _format_metrics(None)
+
+    def test_empty_metrics(self) -> None:
+        ctx = _make_semantic(metrics=[])
+        assert "No metric" in _format_metrics(ctx)
 
 
 # ---------------------------------------------------------------------------

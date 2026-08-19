@@ -127,6 +127,7 @@ class Source(Base):
     rewriter_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     agent_write_policy: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     usage_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    semantic_context: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     access: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     lineage_origin: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
 

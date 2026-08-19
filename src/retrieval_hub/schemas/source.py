@@ -27,6 +27,7 @@ from retrieval_hub.schemas.common import (
     LineageOrigin,
 )
 from retrieval_hub.schemas.rewriter import RewriterMetadata
+from retrieval_hub.schemas.semantic import SemanticContext
 
 
 class SamplePromptRead(BaseModel):
@@ -77,6 +78,7 @@ class SourceCreate(BaseModel):
     owner_contacts: list[str] = Field(default_factory=list)
     maintainers: list[str] = Field(default_factory=list)
     rewriter_metadata: RewriterMetadata | None = None
+    semantic_context: SemanticContext | None = None
     agent_write_policy: AgentWritePolicy | None = None
     access: AccessPolicy | None = None
     lineage_origin: LineageOrigin | None = None
@@ -110,6 +112,7 @@ class SourceUpdate(BaseModel):
     owner_contacts: list[str] | None = None
     maintainers: list[str] | None = None
     rewriter_metadata: RewriterMetadata | None = None
+    semantic_context: SemanticContext | None = None
     agent_write_policy: AgentWritePolicy | None = None
     access: AccessPolicy | None = None
     lineage_origin: LineageOrigin | None = None
@@ -136,6 +139,7 @@ class SourceRead(BaseModel):
     recipe_version_id: str | None = None
     active_physical_index_id: str | None = None
     rewriter_metadata: dict[str, Any] | None = None
+    semantic_context: dict[str, Any] | None = None
     agent_write_policy: dict[str, Any] | None = None
     access: dict[str, Any] | None = None
     lineage_origin: dict[str, Any] | None = None

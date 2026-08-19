@@ -204,12 +204,19 @@ async def _rewrite_query(
     raw = getattr(source_obj, "rewriter_metadata", None)
     metadata = RewriterMetadata.model_validate(raw)
 
+    raw_sc = getattr(source_obj, "semantic_context", None)
+    semantic = None
+    if raw_sc:
+        from retrieval_hub.schemas.semantic import SemanticContext
+
+        semantic = SemanticContext.model_validate(raw_sc)
+
     async with LlmClient(
         _REWRITER_LLM_URL,
         model=_REWRITER_LLM_MODEL,
     ) as llm:
         service = RewriterService(llm)
-        return await service.rewrite(query, metadata)
+        return await service.rewrite(query, metadata, semantic_context=semantic)
 
 
 def _deduplicate_hits(

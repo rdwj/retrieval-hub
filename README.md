@@ -1,6 +1,8 @@
 # retrieval-hub
 
-A catalog-driven retrieval platform for AI agents. Every queryable corpus is published as a versioned *source* with a recipe, eval scores, sample prompts, rewriter metadata, access policy, and lineage. Agents consume sources through six MCP tools; humans curate sources through an admin UI and a CLI built on the same core library.
+A catalog-driven retrieval platform for AI agents. Every queryable corpus is published as a versioned *source* with a recipe, eval scores, a per-source semantic layer, access policy, and lineage. Agents consume sources through six MCP tools; humans curate sources through an admin UI and a CLI built on the same core library.
+
+Each source carries a **per-source semantic layer** that data owners control: entity definitions, relationship hints, metric definitions, abbreviation glossaries, and vocabulary mappings. The platform's query rewriter uses this semantic context to translate user queries into domain-specific terminology before retrieval, measurably improving hit rates on lay-language queries. The semantic layer is general-purpose and works for any domain (clinical, code, legal, etc.).
 
 **Status: early development.** Design documentation and a scaffolded core library are in place. See [`docs/SYSTEMS.md`](docs/SYSTEMS.md) for the build order and the status of every subsystem.
 
@@ -64,6 +66,9 @@ python scripts/ingest_va_cpg.py
 # 5. Seed query-rewriter metadata (vocabulary mappings, sample queries)
 python scripts/seed_va_cpg_rewriter_metadata.py
 
+# 5b. Seed semantic layer (entity definitions, metrics, abbreviations)
+python scripts/seed_va_cpg_semantic_context.py
+
 # 6. Query the corpus
 python scripts/query_va_cpg_demo.py "what does the VA CPG recommend for PTSD treatment"
 
@@ -98,7 +103,7 @@ The default database URL points at a local Postgres for development; override it
 
 ```
 retrieval-hub/
-├── src/retrieval_hub/        # core library (models, schemas, adapters, ingestion, rewriter)
+├── src/retrieval_hub/        # core library (models, schemas, adapters, ingestion, rewriter, semantic layer)
 ├── retrieval-hub-mcp/        # MCP server (list_sources, describe_source, retrieve)
 ├── retrieval-hub-ui/         # PatternFly catalog UI (React + Vite)
 ├── retrieval-hub-bff/        # backend-for-frontend (query playground)

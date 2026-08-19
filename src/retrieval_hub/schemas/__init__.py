@@ -26,6 +26,13 @@ from retrieval_hub.schemas.rewriter import (
     SampleQueryExample,
     VocabularyMapping,
 )
+from retrieval_hub.schemas.semantic import (
+    EntityDefinition,
+    MetricDefinition,
+    MetricThreshold,
+    RelationshipHint,
+    SemanticContext,
+)
 from retrieval_hub.schemas.source import (
     PhysicalIndexRead,
     SamplePromptRead,
@@ -58,4 +65,9 @@ __all__ = [
     "SourceRead",
     "SourceUpdate",
     "VocabularyMapping",
+    "EntityDefinition",
+    "MetricDefinition",
+    "MetricThreshold",
+    "RelationshipHint",
+    "SemanticContext",
 ]
