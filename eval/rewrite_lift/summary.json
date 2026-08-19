@@ -1,0 +1,53 @@
+{
+  "overall": {
+    "n": 30,
+    "raw_hit_rate": 0.9666666666666667,
+    "rewrite_hit_rate": 1.0,
+    "raw_mrr": 0.9444444444444444,
+    "rewrite_mrr": 0.9055555555555556,
+    "raw_mean_score": 0.5969408553098879,
+    "rewrite_mean_score": 0.6987730542807788,
+    "hit_rate_delta": 0.033333333333333326,
+    "mrr_delta": -0.03888888888888886,
+    "mean_score_delta": 0.10183219897089091
+  },
+  "by_register": {
+    "lay": {
+      "n": 14,
+      "raw_hit_rate": 0.9285714285714286,
+      "rewrite_hit_rate": 1.0,
+      "raw_mrr": 0.880952380952381,
+      "rewrite_mrr": 0.9642857142857143,
+      "raw_mean_score": 0.5721671769539114,
+      "rewrite_mean_score": 0.6887084754379068,
+      "hit_rate_delta": 0.0714285714285714,
+      "mrr_delta": 0.08333333333333326,
+      "mean_score_delta": 0.11654129848399541
+    },
+    "clinical": {
+      "n": 16,
+      "raw_hit_rate": 1.0,
+      "rewrite_hit_rate": 1.0,
+      "raw_mrr": 1.0,
+      "rewrite_mrr": 0.8541666666666666,
+      "raw_mean_score": 0.6186178238713675,
+      "rewrite_mean_score": 0.7075795607682916,
+      "hit_rate_delta": 0.0,
+      "mrr_delta": -0.14583333333333337,
+      "mean_score_delta": 0.0889617368969241
+    }
+  },
+  "improved_queries": [
+    "q024"
+  ],
+  "regressed_queries": [],
+  "metadata": {
+    "date": "2026-08-19",
+    "source_slug": "va-cpg-clinical-guidelines",
+    "llm_model": "/mnt/models",
+    "llm_url": "https://gpt-oss-120b-direct-gpt-oss-120b-model.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1/chat/completions",
+    "top_k": 5,
+    "eval_seed": 42,
+    "query_count": 30
+  }
+}
