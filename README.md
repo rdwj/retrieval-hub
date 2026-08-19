@@ -39,7 +39,49 @@ Open http://localhost:5173. The landing page has a guided tour that walks throug
 
 **[Systems index](docs/SYSTEMS.md)** lists every subsystem with its current status (Implemented, Skeleton, Design, or TBD) and links to the relevant design doc.
 
-## Quick start (core library)
+## Quick start (full demo)
+
+End-to-end: start databases, ingest a corpus, query it, and run the MCP server. Requires Python 3.11+, [Podman](https://podman.io/), and [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html) (for the local dev playbooks).
+
+```bash
+# 1. Clone and set up
+git clone https://github.com/rdwj/retrieval-hub.git
+cd retrieval-hub
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,ingest]"
+pip install -e retrieval-hub-mcp/
+
+# 2. Start local Postgres (catalog on :5434, pgvector on :5433)
+scripts/step4_local_up.sh
+
+# 3. Apply catalog migrations
+make migrate
+
+# 4. Ingest the VA CPG clinical guidelines corpus
+python scripts/ingest_va_cpg.py
+
+# 5. Seed query-rewriter metadata (vocabulary mappings, sample queries)
+python scripts/seed_va_cpg_rewriter_metadata.py
+
+# 6. Query the corpus
+python scripts/query_va_cpg_demo.py "what does the VA CPG recommend for PTSD treatment"
+
+# 7. Test the query rewriter against gpt-oss-120b
+python scripts/test_rewriter.py --query "high blood sugar after a meal"
+
+# 8. Start the MCP server (streamable-http on :8000)
+python -m retrieval_hub_mcp
+```
+
+Step 4 requires the VA CPG corpus files in a sibling `retrieval-hub-data-sources/` directory. If you don't have the corpus, skip steps 4-6 and ingest the code source instead:
+
+```bash
+python scripts/ingest_code_repo.py --repo rdwj/retrieval-hub
+python scripts/query_code_demo.py "how does the retrieval adapter work"
+```
+
+## Quick start (core library only)
 
 ```bash
 python3 -m venv .venv
@@ -56,13 +98,16 @@ The default database URL points at a local Postgres for development; override it
 
 ```
 retrieval-hub/
-├── src/retrieval_hub/        # core library (models, schemas, adapters, ingestion)
+├── src/retrieval_hub/        # core library (models, schemas, adapters, ingestion, rewriter)
+├── retrieval-hub-mcp/        # MCP server (list_sources, describe_source, retrieve)
 ├── retrieval-hub-ui/         # PatternFly catalog UI (React + Vite)
+├── retrieval-hub-bff/        # backend-for-frontend (query playground)
 ├── retrieval-hub-auth/       # auth service (OAuth 2.1, JWT)
+├── prompts/                  # YAML prompt templates (rewriter, etc.)
+├── scripts/                  # ingestion, query demos, rewriter smoke test
 ├── alembic/                  # database migrations
 ├── tests/                    # unit tests for the core library
 ├── docs/                     # architecture, subsystem designs, roadmap
-├── ideas/                    # project origin: problem statement, vision, scope
 ├── pyproject.toml
 ├── Makefile
 └── Containerfile             # core-library image (UBI9 Python 3.11)
