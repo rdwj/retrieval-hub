@@ -9,13 +9,16 @@ or MCP transport.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from retrieval_hub_mcp.schemas import RetrievalHit, SourceDetail, SourceSummary
+from retrieval_hub_mcp.schemas import (
+    RetrievalHit,
+    RetrievalResponse,
+    SourceDetail,
+    SourceSummary,
+)
 from retrieval_hub_mcp.server import describe_source, list_sources, retrieve
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,6 +36,7 @@ def _make_source(
     active_physical_index_id="pi-001",
     recipe_version_id="rv-001",
     id="src-001",
+    usage_rules=None,
 ):
     """Build a mock Source object with the fields the tools read."""
     return SimpleNamespace(
@@ -46,6 +50,7 @@ def _make_source(
         owner_team=owner_team,
         active_physical_index_id=active_physical_index_id,
         recipe_version_id=recipe_version_id,
+        usage_rules=usage_rules,
     )
 
 
@@ -280,7 +285,19 @@ async def test_describe_source_no_recipe_or_prompts():
 
 
 # ---------------------------------------------------------------------------
-# retrieve
+# Retrieve session helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_retrieve_session(source=None):
+    """Build a mock session that returns *source* from the Source query."""
+    session = MagicMock()
+    session.query.return_value = _MockQuery(source)
+    return session
+
+
+# ---------------------------------------------------------------------------
+# retrieve — vector search path
 # ---------------------------------------------------------------------------
 
 
@@ -296,37 +313,40 @@ async def test_retrieve_delegates_to_query():
         ),
     ]
 
-    session = MagicMock()
+    source = _make_source()
+    session = _make_retrieve_session(source)
 
     with patch("retrieval_hub_mcp.server.retrieval_query", return_value=mock_results):
-        results = await retrieve(
+        resp = await retrieve(
             query="test query",
             source="test-source",
             top_k=5,
             session=session,
         )
 
-    assert len(results) == 2
-    assert isinstance(results[0], RetrievalHit)
-    assert results[0].text == "Relevant passage text"
-    assert results[0].score == 0.92
-    assert results[0].doc_title == "Manual v3"
-    assert results[0].doc_url == "https://example.com/manual-v3"
-    assert results[0].doc_section == "Chapter 2"
-    assert results[0].physical_index_id == "pi-001"
-    assert results[0].recipe_version == 1
-    assert results[0].request_id == "req-abc"
+    assert isinstance(resp, RetrievalResponse)
+    assert len(resp.hits) == 2
+    assert isinstance(resp.hits[0], RetrievalHit)
+    assert resp.hits[0].text == "Relevant passage text"
+    assert resp.hits[0].score == 0.92
+    assert resp.hits[0].doc_title == "Manual v3"
+    assert resp.hits[0].doc_url == "https://example.com/manual-v3"
+    assert resp.hits[0].doc_section == "Chapter 2"
+    assert resp.hits[0].physical_index_id == "pi-001"
+    assert resp.hits[0].recipe_version == 1
+    assert resp.hits[0].request_id == "req-abc"
 
-    assert results[1].doc_section is None
+    assert resp.hits[1].doc_section is None
 
 
 @pytest.mark.asyncio
 async def test_retrieve_source_not_found():
     """retrieve raises ToolError when the source slug doesn't exist."""
-    from retrieval_hub.retrieval.api import SourceNotFoundError
     from fastmcp.exceptions import ToolError
 
-    session = MagicMock()
+    from retrieval_hub.retrieval.api import SourceNotFoundError
+
+    session = _make_retrieve_session(None)
 
     with patch(
         "retrieval_hub_mcp.server.retrieval_query",
@@ -343,10 +363,11 @@ async def test_retrieve_source_not_found():
 @pytest.mark.asyncio
 async def test_retrieve_source_not_queryable():
     """retrieve raises ToolError when the source has no active index."""
-    from retrieval_hub.retrieval.api import SourceNotQueryableError
     from fastmcp.exceptions import ToolError
 
-    session = MagicMock()
+    from retrieval_hub.retrieval.api import SourceNotQueryableError
+
+    session = _make_retrieve_session(None)
 
     with patch(
         "retrieval_hub_mcp.server.retrieval_query",
@@ -363,10 +384,11 @@ async def test_retrieve_source_not_queryable():
 @pytest.mark.asyncio
 async def test_retrieve_unsupported_family():
     """retrieve raises ToolError for sources with unsupported families."""
-    from retrieval_hub.retrieval.api import UnsupportedFamilyError
     from fastmcp.exceptions import ToolError
 
-    session = MagicMock()
+    from retrieval_hub.retrieval.api import UnsupportedFamilyError
+
+    session = _make_retrieve_session(None)
 
     with patch(
         "retrieval_hub_mcp.server.retrieval_query",
@@ -383,7 +405,8 @@ async def test_retrieve_unsupported_family():
 @pytest.mark.asyncio
 async def test_retrieve_passes_top_k():
     """retrieve forwards the top_k parameter to the retrieval function."""
-    session = MagicMock()
+    source = _make_source()
+    session = _make_retrieve_session(source)
 
     with patch("retrieval_hub_mcp.server.retrieval_query", return_value=[]) as mock_q:
         await retrieve(
@@ -399,3 +422,125 @@ async def test_retrieve_passes_top_k():
         session=session,
         top_k=3,
     )
+
+
+# ---------------------------------------------------------------------------
+# retrieve — file_path (GitHub file fetch) path
+# ---------------------------------------------------------------------------
+
+
+def _make_file_fetch_session(source, pi, rv):
+    """Build a mock session for file_path tests.
+
+    The resolve chain is: Source -> PhysicalIndex -> RecipeVersion.
+    """
+    call_count = 0
+
+    def mock_query(model):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return _MockQuery(source)
+        if call_count == 2:
+            return _MockQuery(pi)
+        return _MockQuery(rv)
+
+    session = MagicMock()
+    session.query.side_effect = mock_query
+    return session
+
+
+@pytest.mark.asyncio
+async def test_retrieve_file_path_fetches_from_github():
+    """When file_path is provided, retrieve fetches from GitHub instead of vector search."""
+    source = _make_source(active_physical_index_id="pi-001")
+    pi = _make_physical_index(id="pi-001")
+    pi.recipe_version_id = "rv-001"
+    rv = _make_recipe_version(content={"github_repo": "rdwj/retrieval-hub"})
+
+    session = _make_file_fetch_session(source, pi, rv)
+
+    with patch(
+        "retrieval_hub_mcp.server._fetch_github_file",
+        new_callable=AsyncMock,
+        return_value=("print('hello')\n", "https://github.com/rdwj/retrieval-hub/blob/main/hello.py"),
+    ) as mock_fetch:
+        resp = await retrieve(
+            query="unused",
+            source="test-source",
+            file_path="hello.py",
+            session=session,
+        )
+
+    mock_fetch.assert_awaited_once_with("rdwj/retrieval-hub", "hello.py", None)
+    assert isinstance(resp, RetrievalResponse)
+    assert len(resp.hits) == 1
+    assert resp.hits[0].score == 1.0
+    assert resp.hits[0].text == "print('hello')\n"
+    assert resp.hits[0].doc_title == "hello.py"
+    assert resp.hits[0].physical_index_id == "github-live"
+
+
+@pytest.mark.asyncio
+async def test_retrieve_file_path_with_ref():
+    """file_path + ref are forwarded to the GitHub fetch."""
+    source = _make_source(active_physical_index_id="pi-001")
+    pi = _make_physical_index(id="pi-001")
+    pi.recipe_version_id = "rv-001"
+    rv = _make_recipe_version(content={"github_repo": "rdwj/retrieval-hub"})
+
+    session = _make_file_fetch_session(source, pi, rv)
+
+    with patch(
+        "retrieval_hub_mcp.server._fetch_github_file",
+        new_callable=AsyncMock,
+        return_value=("old code\n", "https://github.com/rdwj/retrieval-hub/blob/abc123/hello.py"),
+    ) as mock_fetch:
+        resp = await retrieve(
+            query="unused",
+            source="test-source",
+            file_path="hello.py",
+            ref="abc123",
+            session=session,
+        )
+
+    mock_fetch.assert_awaited_once_with("rdwj/retrieval-hub", "hello.py", "abc123")
+    assert len(resp.hits) == 1
+    assert resp.hits[0].recipe_version == 0
+
+
+@pytest.mark.asyncio
+async def test_retrieve_file_path_no_github_repo():
+    """file_path raises ToolError when the recipe has no github_repo."""
+    from fastmcp.exceptions import ToolError
+
+    source = _make_source(active_physical_index_id="pi-001")
+    pi = _make_physical_index(id="pi-001")
+    pi.recipe_version_id = "rv-001"
+    rv = _make_recipe_version(content={"parser": "docling"})
+
+    session = _make_file_fetch_session(source, pi, rv)
+
+    with pytest.raises(ToolError, match="github_repo"):
+        await retrieve(
+            query="unused",
+            source="test-source",
+            file_path="some/file.py",
+            session=session,
+        )
+
+
+@pytest.mark.asyncio
+async def test_retrieve_file_path_source_not_found():
+    """file_path raises ToolError when the source doesn't exist."""
+    from fastmcp.exceptions import ToolError
+
+    session = _make_retrieve_session(None)
+
+    with pytest.raises(ToolError, match="not found"):
+        await retrieve(
+            query="unused",
+            source="nonexistent",
+            file_path="some/file.py",
+            session=session,
+        )

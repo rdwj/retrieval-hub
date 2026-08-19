@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import subprocess
 import sys
 import time
@@ -119,9 +120,38 @@ def _table_name_from_slug(slug: str) -> str:
     return f"idx_{slug.replace('-', '_')}_v1"
 
 
-def _recipe_content(table_name: str) -> dict:
+def _detect_github_repo(repo_path: Path) -> str | None:
+    """Extract ``owner/repo`` from the git origin remote, if it's on GitHub.
+
+    Handles both HTTPS (``https://github.com/owner/repo.git``) and SSH
+    (``git@github.com:owner/repo.git``) URLs.  Returns *None* when the
+    remote is absent, not a GitHub URL, or any error occurs.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=repo_path, capture_output=True, text=True, check=True,
+        )
+        url = result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+    # HTTPS: https://github.com/owner/repo.git
+    m = re.match(r"https?://github\.com/([^/]+/[^/]+?)(?:\.git)?$", url)
+    if m:
+        return m.group(1)
+
+    # SSH: git@github.com:owner/repo.git
+    m = re.match(r"git@github\.com:([^/]+/[^/]+?)(?:\.git)?$", url)
+    if m:
+        return m.group(1)
+
+    return None
+
+
+def _recipe_content(table_name: str, github_repo: str | None = None) -> dict:
     """Return the recipe content dict that will be stored on RecipeVersion."""
-    return {
+    content = {
         "parser": {"kind": "tree_sitter_python"},
         "chunker": {
             "kind": "ast_treesitter",
@@ -149,6 +179,9 @@ def _recipe_content(table_name: str) -> dict:
             },
         },
     }
+    if github_repo:
+        content["github_repo"] = github_repo
+    return content
 
 
 def _git_info(repo_path: Path) -> tuple[str, str]:
@@ -204,6 +237,7 @@ def _run_ingestion(
     description: str | None,
     db_url: str,
     vectors_db_url: str,
+    github_repo: str | None = None,
 ) -> int:
     """Execute the full ingestion pipeline end-to-end."""
     wall_start = time.monotonic()
@@ -229,6 +263,12 @@ def _run_ingestion(
 
     # Git metadata for data_freshness.
     git_sha, git_branch = _git_info(repo_path)
+
+    # Detect GitHub repo (CLI override takes precedence over auto-detection).
+    if github_repo is None:
+        github_repo = _detect_github_repo(repo_path)
+    if github_repo:
+        logger.info("GitHub repository: %s", github_repo)
 
     # Stage 1: walk the repository for Python files.
     logger.info("walking repository at %s", repo_path)
@@ -290,9 +330,14 @@ def _run_ingestion(
     )
 
     # Stage 6: build data_freshness with git info.
+    source_url = (
+        f"https://github.com/{github_repo}"
+        if github_repo
+        else f"file://{repo_path}"
+    )
     data_freshness = {
         "source_name": f"Code Repository: {repo_name}",
-        "source_url": f"file://{repo_path}",
+        "source_url": source_url,
         "last_refreshed": datetime.now(UTC).strftime("%Y-%m-%d"),
         "refresh_cadence": "on_demand",
         "staleness_note": "Re-run ingestion to update after code changes.",
@@ -311,7 +356,7 @@ def _run_ingestion(
             description_long=description_long,
             owner_team=SOURCE_OWNER_TEAM,
             owner_contacts=SOURCE_OWNER_CONTACTS,
-            recipe_content=_recipe_content(table_name),
+            recipe_content=_recipe_content(table_name, github_repo=github_repo),
             physical_index_location=table_name,
             document_count=len(py_files),
             chunk_count=len(all_chunks),
@@ -375,6 +420,14 @@ def main() -> int:
         help="Short description (default: auto-generated)",
     )
     parser.add_argument(
+        "--github-repo",
+        default=None,
+        help=(
+            "GitHub owner/repo (e.g., rdwj/retrieval-hub). "
+            "Auto-detected from git remote origin when omitted."
+        ),
+    )
+    parser.add_argument(
         "--db-url",
         default=DEFAULT_DB_URL,
         help=f"SQLAlchemy URL for the catalog database. Default: {DEFAULT_DB_URL}",
@@ -403,6 +456,7 @@ def main() -> int:
         description=args.description,
         db_url=args.db_url,
         vectors_db_url=args.vectors_db_url,
+        github_repo=args.github_repo,
     )
 
 
