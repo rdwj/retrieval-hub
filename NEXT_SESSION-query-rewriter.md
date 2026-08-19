@@ -1,46 +1,59 @@
 # Next Session — query-rewriter
 
-## Next: Build the rewriter service and seed VA CPG metadata
+## Next: Ragas eval measuring rewrite lift on VA CPG
 
-Phases 1 and 2 of the epic are parallel-ok and together form the foundation: the rewriter service (code + prompt template + LLM client) and the VA CPG metadata (vocabulary mappings + sample queries) that makes it effective. Both must land before Phase 3 can wire them into `retrieve`. README quick-start (#9) folds in at the end if there's time.
+The "is the differentiator real?" gate. Run retrieval with and without query rewriting on the VA CPG source, score both with Ragas metrics, and record whether rewriting produces a measurable improvement. This is the final phase of the query-rewriter epic. If the delta is there, we have a validated differentiator; if not, we document why and what would need to change.
 
-1. **Core rewriter service + shared template**
-   Create `src/retrieval_hub/rewriter/` with the service class, YAML prompt template, and LLM client. The LLM client targets gpt-oss-120b via httpx (OpenAI-compatible chat completions). The rewrite output schema (`RewrittenQuery` with text, intent, rationale, confidence) and lineage fields are defined as Pydantic models. Validate with a standalone test script against the live LLM.
+1. **Environment setup**
+   Install Ragas (`pip install ragas`) and verify the VA CPG corpus is ingested into local pgvector. The corpus lives at `/Users/wjackson/Developer/retrieval-hub-data-sources/va-cpg/extracted/` (5 categories). If not ingested, run `python scripts/ingest_va_cpg.py` and then `python scripts/seed_va_cpg_rewriter_metadata.py` to populate the rewriter metadata.
 
-   Key files to create:
-   - `src/retrieval_hub/rewriter/__init__.py`
-   - `src/retrieval_hub/rewriter/service.py` -- `RewriterService` class
-   - `src/retrieval_hub/rewriter/llm.py` -- async LLM client
-   - `src/retrieval_hub/rewriter/schemas.py` -- rewrite output models (or extend `src/retrieval_hub/schemas/rewriter.py` which already has `RewriterMetadata`)
-   - `prompts/rewriter-shared-core.yaml` -- the shared template
-   - `scripts/test_rewriter.py` -- standalone smoke test
-   - Unit tests in `tests/test_rewriter/`
+2. **Build the eval query set from existing Q/A data**
+   The project already has 50 Q/A pairs at `eval/autorag/qa_dataset_draft.json` with ground-truth answers, source document paths, and `language_register` labels (clinical vs. lay). Filter to the lay-register questions (the ones where vocabulary translation should produce the biggest lift) plus a sampling of clinical-register ones as controls. Target 25-30 queries.
 
-2. **VA CPG rewriter metadata**
-   Populate `rewriter_metadata` on the VA CPG source with 30-50 clinical vocabulary mappings, domain notes, and 5-10 sample queries. The `RewriterMetadata` Pydantic schema already exists at `src/retrieval_hub/schemas/rewriter.py` with all the right fields. Write a script to update the source record in the catalog DB.
+3. **Write the eval script** (`scripts/eval_rewrite_lift.py`)
+   For each query in the set:
+   - Run `retrieval_hub.retrieval.api.query()` directly (raw query, no rewriting) and collect top-5 hits
+   - Run `RewriterService.rewrite()` to get rewritten queries, then run `query()` for each rewrite, deduplicate, collect top-5 hits
+   - Record both hit sets with their scores and source doc paths
+   
+   Then score with Ragas:
+   - `context_precision` — do the retrieved chunks come from the correct source document? (ground truth available in the Q/A dataset's `source_doc` field)
+   - `answer_relevancy` — are the retrieved chunks relevant to answering the question? (uses the ground-truth answer for comparison)
+   
+   Output: per-query CSV with raw vs. rewritten scores, aggregate summary, and delta stats.
 
-3. **README quick-start (#9)** (if time permits)
-   Add a "Quick start (full demo)" section to the root README. Cover podman containers, migrations, ingestion, query demo, MCP server.
+4. **Run the eval and analyze results**
+   Execute the script against the live gpt-oss-120b endpoint. Examine:
+   - Overall delta on context_precision and answer_relevancy
+   - Per-query breakdown: which queries improved, which didn't
+   - Which vocabulary mappings fired (from the rewrite rationale field)
+   - Lay vs. clinical register performance difference
 
-**Sequencing.** Items 1 and 2 are independent -- start with item 1 (the service is the harder piece), then item 2 (metadata is data entry once the schema is validated). Item 3 is standalone filler.
+5. **Record results**
+   - Save raw results to `eval/rewrite_lift/` (CSV + summary)
+   - Update the VA CPG source data card with eval methodology and findings
+   - Write a session summary to `session-summaries/`
+
+**Sequencing.** Items 1-2 are fast setup (~10 min). Item 3 is the main implementation work. Items 4-5 are execution and recording.
 
 **Constraints for the session:**
-- The existing `RewriterMetadata` schema and `Source.rewriter_metadata` column are already in place -- don't recreate them
-- The rewrite output schema (what the LLM returns) is separate from the metadata schema (what the source owner declares) -- keep them distinct
-- gpt-oss-120b is a reasoning model; the LLM client should read from `content` (the answer) not `reasoning` (the chain-of-thought)
-- The VA CPG source may or may not be ingested in the local DB (databases are ephemeral podman volumes) -- re-ingest if needed, or just UPDATE the metadata on the existing source record
+- The existing `eval/autorag/eval_retrieval.py` uses PubMedBERT for embeddings and cosine search directly. The rewrite eval should use the actual retrieval pipeline (`retrieval_hub.retrieval.api.query()`) against pgvector, not a custom cosine-search implementation. This measures the real production path.
+- Ragas context_precision and answer_relevancy require an LLM for scoring. Use gpt-oss-120b for both rewriting AND eval scoring (single LLM, simpler setup). If Ragas needs a different LLM interface, wrap with LangChain's ChatOpenAI pointing at gpt-oss-120b.
+- The Q/A dataset has `source_doc` paths relative to the corpus root (e.g., `chronic-disease/hypertension/clinician-summary.md`). These can serve as ground-truth for context_precision: does the retrieved chunk come from the correct document?
 
 **Session start protocol:**
 - Premise checks (before item 1, ~5 min):
   - Verify local databases are up (`pg_isready -h localhost -p 5433` and `-p 5434`)
   - Verify gpt-oss-120b endpoint is reachable: `curl -s https://gpt-oss-120b-direct-gpt-oss-120b-model.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1/models | head -5`
-  - Check if `va-cpg-clinical-guidelines` source exists in the catalog (needed for item 2)
-  - Verify the existing `RewriterMetadata` schema imports cleanly: `from retrieval_hub.schemas.rewriter import RewriterMetadata`
+  - Check if VA CPG source exists AND is queryable (has an active physical index): `python -c "from retrieval_hub.retrieval.api import query; query('va-cpg-clinical-guidelines', 'test', session=..., top_k=1)"` -- if this fails, re-ingest
+  - Verify the Q/A dataset loads: `python -c "import json; d=json.load(open('eval/autorag/qa_dataset_draft.json')); print(f'{len(d[\"questions\"])} questions, {sum(1 for q in d[\"questions\"] if q[\"language_register\"]==\"lay\")} lay-register')"`
+  - Check Ragas version: `pip show ragas` -- install if missing
 - Rules with history:
   - The MCP server uses FastMCP `Depends()` for session injection -- the B008 lint warnings are intentional
   - Embedding models are shared cluster resources -- don't change the jina-code-embeddings setup
-- Stop-and-ask before: modifying the deployed MCP server on gpt-oss-120b; any changes to the VA CPG pgvector table
-- Close ritual: session summary to `session-summaries/`; update NEXT_SESSION-query-rewriter.md with what landed
+  - The rewriter reads `content` from gpt-oss-120b responses, not `reasoning` (it's a reasoning model)
+- Stop-and-ask before: modifying the deployed MCP server; any changes to the VA CPG pgvector table schema; dropping/recreating the physical index
+- Close ritual: session summary to `session-summaries/`; update NEXT_SESSION-query-rewriter.md with what landed; if the delta is positive, close #15 epic as validated
 
 **LLM endpoint details (verified 2026-08-18):**
 - URL: `https://gpt-oss-120b-direct-gpt-oss-120b-model.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1/chat/completions`
@@ -48,7 +61,6 @@ Phases 1 and 2 of the epic are parallel-ok and together form the foundation: the
 - Auth: none required
 - Context window: 131,072 tokens
 - Response shape: OpenAI-compatible, reasoning model (`content` has the answer, `reasoning` has chain-of-thought)
-- Smoke-tested: "high blood sugar after a meal" -> "Postprandial hyperglycemia."
 
 ## Remaining epic phases
 
@@ -56,127 +68,43 @@ The query rewriter is the differentiating capability: source-owner-declared meta
 
 End-state: on the VA CPG source, queries with rewriting enabled measurably outperform queries without rewriting on a Ragas eval, using declarative metadata and gpt-oss-120b as the rewriting LLM. The rewriter is callable through the existing `retrieve` MCP tool.
 
-### Phase 1: Core rewriter service + shared template
-
-Build the rewriter as a core library service at `src/retrieval_hub/rewriter/`. The shared prompt template lives in `prompts/rewriter-shared-core.yaml`. LLM calls go to gpt-oss-120b on the cluster via httpx (OpenAI-compatible API). Structured output validation on the response.
-
-**Work:**
-1. Create `src/retrieval_hub/rewriter/service.py` with `RewriterService` class -- takes an LLM client, loads source metadata, renders the shared template, calls the LLM, validates structured output
-2. Create the shared prompt template in `prompts/rewriter-shared-core.yaml` -- slots for vocabulary_mappings, domain_notes, sample_queries, raw_query
-3. Create `src/retrieval_hub/rewriter/llm.py` with an async LLM client targeting the gpt-oss-120b endpoint (OpenAI-compatible chat completions API via httpx)
-4. Define the rewrite output schema: list of `(text, intent, rationale, confidence)` plus lineage fields (template_version, metadata_version, llm, request_id)
-5. Write unit tests with mocked LLM responses
-6. Create a standalone test script (`scripts/test_rewriter.py`) that calls the service directly against the live LLM with a hardcoded VA CPG-style metadata payload
-
-**Definition of done:** `test_rewriter.py` produces structured rewrites from a raw query like "high blood sugar after a meal" using gpt-oss-120b, with vocabulary-mapped terms appearing in the output. Unit tests pass.
-
-**Dependencies:** None. Needs network access to gpt-oss-120b cluster endpoint.
-
-**Parallel-ok:** Yes -- independent of Phase 2.
-
-### Phase 2: VA CPG rewriter metadata
-
-Populate `rewriter_metadata` on the VA CPG source with clinical vocabulary mappings, domain notes, and sample queries. This is the proving-ground data that makes the shared template effective. Re-ingest or update the source record to carry the metadata.
-
-**Work:**
-1. Build a vocabulary mapping set for the VA CPG corpus: 30-50 lay-term-to-clinical-term pairs (e.g., "high blood sugar" -> "hyperglycemia", "blood pressure medicine" -> "antihypertensive therapy")
-2. Write domain_notes for the VA CPG source describing content type, preferred query phrasing, guideline title conventions
-3. Create 5-10 sample_queries with good_rewrites as few-shot examples
-4. Write a script or extend `ingest_va_cpg.py` to update the source's `rewriter_metadata` column
-5. Verify the metadata loads correctly through the catalog API
-
-**Definition of done:** `SELECT rewriter_metadata FROM source WHERE slug='va-cpg-clinical-guidelines'` returns a populated JSON with vocabulary_mappings (30+ entries), domain_notes, and sample_queries (5+ entries). The metadata renders cleanly into the shared template from Phase 1.
-
-**Dependencies:** None. Can run in parallel with Phase 1 (metadata authoring doesn't need the rewriter code).
-
-**Parallel-ok:** Yes -- independent of Phase 1.
-
-### Phase 3: Wire rewriter into retrieve MCP tool
-
-Fold the rewriter into the `retrieve` tool as a transparent step. When a source has `rewriter_metadata` with `enabled: true`, the tool rewrites the query before vector search and returns the rewritten queries in the response. Add `no_rewrite: bool = False` parameter. Add `rewritten_queries` to `RetrievalResponse`.
-
-**Work:**
-1. Add `no_rewrite: bool = False` parameter to the `retrieve` tool
-2. Add `rewritten_queries` field to `RetrievalResponse` schema (list of rewrite objects, or None when rewriting was skipped)
-3. In the retrieve flow: check source metadata, call RewriterService if enabled and not no_rewrite, union retrieval hits across rewrites, deduplicate
-4. Handle the fallback: if the LLM call fails or times out, fall back to the raw query (rewriting failure should not block retrieval)
-5. Update MCP server tests for both paths (rewrite-enabled, no_rewrite, source without metadata)
-6. Test end-to-end against VA CPG source with live LLM
-
-**Definition of done:** `retrieve(query="high blood sugar after a meal", source="va-cpg-clinical-guidelines")` returns hits with `rewritten_queries` populated, and the hits are different (better) than `retrieve(..., no_rewrite=True)`. Fallback works when LLM is unreachable.
-
-**Dependencies:** Gated on Phase 1 (rewriter service) and Phase 2 (VA CPG metadata).
-
-**Parallel-ok:** No.
-
-### Phase 4: Eval -- rewrite lift measurement
+### Phase 4: Eval -- rewrite lift measurement (THIS SESSION)
 
 Run a Ragas eval comparing retrieval with and without rewriting on the VA CPG source. Measure context_precision and answer_relevancy delta. Record results on the source's data card. This is the "is the differentiator real?" gate.
 
-**Work:**
-1. Build a test query set: 20-30 queries spanning lay-language clinical questions, guideline-reference queries, and treatment-recommendation queries
-2. Run retrieval with `no_rewrite=True` and collect hits for each query
-3. Run retrieval with rewriting enabled and collect hits for each query
-4. Score both sets with Ragas (context_precision, answer_relevancy, or similar metrics)
-5. Record the eval results: per-query scores, aggregate delta, which vocabulary mappings fired
-6. Update the VA CPG source's data card with eval results and the tools/methodology used
-7. Write a brief eval summary to `session-summaries/`
-
 **Definition of done:** A measurable, positive delta on context_precision or answer_relevancy between rewrite-enabled and raw queries on at least 60% of test queries. Results recorded on the data card with methodology notes (Ragas version, LLM used, date). If the delta isn't there, document why and what would need to change.
 
-**Dependencies:** Gated on Phase 3 (rewriter wired into retrieve).
+**Dependencies:** Phases 1-3 complete (rewriter service built, VA CPG metadata seeded, retrieve tool wired).
 
-**Parallel-ok:** No.
+### Phases 1-3, 5: COMPLETE
 
-### Phase 5: README quick-start (#9)
-
-Update the root README with a local demo flow: start databases, run migrations, ingest a source, query it. Close #9.
-
-**Work:**
-1. Add a "Quick start (full demo)" section to README.md with step-by-step commands
-2. Cover: podman containers, migrations, VA CPG or code source ingestion, query demo script, MCP server startup
-3. Verify the flow works from a clean checkout
-
-**Definition of done:** A developer can clone the repo, follow the README, and have a working retrieval demo within 10 minutes (excluding model download time). #9 closed.
-
-**Dependencies:** None. Can be done in any session that has spare capacity.
-
-**Parallel-ok:** Yes -- independent of all other phases.
+- Phase 1 (core rewriter service): `625a750`
+- Phase 2 (VA CPG metadata): `625a750`
+- Phase 3 (wire into retrieve): `625a750`
+- Phase 5 (README quick-start): `6ec9bfe`
 
 ## What landed last session (2026-08-18)
 
-Code source epic completed and archived. Live GitHub file fetch on `retrieve`, min_tokens chunker denoising, github_repo auto-detection in recipes, code query demo script. 5 stale issues closed (#8, #11, #12, #13, #14). Retro written to `retrospectives/2026-08-18_code-source-epic/`.
+Phases 1, 2, 3, and 5 of the query-rewriter epic in a single session. The rewriter is built, tested, integrated, documented, and smoke-tested against the live LLM.
 
-**Commits:** `9b548c6`..`bfd17a1` (code source epic, 2 sessions)
+**Commits:** `625a750`, `6ec9bfe`
+
+- Core rewriter module: `src/retrieval_hub/rewriter/` with async LLM client, YAML prompt template, structured output validation. 64 unit tests.
+- VA CPG metadata seeded: 49 vocabulary mappings across 7 clinical domains, 8 sample query examples, domain notes.
+- Retrieve tool integration: `no_rewrite` parameter, transparent rewriting with fallback, hit deduplication by text content, `rewritten_queries` in response. 5 new MCP server tests.
+- README quick-start: full demo flow covering databases, migrations, ingestion, query demo, rewriter smoke test, MCP server.
+- Live smoke test confirmed: "high blood sugar after a meal" rewrites to "postprandial hyperglycemia management guidelines" and 4 other clinical variants via gpt-oss-120b.
+
+**Closed:** #15 (partial -- rewriter built and wired, eval pending), #9 (README quick-start)
 
 ## Watch out for
 
-- gpt-oss-120b is on a sandbox cluster -- endpoint URL may change if the cluster is reprovisioned
-- The VA CPG source may not be ingested in local databases (podman volumes are ephemeral) -- check during premise checks
-- The `RewriterMetadata` Pydantic schema already exists with `extra="forbid"` -- any new fields need to be added there, not worked around
+- gpt-oss-120b is on a sandbox cluster -- endpoint URL may change if the cluster is reprovisioned. If unreachable, the eval can't run. No good fallback for the eval (it needs a real LLM for both rewriting and Ragas scoring).
+- The VA CPG source may not be ingested in local databases (podman volumes are ephemeral) -- re-ingest with `scripts/ingest_va_cpg.py` if the premise check fails.
+- Ragas API has changed significantly across versions. Search PyPI for the latest version and check the current API before writing eval code -- don't rely on training-data knowledge of the Ragas interface.
+- The existing `eval/autorag/` directory uses AutoRAG and PubMedBERT. The rewrite eval should be a separate directory (`eval/rewrite_lift/`) to avoid conflating the two eval approaches.
 
 ## If blocked
 
-- If gpt-oss-120b is unreachable, implement the rewriter service with a mock LLM client that returns canned responses. The service architecture doesn't change; only the client is swapped. Wire the real endpoint when it's back.
-- If the VA CPG source is not available locally, the rewriter service can still be built and tested with hardcoded metadata payloads (item 1 doesn't depend on item 2)
-
----
-
-## What this covers (and what it doesn't)
-
-**In scope:**
-- #15 -- query rewriter end-to-end with real eval delta on VA source
-- #9 -- root README quick-start for local demo flow
-- Core rewriter service with shared template and per-source metadata
-- LLM integration with gpt-oss-120b (OpenAI-compatible API)
-- Transparent rewriting inside the retrieve tool (no separate rewrite tool)
-- Ragas eval measuring rewrite lift
-- Data card updates with eval methodology
-
-**Out of scope (other epics own):**
-- Override prompt path (`prompt_override_id`) -- design doc covers it, but not needed for MVP
-- Cached rewrites -- Round 2 per design doc
-- MLflow prompt registry integration -- deferred until MLflow is wired (#21)
-- Admin UI rewriter metadata editor -- deferred until UI SPA (#19)
-- Cross-source rewriting behavior -- deferred until cross-source search is designed
-- CLI rewriter test command -- deferred until CLI peer component (#18)
+- If gpt-oss-120b is unreachable, the eval can't run (both rewriting and Ragas scoring need an LLM). Document the blocker and move on to non-LLM work: CLI peer component (#18), or improving the existing ingestion pipeline.
+- If Ragas has breaking API changes, fall back to a simpler eval: hit_rate and MRR against the ground-truth source documents (similar to what `eval/autorag/eval_retrieval.py` already does). This doesn't measure answer_relevancy but still proves whether rewriting surfaces the right documents.
