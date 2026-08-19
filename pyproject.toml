@@ -37,14 +37,17 @@ dependencies = [
     "pypdf>=4.3",
     "pgvector>=0.3",
     "numpy>=1.26,<3.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=0.23",
     "pytest-cov>=5.0",
     "ruff>=0.5",
     "mypy>=1.10",
+    "types-PyYAML>=6.0",
 ]
 # Heavy runtime deps for real ingestion runs. Not required for `make test`
 # or `make lint` — tests mock sentence-transformers and Docling. Install

@@ -37,6 +37,7 @@ def _make_source(
     recipe_version_id="rv-001",
     id="src-001",
     usage_rules=None,
+    rewriter_metadata=None,
 ):
     """Build a mock Source object with the fields the tools read."""
     return SimpleNamespace(
@@ -51,6 +52,7 @@ def _make_source(
         active_physical_index_id=active_physical_index_id,
         recipe_version_id=recipe_version_id,
         usage_rules=usage_rules,
+        rewriter_metadata=rewriter_metadata,
     )
 
 
@@ -544,3 +546,208 @@ async def test_retrieve_file_path_source_not_found():
             file_path="some/file.py",
             session=session,
         )
+
+
+# ---------------------------------------------------------------------------
+# retrieve --- rewriter integration
+# ---------------------------------------------------------------------------
+
+_REWRITER_META = {
+    "enabled": True,
+    "vocabulary_mappings": [],
+    "sample_queries": [],
+    "max_rewrites": 3,
+}
+
+
+@pytest.mark.asyncio
+async def test_retrieve_with_rewrite_enabled():
+    """When rewriter_metadata is enabled, retrieve fans out queries and merges hits."""
+    source = _make_source(rewriter_metadata=_REWRITER_META)
+    session = _make_retrieve_session(source)
+
+    rewrite_result = SimpleNamespace(
+        queries=[
+            SimpleNamespace(
+                text="rewritten query 1",
+                intent="intent1",
+                confidence=0.95,
+                rationale="r1",
+            ),
+            SimpleNamespace(
+                text="rewritten query 2",
+                intent="intent2",
+                confidence=0.85,
+                rationale="r2",
+            ),
+        ],
+    )
+
+    def _retrieval_side_effect(**kwargs):
+        qt = kwargs["query_text"]
+        if qt == "original query":
+            return [_make_retrieval_result(text="original hit", score=0.8)]
+        if qt == "rewritten query 1":
+            return [_make_retrieval_result(text="rewrite hit 1", score=0.9)]
+        if qt == "rewritten query 2":
+            return [_make_retrieval_result(text="rewrite hit 2", score=0.7)]
+        return []
+
+    with (
+        patch(
+            "retrieval_hub_mcp.server._rewrite_query",
+            new_callable=AsyncMock,
+            return_value=rewrite_result,
+        ),
+        patch(
+            "retrieval_hub_mcp.server.retrieval_query",
+            side_effect=_retrieval_side_effect,
+        ) as mock_rq,
+    ):
+        resp = await retrieve(
+            query="original query",
+            source="test-source",
+            top_k=5,
+            session=session,
+        )
+
+    assert resp.rewritten_queries is not None
+    assert len(resp.rewritten_queries) == 2
+    assert resp.rewritten_queries[0].text == "rewritten query 1"
+    assert resp.rewritten_queries[1].text == "rewritten query 2"
+
+    hit_texts = {h.text for h in resp.hits}
+    assert "original hit" in hit_texts
+    assert "rewrite hit 1" in hit_texts
+    assert "rewrite hit 2" in hit_texts
+
+    assert mock_rq.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_retrieve_with_no_rewrite_flag():
+    """no_rewrite=True skips the rewriter even when metadata is enabled."""
+    source = _make_source(rewriter_metadata=_REWRITER_META)
+    session = _make_retrieve_session(source)
+
+    with (
+        patch(
+            "retrieval_hub_mcp.server._rewrite_query",
+            new_callable=AsyncMock,
+        ) as mock_rewrite,
+        patch(
+            "retrieval_hub_mcp.server.retrieval_query",
+            return_value=[_make_retrieval_result()],
+        ) as mock_rq,
+    ):
+        resp = await retrieve(
+            query="test query",
+            source="test-source",
+            top_k=5,
+            no_rewrite=True,
+            session=session,
+        )
+
+    assert resp.rewritten_queries is None
+    mock_rewrite.assert_not_awaited()
+    mock_rq.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_retrieve_without_rewriter_metadata():
+    """Sources without rewriter_metadata behave as before (no rewriting)."""
+    source = _make_source(rewriter_metadata=None)
+    session = _make_retrieve_session(source)
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_query",
+        return_value=[_make_retrieval_result()],
+    ) as mock_rq:
+        resp = await retrieve(
+            query="test query",
+            source="test-source",
+            top_k=5,
+            session=session,
+        )
+
+    assert resp.rewritten_queries is None
+    assert len(resp.hits) == 1
+    mock_rq.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_retrieve_rewriter_fallback_on_error():
+    """When the rewriter raises, retrieve falls back to the raw query."""
+    source = _make_source(rewriter_metadata=_REWRITER_META)
+    session = _make_retrieve_session(source)
+
+    with (
+        patch(
+            "retrieval_hub_mcp.server._rewrite_query",
+            new_callable=AsyncMock,
+            side_effect=Exception("LLM unreachable"),
+        ),
+        patch(
+            "retrieval_hub_mcp.server.retrieval_query",
+            return_value=[_make_retrieval_result(text="fallback hit")],
+        ) as mock_rq,
+    ):
+        resp = await retrieve(
+            query="test query",
+            source="test-source",
+            top_k=5,
+            session=session,
+        )
+
+    assert resp.rewritten_queries is None
+    assert len(resp.hits) == 1
+    assert resp.hits[0].text == "fallback hit"
+    mock_rq.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_retrieve_deduplicates_hits():
+    """Duplicate hits from original and rewritten queries are deduplicated by text."""
+    source = _make_source(rewriter_metadata=_REWRITER_META)
+    session = _make_retrieve_session(source)
+
+    rewrite_result = SimpleNamespace(
+        queries=[
+            SimpleNamespace(
+                text="rewritten query",
+                intent="synonym",
+                confidence=0.90,
+                rationale="r",
+            ),
+        ],
+    )
+
+    def _retrieval_side_effect(**kwargs):
+        qt = kwargs["query_text"]
+        if qt == "test query":
+            return [_make_retrieval_result(text="shared passage", score=0.7)]
+        if qt == "rewritten query":
+            return [_make_retrieval_result(text="shared passage", score=0.9)]
+        return []
+
+    with (
+        patch(
+            "retrieval_hub_mcp.server._rewrite_query",
+            new_callable=AsyncMock,
+            return_value=rewrite_result,
+        ),
+        patch(
+            "retrieval_hub_mcp.server.retrieval_query",
+            side_effect=_retrieval_side_effect,
+        ),
+    ):
+        resp = await retrieve(
+            query="test query",
+            source="test-source",
+            top_k=5,
+            session=session,
+        )
+
+    assert len(resp.hits) == 1
+    assert resp.hits[0].text == "shared passage"
+    assert resp.hits[0].score == 0.9

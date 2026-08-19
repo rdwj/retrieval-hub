@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 import uuid
 
 import httpx
@@ -31,10 +32,14 @@ from retrieval_hub.retrieval.api import (
 from retrieval_hub.retrieval.api import (
     query as retrieval_query,
 )
+from retrieval_hub.rewriter import LlmClient, RewriterService
+from retrieval_hub.rewriter.schemas import RewriteResult
+from retrieval_hub.schemas.rewriter import RewriterMetadata
 from retrieval_hub_mcp.schemas import (
     DataFreshness,
     RetrievalHit,
     RetrievalResponse,
+    RewrittenQueryInfo,
     SourceDetail,
     SourceSummary,
     UsageRules,
@@ -91,9 +96,20 @@ def get_catalog_session() -> Session:
 
 GITHUB_API_BASE = "https://api.github.com"
 
+_REWRITER_LLM_URL = os.environ.get(
+    "RETRIEVAL_HUB_REWRITER_LLM_URL",
+    "https://gpt-oss-120b-direct-gpt-oss-120b-model.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1",
+)
+_REWRITER_LLM_MODEL = os.environ.get(
+    "RETRIEVAL_HUB_REWRITER_LLM_MODEL",
+    "/mnt/models",
+)
+
 
 async def _fetch_github_file(
-    owner_repo: str, file_path: str, ref: str | None = None,
+    owner_repo: str,
+    file_path: str,
+    ref: str | None = None,
 ) -> tuple[str, str]:
     """Fetch a file from GitHub's public REST API.
 
@@ -107,7 +123,9 @@ async def _fetch_github_file(
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            url, params=params, headers={"Accept": "application/vnd.github.v3+json"},
+            url,
+            params=params,
+            headers={"Accept": "application/vnd.github.v3+json"},
         )
 
     remaining = resp.headers.get("x-ratelimit-remaining")
@@ -117,18 +135,14 @@ async def _fetch_github_file(
 
     if resp.status_code == 404:
         raise ToolError(
-            f"File {file_path!r} not found in {owner_repo}"
-            + (f" at ref {ref!r}" if ref else "")
+            f"File {file_path!r} not found in {owner_repo}" + (f" at ref {ref!r}" if ref else "")
         )
     if resp.status_code == 403:
         raise ToolError(
-            f"GitHub API rate limit exceeded (remaining={remaining}). "
-            "Try again later or use a PAT."
+            f"GitHub API rate limit exceeded (remaining={remaining}). Try again later or use a PAT."
         )
     if resp.status_code != 200:
-        raise ToolError(
-            f"GitHub API returned {resp.status_code} for {owner_repo}/{file_path}"
-        )
+        raise ToolError(f"GitHub API returned {resp.status_code} for {owner_repo}/{file_path}")
 
     data = resp.json()
     if data.get("type") != "file":
@@ -154,14 +168,62 @@ def _resolve_github_repo(source_obj, session: Session) -> str | None:
     )
     if not pi or not pi.recipe_version_id:
         return None
-    rv = (
-        session.query(RecipeVersion)
-        .filter(RecipeVersion.id == pi.recipe_version_id)
-        .one_or_none()
-    )
+    rv = session.query(RecipeVersion).filter(RecipeVersion.id == pi.recipe_version_id).one_or_none()
     if rv and rv.content:
         return rv.content.get("github_repo")
     return None
+
+
+# ---------------------------------------------------------------------------
+# Query rewriter helpers
+# ---------------------------------------------------------------------------
+
+
+def _should_rewrite(source_obj: object | None) -> bool:
+    """Return True if the source has rewriter metadata with enabled=True."""
+    if source_obj is None:
+        return False
+    raw = getattr(source_obj, "rewriter_metadata", None)
+    if not raw:
+        return False
+    try:
+        metadata = RewriterMetadata.model_validate(raw)
+        return metadata.enabled
+    except Exception:
+        logger.warning(
+            "Invalid rewriter_metadata on source, skipping rewrite",
+        )
+        return False
+
+
+async def _rewrite_query(
+    query: str,
+    source_obj: object,
+) -> RewriteResult:
+    """Rewrite a query using the source's rewriter metadata and the LLM."""
+    raw = getattr(source_obj, "rewriter_metadata", None)
+    metadata = RewriterMetadata.model_validate(raw)
+
+    async with LlmClient(
+        _REWRITER_LLM_URL,
+        model=_REWRITER_LLM_MODEL,
+    ) as llm:
+        service = RewriterService(llm)
+        return await service.rewrite(query, metadata)
+
+
+def _deduplicate_hits(
+    results: list,
+    top_k: int,
+) -> list:
+    """Deduplicate retrieval results by text, keeping the highest score."""
+    seen: dict[str, object] = {}
+    for r in results:
+        text = r.text
+        if text not in seen or r.score > seen[text].score:
+            seen[text] = r
+    ranked = sorted(seen.values(), key=lambda h: h.score, reverse=True)
+    return ranked[:top_k]
 
 
 # ---------------------------------------------------------------------------
@@ -258,11 +320,7 @@ async def describe_source(
             if rv:
                 recipe_content = rv.content
 
-        prompts = (
-            session.query(SamplePrompt)
-            .filter(SamplePrompt.source_id == source.id)
-            .all()
-        )
+        prompts = session.query(SamplePrompt).filter(SamplePrompt.source_id == source.id).all()
         sample_prompts = [
             {
                 "applies_to_llm_family": sp.applies_to_llm_family,
@@ -292,7 +350,7 @@ async def describe_source(
 @mcp.tool(
     annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     tags={"retrieval"},
-    timeout=30.0,
+    timeout=60.0,
 )
 async def retrieve(
     query: str,
@@ -300,6 +358,7 @@ async def retrieve(
     top_k: int = 5,
     file_path: str | None = None,
     ref: str | None = None,
+    no_rewrite: bool = False,
     session: Session = Depends(get_catalog_session),
 ) -> RetrievalResponse:
     """Search a data source and return relevant passages with provenance metadata.
@@ -319,6 +378,9 @@ async def retrieve(
         ref: Git ref (branch, tag, or SHA) for the file fetch.  Only used
             when ``file_path`` is provided.  Defaults to the repo's default
             branch.
+        no_rewrite: Skip automatic query rewriting even if the source has
+            rewriter metadata enabled.  Useful for comparing raw vs rewritten
+            retrieval quality.
     """
     try:
         source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
@@ -332,12 +394,40 @@ async def retrieve(
                 session=session,
             )
 
-        results = retrieval_query(
-            source_slug=source,
-            query_text=query,
-            session=session,
-            top_k=top_k,
-        )
+        rewritten_queries_info = None
+        query_texts = [query]
+
+        if not no_rewrite and _should_rewrite(source_obj):
+            try:
+                rewrite_result = await _rewrite_query(query, source_obj)
+                rewritten_queries_info = [
+                    RewrittenQueryInfo(
+                        text=q.text,
+                        intent=q.intent,
+                        confidence=q.confidence,
+                    )
+                    for q in rewrite_result.queries
+                ]
+                query_texts.extend(q.text for q in rewrite_result.queries)
+            except Exception:
+                logger.warning(
+                    "Rewriter failed for source=%s, falling back to raw query",
+                    source,
+                    exc_info=True,
+                )
+
+        all_results = []
+        for qt in query_texts:
+            all_results.extend(
+                retrieval_query(
+                    source_slug=source,
+                    query_text=qt,
+                    session=session,
+                    top_k=top_k,
+                )
+            )
+
+        deduped = _deduplicate_hits(all_results, top_k)
 
         hits = [
             RetrievalHit(
@@ -350,18 +440,21 @@ async def retrieve(
                 recipe_version=r.recipe_version,
                 request_id=r.request_id,
             )
-            for r in results
+            for r in deduped
         ]
 
-        return _build_response(hits, source_obj)
+        return _build_response(
+            hits,
+            source_obj,
+            rewritten_queries=rewritten_queries_info,
+        )
     except SourceNotFoundError as exc:
         raise ToolError(
             f"Source {source!r} not found. Use list_sources to see available sources."
         ) from exc
     except SourceNotQueryableError as exc:
         raise ToolError(
-            f"Source {source!r} exists but has no active index. "
-            f"It may still be ingesting data."
+            f"Source {source!r} exists but has no active index. It may still be ingesting data."
         ) from exc
     except UnsupportedFamilyError as exc:
         raise ToolError(
@@ -381,8 +474,7 @@ async def _retrieve_file(
     """Handle the file_path code path: fetch a file from GitHub."""
     if source_obj is None:
         raise ToolError(
-            f"Source {source_slug!r} not found. "
-            "Use list_sources to see available sources."
+            f"Source {source_slug!r} not found. Use list_sources to see available sources."
         )
 
     github_repo = _resolve_github_repo(source_obj, session)
@@ -411,7 +503,10 @@ async def _retrieve_file(
 
 
 def _build_response(
-    hits: list[RetrievalHit], source_obj,
+    hits: list[RetrievalHit],
+    source_obj,
+    *,
+    rewritten_queries: list[RewrittenQueryInfo] | None = None,
 ) -> RetrievalResponse:
     """Assemble a RetrievalResponse with usage_rules and data_freshness."""
     usage_rules = None
@@ -438,4 +533,5 @@ def _build_response(
         hits=hits,
         usage_rules=usage_rules,
         data_freshness=data_freshness,
+        rewritten_queries=rewritten_queries,
     )

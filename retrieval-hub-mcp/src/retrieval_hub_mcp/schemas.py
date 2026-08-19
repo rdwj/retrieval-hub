@@ -74,6 +74,14 @@ class DataFreshness(BaseModel):
     staleness_note: str | None = None
 
 
+class RewrittenQueryInfo(BaseModel):
+    """Summary of a single rewritten query, returned for observability."""
+
+    text: str
+    intent: str
+    confidence: float
+
+
 class RetrievalResponse(BaseModel):
     """Full retrieve response: hits plus source-level metadata.
 
@@ -86,3 +94,4 @@ class RetrievalResponse(BaseModel):
     hits: list[RetrievalHit]
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None
+    rewritten_queries: list[RewrittenQueryInfo] | None = None
