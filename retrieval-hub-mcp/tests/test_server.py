@@ -20,7 +20,13 @@ from retrieval_hub_mcp.schemas import (
     SourceDetail,
     SourceSummary,
 )
-from retrieval_hub_mcp.server import describe_source, list_sources, refine, retrieve
+from retrieval_hub_mcp.server import (
+    _resolve_refine_strategy,
+    describe_source,
+    list_sources,
+    refine,
+    retrieve,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1283,8 +1289,6 @@ async def test_refine_cross_reference_is_origin_correct():
 # ---------------------------------------------------------------------------
 # _resolve_refine_strategy — entity_arc and min_score tests
 # ---------------------------------------------------------------------------
-
-from retrieval_hub_mcp.server import _resolve_refine_strategy
 
 
 def test_resolve_refine_strategy_entity_arc_from_source_config():
