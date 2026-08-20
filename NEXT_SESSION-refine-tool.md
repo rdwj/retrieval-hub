@@ -43,12 +43,18 @@ Research complete — entity-arc retrieval is feasible. Design is in
    Query: "SSRIs" against PTSD CPG with `strategy="entity_arc"`.
    Confirm arc order, token truncation, score filtering.
 
+**Sequencing.** Tasks 1-3 are sequential (SQL helper feeds adapter
+method feeds strategy dispatch). Task 4 (min_score) is optional and
+independent. Tests (5) follow implementation. E2E verification (6) last.
+
 **Session start protocol:**
 - Premise checks:
   - `git pull` and confirm clean merge.
   - Run `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` to
     confirm green baseline (should be 212 + 33).
   - Port-forward cluster PG: `scripts/port_forward_cluster_pg.sh`
+  - Verify `docs/entity-arc-retrieval-research.md` exists — it's the
+    design spec for this session.
 - Rules with history:
   - Raw psycopg SQL in the adapter, not SQLAlchemy Core.
   - `RefineOutput` wrapper carries truncation metadata from the adapter.
@@ -58,7 +64,8 @@ Research complete — entity-arc retrieval is feasible. Design is in
     `_embedding_model_name()` and `_query_prefix()`, never hardcode.
     VA CPG uses PubMedBERT (no prefix), code source uses Nomic v1.5.
 - Stop-and-ask before: Any changes to the pgvector table DDL or the
-  ingestion write path. Any new fields on `RefineResponse` envelope.
+  ingestion write path. Any new fields on `RefineResponse` envelope
+  (the research doc concluded existing envelope works without changes).
 
 ## What landed last session (2026-08-20, fourth session)
 
@@ -75,7 +82,7 @@ Key findings:
 - Token budget (4,000 tokens) fits ~7 of 27 arc chunks; score-weighted
   sampling preserves the most relevant segments
 
-**Commit:** (research docs, no code changes)
+**Commit:** 8c033bd
 
 ## What landed earlier (2026-08-20, third session)
 
@@ -180,9 +187,9 @@ future data-owner usability epic should address:
 
 ## If blocked
 
-- If entity-arc retrieval proves intractable quickly, pivot to the
+- If entity-arc implementation hits unexpected complexity, pivot to the
   ergonomics backlog (#32-35). Those are self-contained, well-scoped
   enhancements that deliver concrete value.
-- If the cluster DB is inaccessible, the research exploration can still
-  be designed and prototyped against unit-test fixtures with synthetic
-  data, then verified against the cluster later.
+- If the cluster DB is inaccessible, implementation and unit tests can
+  proceed against mocked SQL helpers. E2E verification (task 6) defers
+  until cluster access is restored.
