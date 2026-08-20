@@ -1,97 +1,60 @@
 # Next Session — eval-convergence
 
-## Next: End-to-end answer-quality eval pipeline (Phase 1)
+## Next: Register-aware rewriting + hybrid scoring (E2 + E8)
 
-Build the eval infrastructure that measures whether retrieved context
-produces correct, complete answers -- not just whether we hit the right
-document. This is the foundation for every subsequent experiment and gates
-the refine-tool epic's A/B test.
+Close the answer_relevancy gap from cross-encoder reranking. The cross-
+encoder delivers +12.1% context_precision but costs -7.9% answer_relevancy.
+Two interventions to test:
 
-1. **Answer generation step**
-   Extend the eval pipeline to generate answers from retrieved context using
-   gpt-oss-120b. For each of the 30 queries, produce an answer from both
-   raw retrieval and rewrite-augmented retrieval contexts.
+1. **Register-aware rewriting (E2)**
+   Clinical queries already use correct terminology -- rewriting them adds
+   noise. Detect clinical register (keyword overlap with vocabulary_mappings
+   canonical terms) and skip rewriting for those queries. Apply cross-
+   encoder reranking on the original query's results only.
+   - Modify `scripts/eval_rerank_strategies.py` to add a `cross_encoder_register_aware` strategy
+   - Use cached expanded retrieval data (no new retrieval needed)
+   - Expected outcome: clinical answer_relevancy recovers toward 0.804
+     (the cosine_dedup baseline) while cross-encoder precision holds
 
-2. **LLM-as-judge scoring**
-   Implement a lightweight LLM-as-judge using gpt-oss-120b to score each
-   generated answer on two dimensions:
-   - **Relevancy**: does the answer address the question? (1-5 scale)
-   - **Faithfulness**: is the answer grounded in the retrieved context, or
-     does it hallucinate? (1-5 scale)
+2. **Hybrid scoring (E8)**
+   Blend cross-encoder score (precision) with cosine similarity score
+   (answer-model affinity). Sweep alpha in [0.3, 0.5, 0.7]:
+   `final_score = alpha * cross_encoder_score + (1-alpha) * cosine_score`
+   - Add a `hybrid_alpha_N` strategy to the reranking script
+   - No new retrieval or answer generation needed -- just re-score and
+     re-rank the existing candidate pool
+   - Expected outcome: find a blend that recovers most of the
+     answer_relevancy while keeping most of the context_precision
 
-   Use a structured prompt that asks the LLM to output JSON scores. This
-   avoids the Ragas/instructor incompatibility with the reasoning model.
-   The prompt should include the question, the ground-truth answer from the
-   Q/A dataset, and the generated answer.
+3. **Run full eval on best configuration**
+   Whichever of E2/E8 (or combination) produces the best trade-off, run
+   the full 30-query eval with all 3 Ragas metrics and record in the
+   eval register.
 
-3. **Ragas integration**
-   Three paths to get Ragas working (try in order):
-   a. Disable reasoning on gpt-oss-120b via the API (`"reasoning":
-      {"effort": "off"}` or vLLM config). If the model produces structured
-      JSON in `content` without reasoning, Ragas/instructor should work
-      directly. This is the simplest path.
-   b. Use a local Ollama model (e.g., `llama3.1:8b` or `granite3.1-dense:8b`)
-      as the Ragas scoring LLM. Ollama serves an OpenAI-compatible API at
-      `http://localhost:11434/v1`. Scoring is a classification task; a small
-      model is sufficient.
-   c. Check for other vLLM deployments on the cluster (Granite, Llama 3.1).
-   Configure Ragas context_precision and answer_relevancy against whichever
-   LLM works. This gives leaderboard-comparable metrics.
-
-4. **Record results in the eval register**
-   Add a new run to `eval/rewrite_lift/EVAL_REGISTER.md` with the
-   answer-quality metrics alongside the existing retrieval metrics.
-   Structure: per-query CSV with both retrieval and answer-quality scores,
-   aggregate summary JSON with means and deltas.
-
-5. **Expanded vocab mappings (Tier 1 experiment E1)**
-   If time allows after the pipeline is built: examine the per-query
-   results from the current eval to identify lay queries with MRR < 1.0,
-   add targeted vocabulary mappings, re-run, and measure the delta. This
-   is the cheapest intervention and directly addresses the slight
-   lay-register MRR regression from the semantic layer.
-
-**Sequencing.** Steps 1-2 are the core deliverable. Step 3 is opportunistic
-(check for available LLMs first, skip if none). Steps 4-5 run after the
-pipeline is working.
+**Sequencing.** E2 and E8 are independent -- can test both and pick the
+winner. Step 3 runs after the winner is identified.
 
 **Constraints for the session:**
-- The eval script must produce reproducible results (same seed, same query
-  set as prior runs) so results are comparable across the eval register.
-- Answer generation uses the same gpt-oss-120b endpoint as rewriting.
-  Budget for ~60 additional LLM calls (30 queries x 2 conditions) on top
-  of the 30 rewrite calls. Total session LLM cost: ~90 calls x ~15s =
-  ~22 minutes of LLM wall time.
-- The LLM-as-judge prompt must be recorded alongside results for
-  reproducibility. Store it in `prompts/eval-judge.yaml` following the
-  same YAML template pattern as the rewriter prompt.
+- Reuse cached retrieval data from `eval/rewrite_lift/runs/rerank-full-30/`
+  where possible. No need to re-retrieve or re-call the rewriter.
+- Same 30-query set, seed 42, for comparability with prior runs.
+- gpt-oss-120b (reasoning off) for Ragas scoring, gpt-oss:20b for answer
+  generation. Same models as Runs 3-5.
 
 **Session start protocol:**
-- Premise checks (before item 1, ~5 min):
-  - Verify local databases are up (`pg_isready -h localhost -p 5433` and
-    `-p 5434`)
-  - Verify gpt-oss-120b is reachable: `curl -s https://gpt-oss-120b-direct-gpt-oss-120b-model.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1/models | head -5`
-  - Verify VA CPG source is queryable (has active physical index)
-  - Check for other vLLM deployments on the cluster that might work with
-    Ragas: `oc get inferenceservice --all-namespaces --context=mcp-rhoai`
-    or equivalent
-  - Verify the Q/A dataset and semantic context are populated
+- Premise checks (~5 min):
+  - Databases up (`pg_isready -h localhost -p 5433` and `-p 5434`)
+  - gpt-oss-120b reachable
+  - Cached data exists: `ls eval/rewrite_lift/runs/rerank-full-30/retrieval_expanded.json`
+  - Parallel session changes merged: `git log --oneline -5` should show
+    refine-tool commits from the parallel session
 - Rules with history:
-  - gpt-oss-120b is a reasoning model: read `content`, not `reasoning`
-  - The existing eval uses seed 42 and 30 queries (14 lay, 16 clinical) --
-    keep the same set for comparability
-- Stop-and-ask before: deploying new models to the cluster; modifying the
-  existing eval register (append only)
-- Close ritual: session summary to `session-summaries/`; append new run
-  to `EVAL_REGISTER.md`; update this file with what landed
-
-**LLM endpoint details (verified 2026-08-19):**
-- URL: `https://gpt-oss-120b-direct-gpt-oss-120b-model.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1/chat/completions`
-- Model name: `/mnt/models`
-- Auth: none required
-- Context window: 131,072 tokens
-- Response shape: OpenAI-compatible, reasoning model (`content` has the
-  answer, `reasoning` has chain-of-thought)
+  - gpt-oss-120b reasoning off via `enable_thinking=False` in `extra_body`
+  - Ragas max_tokens=8192 to avoid faithfulness NaN
+  - Per-condition checkpointing in scoring stage
+- Stop-and-ask before: modifying the eval register (append only); changing
+  the retrieval pipeline or rewriter (those are separate epics)
+- Close ritual: session summary, eval register update, commit + push
 
 ## Remaining epic phases
 
@@ -239,25 +202,26 @@ concurrently with Phase 3's config sweep.
 - New source onboarding (future epic)
 - Fine-tuning / model training (future work, referenced in refine epic)
 
-## What landed last session (2026-08-19)
+## What landed last session (2026-08-20)
 
-First session of this epic (bootstrapped from query-rewriter completion).
-The eval infrastructure and semantic layer were built in the same session
-that closed the query-rewriter epic.
+Phase 1 complete. Answer-quality eval pipeline built and used. Five eval
+runs covering rewriting lift, Ragas answer quality, and reranking strategies.
+Headline result: cross-encoder reranking +12.1% context_precision.
 
-- Eval script (`scripts/eval_rewrite_lift.py`) with ground-truth retrieval
-  metrics (hit_rate@5, MRR@5, mean_score). Two runs recorded.
-- Eval register (`eval/rewrite_lift/EVAL_REGISTER.md`) and convergence
-  plan (`eval/rewrite_lift/EVAL_PLAN.md`).
-- Per-source semantic layer (`SemanticContext` schema, VA CPG seeded with
-  25 entities, 15 relationships, 12 metrics, 39 abbreviations).
-- Ragas 0.4.3 installed but not used (instructor incompatible with
-  reasoning model).
+- Answer-quality eval pipeline (`scripts/eval_answer_quality.py`): three-
+  stage caching (retrieve, generate, score), Ragas integration with
+  gpt-oss-120b reasoning-off, per-condition checkpointing, parallel workers
+- Reranking strategy comparison (`scripts/eval_rerank_strategies.py`): five
+  strategies tested, cross-encoder wins on precision + faithfulness
+- Eval register updated with Runs 3-5, eval plan revised with leaderboard
+  analysis and arXiv outline
+- Filed #28 (entity-arc retrieval), #29 (elicitation), #30 (auth), #31
+  (MCP-level eval)
+- README positioning sharpened
 
-**Commits:** `865d689`..`44d3649`
+**Commits:** `0aea548`..`3bcecf8`
 
-See `session-summaries/2026-08-19-semantic-layer-and-epics.md` for full
-details.
+See `session-summaries/2026-08-20-eval-convergence-reranking.md`.
 
 ## Watch out for
 
