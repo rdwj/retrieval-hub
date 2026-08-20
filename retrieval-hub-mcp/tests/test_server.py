@@ -339,9 +339,7 @@ async def test_retrieve_delegates_to_query():
     assert resp.hits[0].doc_url == "https://example.com/manual-v3"
     assert resp.hits[0].doc_section == "Chapter 2"
     assert resp.hits[0].chunk_index == 0
-    assert resp.hits[0].physical_index_id == "pi-001"
-    assert resp.hits[0].recipe_version == 1
-    assert resp.hits[0].request_id == "req-abc"
+    assert resp.request_id == "req-abc"
 
     assert resp.hits[1].doc_section is None
 
@@ -485,7 +483,6 @@ async def test_retrieve_file_path_fetches_from_github():
     assert resp.hits[0].score == 1.0
     assert resp.hits[0].text == "print('hello')\n"
     assert resp.hits[0].doc_title == "hello.py"
-    assert resp.hits[0].physical_index_id == "github-live"
 
 
 @pytest.mark.asyncio
@@ -513,7 +510,7 @@ async def test_retrieve_file_path_with_ref():
 
     mock_fetch.assert_awaited_once_with("rdwj/retrieval-hub", "hello.py", "abc123")
     assert len(resp.hits) == 1
-    assert resp.hits[0].recipe_version == 0
+    assert resp.request_id  # generated UUID
 
 
 @pytest.mark.asyncio

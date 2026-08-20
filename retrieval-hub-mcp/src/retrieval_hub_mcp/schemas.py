@@ -46,9 +46,6 @@ class RetrievalHit(BaseModel):
     doc_url: str
     doc_section: str | None = None
     chunk_index: int | None = None
-    physical_index_id: str
-    recipe_version: int
-    request_id: str
 
 
 class UsageRules(BaseModel):
@@ -117,8 +114,11 @@ class RetrievalResponse(BaseModel):
     content to be cited, disclaimed, and handled.  ``data_freshness``
     communicates how current the index is.  Both ride with every
     retrieval so the agent cannot miss them.
+
+    ``request_id`` is a per-query lineage handle shared by all hits.
     """
 
+    request_id: str
     hits: list[RetrievalHit]
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None

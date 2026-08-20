@@ -308,7 +308,9 @@ async def describe_source(
     try:
         source = session.query(Source).filter(Source.slug == slug).one_or_none()
         if source is None:
-            raise ToolError(f"No source with slug {slug!r}")
+            raise ToolError(
+                f"No source with slug {slug!r}. Use list_sources to see available sources."
+            )
 
         doc_count = None
         chunk_count = None
@@ -442,6 +444,8 @@ async def retrieve(
 
         deduped = _deduplicate_hits(all_results, top_k)
 
+        request_id = deduped[0].request_id if deduped else ""
+
         hits = [
             RetrievalHit(
                 text=r.text,
@@ -450,9 +454,6 @@ async def retrieve(
                 doc_url=r.doc_url,
                 doc_section=r.doc_section,
                 chunk_index=r.chunk_index,
-                physical_index_id=r.physical_index_id,
-                recipe_version=r.recipe_version,
-                request_id=r.request_id,
             )
             for r in deduped
         ]
@@ -460,6 +461,7 @@ async def retrieve(
         return _build_response(
             hits,
             source_obj,
+            request_id=request_id,
             rewritten_queries=rewritten_queries_info,
         )
     except SourceNotFoundError as exc:
@@ -508,18 +510,16 @@ async def _retrieve_file(
             doc_title=file_path,
             doc_url=html_url,
             doc_section=None,
-            physical_index_id="github-live",
-            recipe_version=0,
-            request_id=request_id,
         ),
     ]
-    return _build_response(hits, source_obj)
+    return _build_response(hits, source_obj, request_id=request_id)
 
 
 def _build_response(
     hits: list[RetrievalHit],
     source_obj,
     *,
+    request_id: str = "",
     rewritten_queries: list[RewrittenQueryInfo] | None = None,
 ) -> RetrievalResponse:
     """Assemble a RetrievalResponse with usage_rules and data_freshness."""
@@ -544,6 +544,7 @@ def _build_response(
             )
 
     return RetrievalResponse(
+        request_id=request_id,
         hits=hits,
         usage_rules=usage_rules,
         data_freshness=data_freshness,
