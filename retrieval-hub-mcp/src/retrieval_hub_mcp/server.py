@@ -3,7 +3,7 @@
 Exposes four read-only tools:
 
 * ``list_sources``   — browse the catalog of queryable sources
-* ``describe_source`` — full metadata for one source (recipe, prompts, counts)
+* ``describe_source`` — full metadata for one source (prompts, counts)
 * ``retrieve``       — semantic search against a source's physical index
 * ``refine``         — expand context around a previously retrieved chunk
 """
@@ -301,9 +301,8 @@ async def describe_source(
 ) -> SourceDetail:
     """Get detailed metadata for a specific data source.
 
-    Returns full catalog metadata including the recipe configuration,
-    sample prompts, document/chunk counts, and ownership information.
-    Use the slug from ``list_sources``.
+    Returns catalog metadata including sample prompts, document/chunk
+    counts, and ownership information.  Use the slug from ``list_sources``.
     """
     try:
         source = session.query(Source).filter(Source.slug == slug).one_or_none()
@@ -325,16 +324,6 @@ async def describe_source(
                 if pi.build_metadata and "chunk_count" in pi.build_metadata:
                     chunk_count = pi.build_metadata["chunk_count"]
 
-        recipe_content = None
-        if source.recipe_version_id:
-            rv = (
-                session.query(RecipeVersion)
-                .filter(RecipeVersion.id == source.recipe_version_id)
-                .one_or_none()
-            )
-            if rv:
-                recipe_content = rv.content
-
         prompts = session.query(SamplePrompt).filter(SamplePrompt.source_id == source.id).all()
         sample_prompts = [
             {
@@ -355,7 +344,6 @@ async def describe_source(
             owner_team=source.owner_team,
             document_count=doc_count,
             chunk_count=chunk_count,
-            recipe_content=recipe_content,
             sample_prompts=sample_prompts,
         )
     finally:

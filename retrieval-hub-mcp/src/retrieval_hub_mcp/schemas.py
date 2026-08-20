@@ -33,7 +33,6 @@ class SourceDetail(BaseModel):
     owner_team: str | None = None
     document_count: int | None = None
     chunk_count: int | None = None
-    recipe_content: dict | None = None
     sample_prompts: list[dict] | None = None
 
 

@@ -214,7 +214,6 @@ async def test_describe_source_found():
     """describe_source returns full detail for an existing source."""
     source = _make_source()
     pi = _make_physical_index(build_metadata={"chunk_count": 500})
-    rv = _make_recipe_version()
     prompt = _make_sample_prompt()
 
     session = MagicMock()
@@ -231,9 +230,6 @@ async def test_describe_source_found():
             # PhysicalIndex lookup
             return _MockQuery(pi)
         elif call_count == 3:
-            # RecipeVersion lookup
-            return _MockQuery(rv)
-        elif call_count == 4:
             # SamplePrompt lookup
             return _MockQuery([prompt])
         return _MockQuery(None)
@@ -249,7 +245,6 @@ async def test_describe_source_found():
     assert result.owner_team == "platform"
     assert result.document_count == 42
     assert result.chunk_count == 500
-    assert result.recipe_content == {"parser": "docling", "chunker": "recursive"}
     assert result.sample_prompts is not None
     assert len(result.sample_prompts) == 1
     assert result.sample_prompts[0]["role"] == "user"
@@ -269,8 +264,8 @@ async def test_describe_source_not_found():
 
 
 @pytest.mark.asyncio
-async def test_describe_source_no_recipe_or_prompts():
-    """describe_source handles sources with no recipe or sample prompts."""
+async def test_describe_source_no_index_or_prompts():
+    """describe_source handles sources with no active index or sample prompts."""
     source = _make_source(recipe_version_id=None, active_physical_index_id=None)
 
     session = MagicMock()
@@ -292,7 +287,6 @@ async def test_describe_source_no_recipe_or_prompts():
 
     result = await describe_source(slug="test-source", session=session)
 
-    assert result.recipe_content is None
     assert result.sample_prompts is None
     assert result.document_count is None
     assert result.chunk_count is None
