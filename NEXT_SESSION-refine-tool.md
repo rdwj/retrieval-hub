@@ -1,68 +1,93 @@
 # Next Session — refine-tool
 
-## Next: Cross-reference following (Phase 3)
+## Next: Entity-arc retrieval (Phase 4, research)
 
-The VA CPG guidelines cross-reference each other (PTSD -> SUD, Diabetes ->
-CKD). The semantic layer captures these as `RelationshipHint` entries. This
-phase uses them to let the agent follow cross-document references via refine.
+Investigate whether the current architecture can support entity-arc
+retrieval — tracing an entity's mentions across a document in
+narrative/structural order. This is a research phase: the outcome may be
+a working prototype, a design document, or a documented finding that the
+problem needs capabilities beyond what exists.
 
-1. **Cross-document retrieval in the adapter**
-   When the agent says "tell me about the related guidelines" or similar,
-   look up the current document's entity in
-   `semantic_context.relationships` and retrieve from the referenced
-   sources/documents. Implement as a new strategy kind (`"cross_reference"`)
-   or a separate refine call that accepts a relationship type.
+1. **#28 — Entity-arc retrieval for temporal/narrative traversal**
+   The core question: given an entity (e.g., "SSRIs" in the PTSD CPG),
+   can we retrieve all mentions across sections in document order and
+   return a coherent arc (screening -> treatment selection -> dosing ->
+   maintenance -> relapse)? The PTSD CPG has SSRIs mentioned across 13
+   sections — a concrete test case. The Phase 3 infrastructure
+   (`_resolve_cross_reference_targets`, `_filtered_similarity_search`,
+   entity graph walk) provides building blocks.
 
-2. **Provenance chain support**
-   The refined result must carry both the original retrieval provenance and
-   the cross-reference hop. The current `RefineResponse` has `source` and
-   `doc_title` on the envelope — cross-references may return chunks from a
-   different source/document, so the response shape may need adjustment.
+   **Research questions to answer:**
+   - Does entity-scoped filtered search (embed entity name, filter to
+     one document, order by chunk_index) produce a usable arc? Or does
+     vector similarity cluster too tightly around one meaning?
+   - Is `doc_section` ordering sufficient for structural position, or do
+     we need explicit section-order metadata?
+   - How should the response shape differ from cross-reference? An arc
+     is ordered and spans many sections; cross-reference is unordered
+     and spans documents.
+   - What's the token budget story? An entity arc across 13 sections
+     could be huge — need a summarization or sampling strategy.
 
-3. **Test with VA CPG corpus**
-   The PTSD CPG mentions substance use; refine should fetch the relevant
-   section from the SUD CPG. Requires the relationship graph in
-   `semantic_context` to be populated for both sources.
-
-**Prerequisites:**
-- Confirm that `RelationshipHint` entries exist in the VA CPG source's
-  `semantic_context`. If not, populate them before implementing.
-- Phase 3 depends on Phase 2 (section expansion is the building block for
-  fetching sections from referenced documents).
+   **Approach:** Start with empirical exploration against the cluster DB
+   (query SSRIs, sertraline, CPT across the PTSD CPG; trace the
+   treatment pathway). Evaluate whether a simple "embed entity + filter
+   to document + order by chunk_index" strategy produces coherent arcs.
+   If it does, prototype a `entity_arc` refine strategy. If it doesn't,
+   document why and what would be needed (co-reference resolution,
+   process metadata, etc.).
 
 **Session start protocol:**
 - Premise checks:
   - `git pull` and confirm clean merge.
   - Run `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` to
-    confirm green baseline (should be 205 + 29).
-  - Check `semantic_context.relationships` for the VA CPG source:
-    query the catalog DB for the source's `semantic_context` JSON.
+    confirm green baseline (should be 212 + 33).
+  - Port-forward cluster PG: `scripts/port_forward_cluster_pg.sh`
+  - Verify semantic_context is populated (Phase 3 seeded entities with
+    doc_titles and relationships).
 - Rules with history:
   - Raw psycopg SQL in the adapter, not SQLAlchemy Core.
-  - Doc-level fields on the response envelope, actionable ToolError on
-    empty results.
   - `RefineOutput` wrapper carries truncation metadata from the adapter.
   - `_resolve_refine_strategy` in the MCP server resolves strategy from
-    source config with family defaults.
-- Stop-and-ask before: Any changes to the pgvector table DDL, the
-  ingestion write path, or the `RefineResponse` envelope shape (since
-  cross-references may need a different document context).
+    source config with family defaults; tool-level params override.
+  - This is a research phase — document findings even if the outcome is
+    "this approach doesn't work." A design document is a valid
+    deliverable.
+- Stop-and-ask before: Any changes to the pgvector table DDL or the
+  ingestion write path. Any new fields on `RefineResponse` envelope
+  (cross-reference set precedent for per-hit fields; entity-arc may
+  need a different shape).
 
-## What landed last session (2026-08-20, second session)
+## What landed last session (2026-08-20, third session)
+
+Phase 3 complete: cross-reference following with entity relationship
+traversal across VA CPG documents.
+See `session-summaries/2026-08-20-refine-tool-phase3.md` for detail.
+
+**Commit:** 0bda717
+
+Key decisions:
+- `EntityDefinition.doc_titles` maps entities to their CPG document
+  titles. 10 condition entities populated.
+- `cross_reference` strategy: entity graph walk via
+  `_resolve_cross_reference_targets`, filtered ANN search via
+  `_filtered_similarity_search`, score-based token truncation.
+- `strategy` parameter added to MCP refine tool — agent explicitly
+  selects strategy, overriding source defaults.
+- Per-hit `doc_title`/`doc_url` on `RefineHit` for cross-document
+  results (null for same-document strategies).
+- Verified end-to-end: PTSD <-> SUD cross-references work both
+  directions against cluster DB.
+
+Noted: phantom entities in relationship graph (CKD, Stroke,
+Benzodiazepines referenced but not in ENTITIES list) — expand later.
+
+## What landed earlier (2026-08-20, second session)
 
 Phase 2 complete: section-aware expansion with token budgeting.
 See `session-summaries/2026-08-20-refine-tool-phase2.md` for detail.
 
 **Commit:** ea5fa67
-
-Key decisions:
-- `RefineOutput` dataclass wraps results with truncation metadata, avoiding
-  a double database query to detect truncation.
-- `_resolve_refine_strategy` reads `semantic_context.refinement_strategies`,
-  falls back to family defaults (section for document/clinical_document,
-  adjacent for code). Source-configured `window` and `max_context_tokens`
-  are defaults that tool-level parameters override.
-- Applied `semantic_context` Alembic migration to deployed catalog DB.
 
 ## What landed earlier (2026-08-20, first session)
 
@@ -77,38 +102,13 @@ auth, MCP-level eval). #28 maps to Phase 4 of this epic.
 
 ## Remaining epic phases
 
-### Phase 3: Cross-reference following
-
-The VA CPG guidelines heavily cross-reference each other (PTSD -> SUD,
-Diabetes -> CKD). The semantic layer already captures these as
-`RelationshipHint` entries. This phase uses them.
-
-**Work:**
-1. When the agent says "tell me about the related guidelines" or similar,
-   look up the current document's entity in `semantic_context.relationships`
-   and retrieve from the referenced sources/documents.
-2. Implement cross-document refinement: given a chunk from the PTSD CPG
-   that mentions substance use, fetch the relevant section from the SUD
-   CPG.
-3. Add provenance chain support: the refined result carries both the
-   original retrieval provenance and the cross-reference hop.
-
-**Definition of done:** An agent can retrieve a PTSD chunk, then refine
-to get the referenced SUD guideline section. Provenance chain shows both
-hops.
-
-**Dependencies:** Phase 2 (done). Also depends on the relationship graph in
-`semantic_context` being populated (already done for VA CPG).
-
-### Phase 4: Entity-arc retrieval (research phase)
+### Phase 4: Entity-arc retrieval (research phase) ← NEXT
 
 The hardest refinement problem: tracing an entity's arc across a document
 or corpus. This is a research phase -- the outcome may be a working
 implementation, a design document, or a documented finding.
 
 **Dependencies:** Phase 2 (done). Independent of Phase 3.
-
-**Parallel-ok:** Yes -- can run concurrently with Phase 3.
 
 ### Phase 5: A/B eval (refine lift measurement)
 
@@ -142,10 +142,24 @@ future data-owner usability epic should address:
 
 ---
 
+## Watch out for
+
+- The PTSD CPG doc_title is `"for the treatment of nightmares associated
+  with PTSD"` — poorly extracted. Entity-arc queries against this document
+  will need the exact title string.
+- Entity-arc retrieval may surface that `doc_section` ordering doesn't
+  match narrative order (sections are alphabetically or arbitrarily named,
+  not sequentially numbered). If so, chunk_index ordering within a
+  document may be the only reliable structural signal.
+- Phantom entities (CKD, Stroke, Benzodiazepines) in the relationship
+  graph have no EntityDefinition — entity-arc queries for these will
+  silently return nothing. Not blocking for research but worth noting.
+
 ## If blocked
 
-- If the relationship graph isn't populated for multiple VA CPG sources,
-  populate it manually for PTSD + SUD as a test fixture before implementing
-  cross-reference following.
-- If entity-arc retrieval (Phase 4) proves intractable, document the
-  findings and move on. The first three phases deliver concrete value.
+- If entity-arc retrieval proves intractable quickly, pivot to the
+  ergonomics backlog (#32-35). Those are self-contained, well-scoped
+  enhancements that deliver concrete value.
+- If the cluster DB is inaccessible, the research exploration can still
+  be designed and prototyped against unit-test fixtures with synthetic
+  data, then verified against the cluster later.
