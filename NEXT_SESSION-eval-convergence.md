@@ -24,12 +24,19 @@ the refine-tool epic's A/B test.
    The prompt should include the question, the ground-truth answer from the
    Q/A dataset, and the generated answer.
 
-3. **Ragas integration (stretch goal)**
-   If a non-reasoning LLM is available on the cluster (check for Granite,
-   Llama 3.1, or similar vLLM deployments), configure Ragas
-   context_precision and answer_relevancy against it. This gives
-   leaderboard-comparable metrics. If no compatible LLM is available, the
-   LLM-as-judge scores from step 2 are the primary metrics.
+3. **Ragas integration**
+   Three paths to get Ragas working (try in order):
+   a. Disable reasoning on gpt-oss-120b via the API (`"reasoning":
+      {"effort": "off"}` or vLLM config). If the model produces structured
+      JSON in `content` without reasoning, Ragas/instructor should work
+      directly. This is the simplest path.
+   b. Use a local Ollama model (e.g., `llama3.1:8b` or `granite3.1-dense:8b`)
+      as the Ragas scoring LLM. Ollama serves an OpenAI-compatible API at
+      `http://localhost:11434/v1`. Scoring is a classification task; a small
+      model is sufficient.
+   c. Check for other vLLM deployments on the cluster (Granite, Llama 3.1).
+   Configure Ragas context_precision and answer_relevancy against whichever
+   LLM works. This gives leaderboard-comparable metrics.
 
 4. **Record results in the eval register**
    Add a new run to `eval/rewrite_lift/EVAL_REGISTER.md` with the
