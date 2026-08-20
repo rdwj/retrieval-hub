@@ -1,195 +1,123 @@
 # Next Session — refine-tool
 
-## Next: Entity-arc retrieval (Phase 4, implementation)
+## Next: Tool ergonomics (#32 + #35)
 
-Research complete — entity-arc retrieval is feasible. Design is in
-`docs/entity-arc-retrieval-research.md`. This session implements the
-`entity_arc` refine strategy.
+The refine-tool epic is paused at Phase 5 (A/B eval), which is gated
+on the eval-convergence epic's chunk-sweep results. While that runs,
+the next refine-tool session addresses the ergonomics backlog — read-
+path-only changes that improve agent experience without touching
+ingestion or DDL.
 
-**Implementation tasks:**
+1. **#32 — Score calibration: add relevance indicator**
+   Raw cosine scores differ by embedding model (PubMedBERT 0.35-0.55,
+   Nomic 0.6-0.85). Agents can't interpret these without context. Add
+   a relevance tier or normalized indicator to retrieve/refine hits so
+   agents know whether a 0.42 is strong or weak for a given source.
+   Approach: per-source score distribution metadata on the physical
+   index (computed at ingest time or lazily), mapped to a tier label
+   (high/medium/low) at query time. Implementation in
+   `DocumentAdapter` + `RetrievalResult` + MCP response schemas.
 
-1. **New SQL helper: `_keyword_search_with_scores`**
-   In `src/retrieval_hub/adapters/document.py`. Runs
-   `WHERE doc_title = %s AND chunk_text ILIKE %s` but also computes
-   cosine similarity against a query vector for ranking. Returns the
-   same row shape as `_filtered_similarity_search`.
+2. **#35 — describe_source: omit recipe_content**
+   The `describe_source` tool returns the full recipe body including
+   embedding model config, chunking params, and github_repo. Agents
+   don't need implementation detail. Filter to agent-useful fields
+   only (description, sample prompts, document/chunk counts).
+   Small change in `retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`.
 
-2. **New adapter method: `_entity_arc_refine`**
-   Hybrid vector+keyword search within one document:
-   - Embed query, filtered ANN search (`top_k=window`)
-   - Keyword search for entity name (and aliases from SemanticContext)
-   - Union by chunk_index, keeping higher score for duplicates
-   - Apply score floor (default 0.30) to remove noise
-   - Sort by chunk_index for structural ordering
-   - Token budgeting: select by score, re-sort by position
-   - Return `RefineOutput`
-
-3. **Register `entity_arc` strategy**
-   - Add `"entity_arc"` case in `DocumentAdapter.refine` dispatch
-   - Add to `_FAMILY_DEFAULT_STRATEGY` comments (not as default)
-   - Add to `_resolve_refine_strategy` documentation
-   - Update MCP tool docstring for the strategy parameter
-
-4. **Optional: `min_score` on RefinementStrategy**
-   New optional field. Default null. Only meaningful for entity_arc.
-   Filters keyword-only matches with low vector relevance.
-
-5. **Tests**
-   - Unit tests for `_keyword_search_with_scores` (mock pgvector)
-   - Unit tests for `_entity_arc_refine` (mock SQL helpers)
-   - Integration test if cluster is available
-
-6. **Verify end-to-end against cluster**
-   Query: "SSRIs" against PTSD CPG with `strategy="entity_arc"`.
-   Confirm arc order, token truncation, score filtering.
-
-**Sequencing.** Tasks 1-3 are sequential (SQL helper feeds adapter
-method feeds strategy dispatch). Task 4 (min_score) is optional and
-independent. Tests (5) follow implementation. E2E verification (6) last.
+**Sequencing.** #35 is independent and small — do it first as a warmup.
+#32 is the main session focus and may need design work on the score
+distribution metadata format before implementation.
 
 **Session start protocol:**
 - Premise checks:
   - `git pull` and confirm clean merge.
   - Run `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` to
-    confirm green baseline (should be 212 + 33).
-  - Port-forward cluster PG: `scripts/port_forward_cluster_pg.sh`
-  - Verify `docs/entity-arc-retrieval-research.md` exists — it's the
-    design spec for this session.
+    confirm green baseline (should be 245 + 38).
+  - Deploy to cluster and exercise both retrieve and refine with
+    `mcp-test-mcp` to confirm entity_arc is working in production.
 - Rules with history:
   - Raw psycopg SQL in the adapter, not SQLAlchemy Core.
-  - `RefineOutput` wrapper carries truncation metadata from the adapter.
-  - `_resolve_refine_strategy` in the MCP server resolves strategy from
-    source config with family defaults; tool-level params override.
   - **Embedding model comes from the recipe version** — use
     `_embedding_model_name()` and `_query_prefix()`, never hardcode.
-    VA CPG uses PubMedBERT (no prefix), code source uses Nomic v1.5.
+  - Score calibration must work across all three sources (VA CPG with
+    PubMedBERT, code with Nomic v1.5, PubMed hypertension with
+    PubMedBERT). Different models produce different score distributions.
 - Stop-and-ask before: Any changes to the pgvector table DDL or the
-  ingestion write path. Any new fields on `RefineResponse` envelope
-  (the research doc concluded existing envelope works without changes).
+  ingestion write path. Any new fields that would require re-ingestion
+  of existing sources.
 
-## What landed last session (2026-08-20, fourth session)
+## What landed last session (2026-08-20, fifth session)
 
-Phase 4 research complete: entity-arc retrieval is feasible.
-See `session-summaries/2026-08-20-refine-tool-phase4-research.md` and
-`docs/entity-arc-retrieval-research.md` for detail.
+Phase 4 implementation complete: entity-arc refinement strategy.
+See `session-summaries/2026-08-20-refine-tool-phase4-impl.md`.
 
-Key findings:
-- PubMedBERT entity-scoped search produces 0.39-0.56 scores (usable)
-- Hybrid vector+keyword needed for full recall (7 of 15 keyword
-  matches missed by vector top-20)
-- doc_section ordering unreliable (13/19 sections fragmented);
-  chunk_index is the only valid structural signal
-- Token budget (4,000 tokens) fits ~7 of 27 arc chunks; score-weighted
-  sampling preserves the most relevant segments
+- `29503b5` — hybrid vector+keyword entity-arc search with ILIKE
+  wildcard escaping, alias resolution, score floor (0.30), chunk_index
+  ordering, score-based token budgeting. `min_score` on
+  `RefinementStrategy`. MCP wiring with `origin_chunk_index=-1`.
+- Deployed and exercised E2E: SSRIs arc (7/23 chunks in 4K budget),
+  prazosin arc (3 chunks, no truncation).
+- 15 new tests across 3 files (245 + 38 total).
+- Closed #28.
 
-**Commit:** 8c033bd
+**Commit:** 29503b5
 
-## What landed earlier (2026-08-20, third session)
+## What landed earlier (2026-08-20, sessions 1-4)
 
-Phase 3 complete: cross-reference following with entity relationship
-traversal across VA CPG documents.
-See `session-summaries/2026-08-20-refine-tool-phase3.md` for detail.
+- Phase 1: refine MCP tool with adjacent-chunk retrieval (`c1c495d`)
+- Phase 2: section-aware expansion with token budgeting (`ea5fa67`)
+- Phase 3: cross-reference following (`0bda717`)
+- Phase 4 research: entity-arc feasibility study (`8c033bd`)
 
-**Commit:** 0bda717
-
-Key decisions:
-- `EntityDefinition.doc_titles` maps entities to their CPG document
-  titles. 10 condition entities populated.
-- `cross_reference` strategy: entity graph walk via
-  `_resolve_cross_reference_targets`, filtered ANN search via
-  `_filtered_similarity_search`, score-based token truncation.
-- `strategy` parameter added to MCP refine tool — agent explicitly
-  selects strategy, overriding source defaults.
-- Per-hit `doc_title`/`doc_url` on `RefineHit` for cross-document
-  results (null for same-document strategies).
-- Verified end-to-end: PTSD <-> SUD cross-references work both
-  directions against cluster DB.
-
-Noted: phantom entities in relationship graph (CKD, Stroke,
-Benzodiazepines referenced but not in ENTITIES list) — expand later.
-
-## What landed earlier (2026-08-20, second session)
-
-Phase 2 complete: section-aware expansion with token budgeting.
-See `session-summaries/2026-08-20-refine-tool-phase2.md` for detail.
-
-**Commit:** ea5fa67
-
-## What landed earlier (2026-08-20, first session)
-
-Phase 1 complete: refine MCP tool with adjacent-chunk retrieval, plus
-exercise-tools pass improving ergonomics across all four tools.
-See `session-summaries/2026-08-20-refine-tool-phase1.md` for detail.
-
-**Commits:** c1c495d..a7e2216
-
-**Parallel session:** eval-convergence filed #28-31 (entity-arc, elicitation,
-auth, MCP-level eval). #28 maps to Phase 4 of this epic.
+See session summaries in `session-summaries/2026-08-20-refine-tool-*.md`.
 
 ## Remaining epic phases
-
-### Phase 4: Entity-arc retrieval ← NEXT (implementation)
-
-Research complete. Hybrid vector+keyword approach within a document,
-ordered by chunk_index, with score-based token truncation. Design in
-`docs/entity-arc-retrieval-research.md`. Implementation session needed.
-
-**Dependencies:** Phase 2 (done). Independent of Phase 3.
 
 ### Phase 5: A/B eval (refine lift measurement)
 
 The epic's gate: does refine actually improve answer quality?
 
-**Dependencies:** Eval-convergence epic Phase 1 (need the answer-quality
-eval pipeline). Refine-tool Phase 2 at minimum (done).
+**Dependencies:** Eval-convergence epic chunk-sweep results (in
+progress — next eval-convergence session runs VA CPG + PubMed
+sweeps). Refine-tool Phases 1-4 all done.
+
+**Status:** Blocked. Eval-convergence is the higher-priority epic for
+the next session slot. Phase 5 unblocks once the eval pipeline has
+baseline metrics to compare refine-augmented retrieval against.
 
 ## Tool ergonomics backlog (from exercise-tools pass)
 
-Issues filed during the Phase 2 exercise-tools session. These are not
-gating for the remaining epic phases but should be addressed before adding
-more sources.
-
 - **#32** Score calibration — add a relevance indicator so agents can
   interpret raw cosine scores. Becomes critical with multiple embedding
-  models.
+  models. **← NEXT**
 - **#33** Stable chunk identifiers — add chunk_id alongside doc_title to
-  make refine calls less fragile.
+  make refine calls less fragile. Touches ingestion write path — needs
+  design work.
 - **#34** Multi-source retrieve — search across sources in one call.
-  Low urgency at 2 sources, needed at 5+.
+  Low urgency at 3 sources, needed at 5+.
 - **#35** describe_source recipe_content — omit implementation detail
-  from agent-facing responses.
-
-Data quality guidance for doc_title consistency and doc_section granularity
-is documented in `docs/onboarding-journey-va-cpg.md` (section 4a). A
-future data-owner usability epic should address:
-- Tooling to validate doc_title consistency post-ingestion
-- Configurable doc_section splitting in the normalization stage
-- Score distribution profiling per source for relevance threshold config
-
----
+  from agent-facing responses. **← NEXT**
 
 ## Watch out for
 
 - **Embedding model mismatch:** VA CPG data uses `NeuML/pubmedbert-base-embeddings`
   (no prefix). Code source uses `nomic-ai/nomic-embed-text-v1.5` (with
-  `search_query:` prefix). Always read the model from the recipe version
-  via `_embedding_model_name()` and `_query_prefix()`. Using the wrong
-  model produces near-zero similarity scores that look like "search is
-  broken" but are actually a model mismatch.
-- The PTSD CPG doc_title is `"for the treatment of nightmares associated
-  with PTSD"` — poorly extracted. Entity-arc queries against this document
-  will need the exact title string.
-- **doc_section is not orderable.** 13/19 multi-chunk sections are
-  fragmented (non-contiguous chunk ranges). Use chunk_index for ordering.
-- Phantom entities (CKD, Stroke, Benzodiazepines) in the relationship
-  graph have no EntityDefinition — entity-arc queries for these will
-  silently return nothing. Not blocking but worth noting.
+  `search_query:` prefix). PubMed hypertension uses PubMedBERT. Always
+  read the model from the recipe version via `_embedding_model_name()`
+  and `_query_prefix()`.
+- **OpenShift route 307 redirect:** FastMCP redirects `/mcp/` to `/mcp`
+  with `http://` scheme, but the edge-terminated route requires HTTPS.
+  Port-forward works; direct HTTPS hits 503 after redirect. Pre-existing
+  issue, not blocking but worth fixing if touching deploy.
+- **Sub-agent drift:** Sub-agents introduced unrelated file changes
+  twice during Phase 4 implementation (enums.py, chunking/__init__.py).
+  Verify `git diff --stat HEAD` after delegated work to catch stray edits.
 
 ## If blocked
 
-- If entity-arc implementation hits unexpected complexity, pivot to the
-  ergonomics backlog (#32-35). Those are self-contained, well-scoped
-  enhancements that deliver concrete value.
-- If the cluster DB is inaccessible, implementation and unit tests can
-  proceed against mocked SQL helpers. E2E verification (task 6) defers
-  until cluster access is restored.
+- If score calibration design is unclear, pivot to #33 (stable chunk
+  identifiers) — that has a clearer implementation path even though it
+  touches ingestion.
+- If the cluster is inaccessible, #35 (describe_source cleanup) and
+  the design work for #32 can proceed without it.
