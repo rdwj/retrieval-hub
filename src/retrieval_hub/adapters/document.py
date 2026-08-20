@@ -136,6 +136,7 @@ class DocumentAdapter(SourceAdapter):
         request_id: str,
         strategy: str = "adjacent",
         max_context_tokens: int | None = None,
+        min_score: float | None = None,
     ) -> RefineOutput:
         from retrieval_hub.retrieval.api import RefineOutput, RetrievalResult
 
@@ -149,6 +150,16 @@ class DocumentAdapter(SourceAdapter):
                 window=window,
                 request_id=request_id,
                 max_context_tokens=max_context_tokens,
+            )
+        elif strategy == "entity_arc":
+            return self._entity_arc_refine(
+                doc_title=doc_title,
+                chunk_index=chunk_index,
+                query=query,
+                window=window,
+                request_id=request_id,
+                max_context_tokens=max_context_tokens,
+                min_score=min_score,
             )
         else:
             rows = self._adjacent_chunks(doc_title, chunk_index, window)
@@ -433,6 +444,63 @@ class DocumentAdapter(SourceAdapter):
                 rows = cur.fetchall()
         return [dict(zip(cols, row, strict=True)) for row in rows]
 
+    def _keyword_search_with_scores(
+        self,
+        patterns: list[str],
+        doc_title: str,
+        query_vec: list[float],
+    ) -> list[dict[str, Any]]:
+        """Keyword search within a document, with vector scores for ranking.
+
+        Each pattern becomes an ILIKE condition OR'd together. The vector
+        score is computed so keyword-only results can rank alongside vector
+        results in the union.
+        """
+        import psycopg
+        from pgvector.psycopg import register_vector
+
+        table = self.physical_index.location
+
+        def _escape_like(s: str) -> str:
+            return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+        ilike_clauses = " OR ".join(["chunk_text ILIKE %s"] * len(patterns))
+        ilike_params = [f"%{_escape_like(p)}%" for p in patterns]
+
+        sql = (
+            f"SELECT id, chunk_text, chunk_tokens, doc_title, doc_url, "
+            f"doc_section, chunk_index, "
+            f"1 - (embedding <=> %s::vector) AS score "
+            f"FROM {table} "
+            f"WHERE doc_title = %s AND ({ilike_clauses}) "
+            f"ORDER BY chunk_index"
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            register_vector(conn)
+            with conn.cursor() as cur:
+                cur.execute(sql, (query_vec, doc_title, *ilike_params))
+                cols = [desc.name for desc in cur.description or []]
+                rows = cur.fetchall()
+        return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    def _resolve_entity_aliases(self, query: str) -> list[str]:
+        """Resolve aliases for an entity name from the source's semantic context."""
+        from retrieval_hub.schemas.semantic import SemanticContext
+
+        raw_sc = self.source.semantic_context
+        if raw_sc is None:
+            return []
+        try:
+            sc = SemanticContext.model_validate(raw_sc)
+        except Exception:
+            return []
+
+        for entity in sc.entities:
+            if entity.name.lower() == query.lower():
+                return entity.aliases
+        return []
+
     def _resolve_cross_reference_targets(
         self,
         doc_title: str,
@@ -614,4 +682,102 @@ class DocumentAdapter(SourceAdapter):
             results=results,
             truncated=truncated,
             total_chunks=total_before_truncation if truncated else None,
+        )
+
+    def _entity_arc_refine(
+        self,
+        *,
+        doc_title: str,
+        chunk_index: int,
+        query: str,
+        window: int,
+        request_id: str,
+        max_context_tokens: int | None = None,
+        min_score: float | None = None,
+    ) -> RefineOutput:
+        """Trace an entity's mentions across a document in structural order."""
+        from retrieval_hub.ingestion.embed import QueryEmbedder
+        from retrieval_hub.retrieval.api import RefineOutput, RetrievalResult
+
+        # 1. Resolve aliases
+        aliases = self._resolve_entity_aliases(query)
+        keyword_patterns = [query] + aliases
+
+        # 2. Embed the query
+        embedder = QueryEmbedder(
+            model_name=self._embedding_model_name(),
+            query_prefix=self._query_prefix(),
+            prompt_name=self._query_prompt_name(),
+        )
+        query_vec = embedder.embed(query)
+
+        # 3. Filtered ANN search within the document
+        vector_rows = self._filtered_similarity_search(
+            query_vec, [doc_title], top_k=window
+        )
+
+        # 4. Keyword search with vector scores
+        keyword_rows = self._keyword_search_with_scores(
+            keyword_patterns, doc_title, query_vec
+        )
+
+        # 5. Union by chunk_index, keeping higher score
+        by_chunk: dict[int, dict[str, Any]] = {}
+        for row in vector_rows:
+            ci = row["chunk_index"]
+            by_chunk[ci] = row
+        for row in keyword_rows:
+            ci = row["chunk_index"]
+            if ci not in by_chunk or row["score"] > by_chunk[ci]["score"]:
+                by_chunk[ci] = row
+
+        candidates = list(by_chunk.values())
+
+        # 6. Apply score floor
+        effective_min_score = min_score if min_score is not None else 0.30
+        candidates = [r for r in candidates if r["score"] >= effective_min_score]
+
+        # 7. Sort by chunk_index for structural ordering
+        candidates.sort(key=lambda r: r["chunk_index"])
+
+        total_arc_mentions = len(candidates)
+
+        # 8. Token budgeting
+        truncated = False
+        if max_context_tokens is not None:
+            total_tokens = sum(r.get("chunk_tokens", 0) for r in candidates)
+            if total_tokens > max_context_tokens:
+                # Select top-scoring chunks within budget
+                by_score = sorted(candidates, key=lambda r: r["score"], reverse=True)
+                budget_used = 0
+                selected_indices: set[int] = set()
+                for row in by_score:
+                    cost = row.get("chunk_tokens", 0)
+                    if budget_used + cost <= max_context_tokens:
+                        selected_indices.add(row["chunk_index"])
+                        budget_used += cost
+                # Re-sort by chunk_index
+                candidates = [r for r in candidates if r["chunk_index"] in selected_indices]
+                truncated = True
+
+        # 9. Build results
+        results = [
+            RetrievalResult(
+                text=row["chunk_text"],
+                score=float(row["score"]),
+                doc_title=row["doc_title"] or "",
+                doc_url=row["doc_url"] or "",
+                doc_section=row["doc_section"],
+                chunk_index=row["chunk_index"],
+                physical_index_id=self.physical_index.id,
+                recipe_version=self.recipe_version.version_number,
+                request_id=request_id,
+            )
+            for row in candidates
+        ]
+
+        return RefineOutput(
+            results=results,
+            truncated=truncated,
+            total_chunks=total_arc_mentions if truncated else None,
         )

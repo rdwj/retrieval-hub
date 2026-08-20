@@ -1278,3 +1278,140 @@ async def test_refine_cross_reference_is_origin_correct():
         "SUD Doc chunk 10 shares the index but is a different document"
     )
     assert resp.chunks[2].is_origin is False
+
+
+# ---------------------------------------------------------------------------
+# _resolve_refine_strategy — entity_arc and min_score tests
+# ---------------------------------------------------------------------------
+
+from retrieval_hub_mcp.server import _resolve_refine_strategy
+
+
+def test_resolve_refine_strategy_entity_arc_from_source_config():
+    """entity_arc strategy with min_score is resolved from source semantic_context."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "entity_arc", "window": 10, "enabled": True, "min_score": 0.35},
+            ],
+        },
+    )
+
+    strategy, max_tokens, window, min_score = _resolve_refine_strategy(
+        source, None, None, None,
+    )
+
+    assert strategy == "entity_arc"
+    assert window == 10
+    assert min_score == pytest.approx(0.35)
+    assert max_tokens is None
+
+
+def test_resolve_refine_strategy_entity_arc_explicit_override():
+    """Explicit strategy='entity_arc' picks up min_score from matching config entry."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "section", "window": 2, "enabled": True},
+                {"kind": "entity_arc", "window": 8, "enabled": True, "min_score": 0.40, "max_context_tokens": 6000},
+            ],
+        },
+    )
+
+    strategy, max_tokens, window, min_score = _resolve_refine_strategy(
+        source, "entity_arc", None, None,
+    )
+
+    assert strategy == "entity_arc"
+    assert window == 8
+    assert min_score == pytest.approx(0.40)
+    assert max_tokens == 6000
+
+
+def test_resolve_refine_strategy_tool_window_overrides_source():
+    """Tool-level window overrides the source config's window."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "entity_arc", "window": 10, "enabled": True, "min_score": 0.35},
+            ],
+        },
+    )
+
+    strategy, max_tokens, window, min_score = _resolve_refine_strategy(
+        source, "entity_arc", None, 20,
+    )
+
+    assert strategy == "entity_arc"
+    assert window == 20  # tool override
+    assert min_score == pytest.approx(0.35)  # from source, no tool override
+
+
+def test_resolve_refine_strategy_min_score_defaults_none():
+    """min_score defaults to None when not configured on the source."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "section", "window": 2, "enabled": True},
+            ],
+        },
+    )
+
+    _, _, _, min_score = _resolve_refine_strategy(source, None, None, None)
+    assert min_score is None
+
+
+@pytest.mark.asyncio
+async def test_refine_entity_arc_strategy():
+    """entity_arc strategy returns scored results with is_origin=False for all chunks."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "entity_arc", "window": 10, "enabled": True, "min_score": 0.30},
+            ],
+        },
+    )
+    session = _make_retrieve_session(source)
+
+    mock_results = [
+        _make_refine_result(
+            text="SSRI mention 1",
+            doc_title="PTSD Doc",
+            doc_url="https://example.com/ptsd",
+            chunk_index=17,
+            score=0.55,
+        ),
+        _make_refine_result(
+            text="SSRI mention 2",
+            doc_title="PTSD Doc",
+            doc_url="https://example.com/ptsd",
+            chunk_index=33,
+            score=0.48,
+        ),
+    ]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ) as mock_ref:
+        resp = await refine(
+            source="test-source",
+            doc_title="PTSD Doc",
+            chunk_index=0,
+            query="SSRIs",
+            strategy="entity_arc",
+            session=session,
+        )
+
+    assert resp.strategy == "entity_arc"
+    assert resp.origin_chunk_index == -1
+    assert len(resp.chunks) == 2
+    # entity_arc sets is_origin=False for all chunks
+    assert all(not c.is_origin for c in resp.chunks)
+    # doc_title/doc_url are None (not cross_reference)
+    assert all(c.doc_title is None for c in resp.chunks)
+
+    mock_ref.assert_called_once()
+    call_kwargs = mock_ref.call_args[1]
+    assert call_kwargs["strategy"] == "entity_arc"
+    assert call_kwargs["min_score"] == pytest.approx(0.30)

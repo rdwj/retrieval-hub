@@ -592,22 +592,24 @@ def _resolve_refine_strategy(
     tool_strategy: str | None,
     tool_max_tokens: int | None,
     tool_window: int | None,
-) -> tuple[str, int | None, int]:
-    """Determine which refinement strategy, token budget, and window to use.
+) -> tuple[str, int | None, int, float | None]:
+    """Determine which refinement strategy, token budget, window, and min_score to use.
 
     Resolution order:
     1. If ``tool_strategy`` is provided, use it.  Look up its config in
-       ``refinement_strategies`` for default window/max_tokens.
+       ``refinement_strategies`` for default window/max_tokens/min_score.
     2. Source's ``semantic_context.refinement_strategies`` (first enabled entry).
     3. Family default: ``section`` for document/clinical_document, ``adjacent``
        for code.
     4. Fall back to ``adjacent`` if nothing else matches.
 
     Tool-level ``max_context_tokens`` and ``window`` override source defaults.
+    ``min_score`` is only configurable via source config (no tool-level override).
     """
     strategy = "adjacent"
     source_max_tokens: int | None = None
     source_window: int = 2
+    source_min_score: float | None = None
 
     if source_obj is not None:
         family = getattr(source_obj, "family", None)
@@ -627,6 +629,7 @@ def _resolve_refine_strategy(
                         if rs.kind == tool_strategy and rs.enabled:
                             source_max_tokens = rs.max_context_tokens
                             source_window = rs.window
+                            source_min_score = rs.min_score
                             break
                 else:
                     for rs in sc.refinement_strategies:
@@ -634,6 +637,7 @@ def _resolve_refine_strategy(
                             strategy = rs.kind
                             source_max_tokens = rs.max_context_tokens
                             source_window = rs.window
+                            source_min_score = rs.min_score
                             break
             except Exception:
                 logger.warning(
@@ -649,7 +653,8 @@ def _resolve_refine_strategy(
 
     effective_max_tokens = tool_max_tokens if tool_max_tokens is not None else source_max_tokens
     effective_window = tool_window if tool_window is not None else source_window
-    return strategy, effective_max_tokens, effective_window
+    effective_min_score = source_min_score
+    return strategy, effective_max_tokens, effective_window, effective_min_score
 
 
 @mcp.tool(
@@ -690,6 +695,10 @@ async def refine(
     included.  ``total_section_chunks`` tells you how large the full
     section is.
 
+    For the ``entity_arc`` strategy, ``origin_chunk_index`` is -1 and
+    ``is_origin`` is false for all chunks because there is no single
+    origin — the entire arc is the result.
+
     Parameters:
         source: Source slug (from ``list_sources``).
         doc_title: Document title copied exactly from the ``retrieve`` hit.
@@ -710,17 +719,20 @@ async def refine(
             returns chunks positionally near the origin.
             ``cross_reference`` follows entity relationships to find
             relevant content in related documents (e.g., PTSD to SUD
-            comorbidity guidelines).  When omitted, the source's
-            configured default strategy is used.
+            comorbidity guidelines).  ``entity_arc`` traces all mentions
+            of an entity across a single document in structural order;
+            ``query`` carries the entity name and ``chunk_index`` is
+            ignored.  When omitted, the source's configured default
+            strategy is used.
     """
     try:
         source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
 
-        effective_strategy, effective_max_tokens, effective_window = _resolve_refine_strategy(
+        effective_strategy, effective_max_tokens, effective_window, effective_min_score = _resolve_refine_strategy(
             source_obj, strategy, max_context_tokens, window,
         )
 
-        output = retrieval_refine(
+        refine_kwargs: dict = dict(
             source_slug=source,
             doc_title=doc_title,
             chunk_index=chunk_index,
@@ -730,6 +742,10 @@ async def refine(
             strategy=effective_strategy,
             max_context_tokens=effective_max_tokens,
         )
+        if effective_min_score is not None:
+            refine_kwargs["min_score"] = effective_min_score
+
+        output = retrieval_refine(**refine_kwargs)
 
         if not output.results:
             raise ToolError(
@@ -740,6 +756,7 @@ async def refine(
 
         doc_url = output.results[0].doc_url
 
+        is_entity_arc = effective_strategy == "entity_arc"
         is_cross_ref = effective_strategy == "cross_reference"
 
         chunks = [
@@ -747,7 +764,10 @@ async def refine(
                 text=r.text,
                 doc_section=r.doc_section,
                 chunk_index=r.chunk_index,
-                is_origin=(r.chunk_index == chunk_index and r.doc_title == doc_title),
+                is_origin=(
+                    False if is_entity_arc
+                    else (r.chunk_index == chunk_index and r.doc_title == doc_title)
+                ),
                 doc_title=r.doc_title if is_cross_ref else None,
                 doc_url=r.doc_url if is_cross_ref else None,
             )
@@ -760,7 +780,7 @@ async def refine(
             source=source,
             doc_title=doc_title,
             doc_url=doc_url,
-            origin_chunk_index=chunk_index,
+            origin_chunk_index=-1 if is_entity_arc else chunk_index,
             strategy=effective_strategy,
             chunks=chunks,
             truncated=output.truncated,

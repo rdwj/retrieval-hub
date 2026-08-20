@@ -186,6 +186,7 @@ def refine(
     request_id: str | None = None,
     strategy: str = "adjacent",
     max_context_tokens: int | None = None,
+    min_score: float | None = None,
 ) -> RefineOutput:
     """Return adjacent context around a previously retrieved chunk.
 
@@ -238,4 +239,5 @@ def refine(
         request_id=effective_request_id,
         strategy=strategy,
         max_context_tokens=max_context_tokens,
+        min_score=min_score,
     )

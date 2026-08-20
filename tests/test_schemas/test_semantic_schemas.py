@@ -105,6 +105,13 @@ class TestRefinementStrategy:
         rs_none = RefinementStrategy(kind="adjacent")
         assert rs_none.max_context_tokens is None
 
+    def test_min_score(self):
+        rs = RefinementStrategy(kind="entity_arc", min_score=0.35)
+        assert rs.min_score == pytest.approx(0.35)
+
+        rs_none = RefinementStrategy(kind="adjacent")
+        assert rs_none.min_score is None
+
     def test_rejects_extra_fields(self):
         with pytest.raises(ValidationError):
             RefinementStrategy(kind="adjacent", unknown="bad")

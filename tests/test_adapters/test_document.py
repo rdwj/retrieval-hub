@@ -828,3 +828,436 @@ def test_resolve_cross_reference_targets() -> None:
 
     # Unknown doc matches no entity
     assert adapter._resolve_cross_reference_targets("Unknown Doc") == []
+
+
+# ---------------------------------------------------------------------------
+# Entity-arc refinement tests
+# ---------------------------------------------------------------------------
+
+
+def _extract_cursor(fake_connect_ctx: MagicMock) -> MagicMock:
+    """Reach into a _make_fake_connection mock and return the inner cursor."""
+    return fake_connect_ctx.__enter__.return_value.cursor.return_value.__enter__.return_value
+
+
+def test_keyword_search_with_scores() -> None:
+    """_keyword_search_with_scores builds OR'd ILIKE SQL and returns scored rows."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    kw_conn = _make_fake_connection(
+        _XREF_COLS,
+        [
+            ("uuid-1", "SSRI mention here", 100, "PTSD Doc", "https://example/ptsd", "Treatment", 17, 0.45),
+            ("uuid-2", "selective serotonin text", 120, "PTSD Doc", "https://example/ptsd", "Evidence", 46, 0.38),
+        ],
+    )
+
+    with (
+        patch("psycopg.connect", return_value=kw_conn),
+        patch("pgvector.psycopg.register_vector") as mock_register,
+    ):
+        rows = adapter._keyword_search_with_scores(
+            ["SSRIs", "selective serotonin"],
+            "PTSD Doc",
+            [0.1] * 768,
+        )
+
+    assert len(rows) == 2
+    assert rows[0]["chunk_text"] == "SSRI mention here"
+    assert rows[0]["score"] == pytest.approx(0.45)
+    assert rows[1]["chunk_index"] == 46
+
+    # Verify SQL has ILIKE for both patterns
+    fake_cursor = _extract_cursor(kw_conn)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "ILIKE" in executed_sql
+    assert executed_sql.count("ILIKE") == 2  # One per pattern
+
+    mock_register.assert_called_once()
+
+
+def test_resolve_entity_aliases_found() -> None:
+    """_resolve_entity_aliases returns aliases for a matching entity name (case-insensitive)."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {
+                "name": "SSRIs",
+                "entity_type": "drug_class",
+                "definition": "Selective serotonin reuptake inhibitors",
+                "aliases": ["selective serotonin reuptake inhibitors", "SSRI"],
+            },
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://ignored",
+    )
+
+    # Exact match
+    assert adapter._resolve_entity_aliases("SSRIs") == [
+        "selective serotonin reuptake inhibitors",
+        "SSRI",
+    ]
+
+    # Case-insensitive match
+    assert adapter._resolve_entity_aliases("ssris") == [
+        "selective serotonin reuptake inhibitors",
+        "SSRI",
+    ]
+
+    # No match
+    assert adapter._resolve_entity_aliases("unknown-entity") == []
+
+
+def test_resolve_entity_aliases_no_semantic_context() -> None:
+    """_resolve_entity_aliases returns empty when semantic_context is None."""
+    source = _make_source()
+    source.semantic_context = None
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://ignored",
+    )
+
+    assert adapter._resolve_entity_aliases("anything") == []
+
+
+def test_entity_arc_refine_happy_path() -> None:
+    """Vector and keyword results are unioned, deduped by chunk_index, and sorted structurally."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "SSRIs", "entity_type": "drug_class", "definition": "...", "aliases": []},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    # _filtered_similarity_search: 3 vector results
+    vector_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-v1", "vector hit 1", 100, "PTSD Doc", "https://ex/ptsd", "Treatment", 17, 0.55),
+        ("uuid-v2", "vector hit 2", 100, "PTSD Doc", "https://ex/ptsd", "Evidence", 33, 0.48),
+        ("uuid-v3", "vector hit 3", 100, "PTSD Doc", "https://ex/ptsd", "Appendix", 96, 0.42),
+    ])
+
+    # _keyword_search_with_scores: 2 keyword results
+    # chunk 33 overlaps with vector (keyword score 0.50 > vector 0.48)
+    # chunk 75 is keyword-only
+    keyword_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-k1", "vector hit 2", 100, "PTSD Doc", "https://ex/ptsd", "Evidence", 33, 0.50),
+        ("uuid-k2", "keyword only hit", 100, "PTSD Doc", "https://ex/ptsd", "Discussion", 75, 0.35),
+    ])
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", side_effect=[vector_conn, keyword_conn]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        output = adapter.refine(
+            doc_title="PTSD Doc",
+            chunk_index=0,
+            query="SSRIs",
+            window=5,
+            request_id="req-arc",
+            strategy="entity_arc",
+        )
+
+    # 4 unique chunks (17, 33, 75, 96), all above 0.30 default floor
+    assert len(output.results) == 4
+    # Ordered by chunk_index (structural ordering)
+    assert [r.chunk_index for r in output.results] == [17, 33, 75, 96]
+    # Chunk 33: keyword score (0.50) beats vector score (0.48)
+    chunk_33 = [r for r in output.results if r.chunk_index == 33][0]
+    assert chunk_33.score == pytest.approx(0.50)
+    # Chunk 17 keeps its vector score
+    assert output.results[0].score == pytest.approx(0.55)
+    assert not output.truncated
+
+
+def test_entity_arc_refine_with_aliases() -> None:
+    """When the entity has aliases, keyword search uses all patterns."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {
+                "name": "SSRIs",
+                "entity_type": "drug_class",
+                "definition": "...",
+                "aliases": ["selective serotonin reuptake inhibitors"],
+            },
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    vector_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-v1", "some chunk", 100, "Doc", "https://ex/d", "S1", 5, 0.60),
+    ])
+    keyword_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-k1", "selective serotonin match", 100, "Doc", "https://ex/d", "S2", 12, 0.40),
+    ])
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", side_effect=[vector_conn, keyword_conn]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        output = adapter.refine(
+            doc_title="Doc",
+            chunk_index=0,
+            query="SSRIs",
+            window=5,
+            request_id="req-alias",
+            strategy="entity_arc",
+        )
+
+    assert len(output.results) == 2
+    # Verify the keyword SQL had 2 ILIKE clauses (entity + alias)
+    kw_cursor = _extract_cursor(keyword_conn)
+    executed_sql = kw_cursor.execute.call_args[0][0]
+    assert executed_sql.count("ILIKE") == 2
+
+
+def test_entity_arc_refine_score_floor() -> None:
+    """Keyword-only matches below the score floor are filtered out."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "SSRIs", "entity_type": "drug_class", "definition": "...", "aliases": []},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    vector_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-v1", "above floor", 100, "Doc", "https://ex/d", "S1", 5, 0.50),
+    ])
+    keyword_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-k1", "below floor", 100, "Doc", "https://ex/d", "S2", 20, 0.10),
+    ])
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", side_effect=[vector_conn, keyword_conn]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        output = adapter.refine(
+            doc_title="Doc",
+            chunk_index=0,
+            query="SSRIs",
+            window=5,
+            request_id="req-floor",
+            strategy="entity_arc",
+        )
+
+    # Only chunk 5 (score 0.50) survives; chunk 20 (score 0.10) is below 0.30 default floor
+    assert len(output.results) == 1
+    assert output.results[0].chunk_index == 5
+
+
+def test_entity_arc_refine_custom_min_score() -> None:
+    """A custom min_score overrides the default 0.30 floor."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "SSRIs", "entity_type": "drug_class", "definition": "...", "aliases": []},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    vector_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-v1", "high score", 100, "Doc", "https://ex/d", "S1", 5, 0.60),
+        ("uuid-v2", "medium score", 100, "Doc", "https://ex/d", "S2", 10, 0.45),
+    ])
+    keyword_conn = _make_fake_connection(_XREF_COLS, [])
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", side_effect=[vector_conn, keyword_conn]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        # min_score=0.50 should filter out the 0.45 chunk
+        output = adapter.refine(
+            doc_title="Doc",
+            chunk_index=0,
+            query="SSRIs",
+            window=5,
+            request_id="req-custom-floor",
+            strategy="entity_arc",
+            min_score=0.50,
+        )
+
+    assert len(output.results) == 1
+    assert output.results[0].chunk_index == 5
+    assert output.results[0].score == pytest.approx(0.60)
+
+
+def test_entity_arc_refine_truncation() -> None:
+    """Token budgeting selects top-scoring chunks and re-sorts by position."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "SSRIs", "entity_type": "drug_class", "definition": "...", "aliases": []},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    # 4 chunks, each 100 tokens, with varying scores
+    vector_conn = _make_fake_connection(_XREF_COLS, [
+        ("uuid-1", "chunk at 5", 100, "Doc", "https://ex/d", "S1", 5, 0.90),
+        ("uuid-2", "chunk at 15", 100, "Doc", "https://ex/d", "S2", 15, 0.80),
+        ("uuid-3", "chunk at 25", 100, "Doc", "https://ex/d", "S3", 25, 0.70),
+        ("uuid-4", "chunk at 35", 100, "Doc", "https://ex/d", "S4", 35, 0.60),
+    ])
+    keyword_conn = _make_fake_connection(_XREF_COLS, [])
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", side_effect=[vector_conn, keyword_conn]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        # Budget=250 fits 2 chunks (200 tokens), not all 4 (400 tokens)
+        output = adapter.refine(
+            doc_title="Doc",
+            chunk_index=0,
+            query="SSRIs",
+            window=5,
+            request_id="req-trunc-arc",
+            strategy="entity_arc",
+            max_context_tokens=250,
+        )
+
+    # Top 2 by score: chunk 5 (0.90) and chunk 15 (0.80), re-sorted by position
+    assert len(output.results) == 2
+    assert [r.chunk_index for r in output.results] == [5, 15]
+    assert output.truncated is True
+    assert output.total_chunks == 4
+
+
+def test_entity_arc_refine_no_results() -> None:
+    """Both vector and keyword searches returning empty produces empty RefineOutput."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "SSRIs", "entity_type": "drug_class", "definition": "...", "aliases": []},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    vector_conn = _make_fake_connection(_XREF_COLS, [])
+    keyword_conn = _make_fake_connection(_XREF_COLS, [])
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", side_effect=[vector_conn, keyword_conn]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        output = adapter.refine(
+            doc_title="Doc",
+            chunk_index=0,
+            query="SSRIs",
+            window=5,
+            request_id="req-empty",
+            strategy="entity_arc",
+        )
+
+    assert len(output.results) == 0
+    assert not output.truncated
