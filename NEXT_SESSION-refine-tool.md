@@ -117,6 +117,29 @@ The epic's gate: does refine actually improve answer quality?
 **Dependencies:** Eval-convergence epic Phase 1 (need the answer-quality
 eval pipeline). Refine-tool Phase 2 at minimum (done).
 
+## Tool ergonomics backlog (from exercise-tools pass)
+
+Issues filed during the Phase 2 exercise-tools session. These are not
+gating for the remaining epic phases but should be addressed before adding
+more sources.
+
+- **#32** Score calibration — add a relevance indicator so agents can
+  interpret raw cosine scores. Becomes critical with multiple embedding
+  models.
+- **#33** Stable chunk identifiers — add chunk_id alongside doc_title to
+  make refine calls less fragile.
+- **#34** Multi-source retrieve — search across sources in one call.
+  Low urgency at 2 sources, needed at 5+.
+- **#35** describe_source recipe_content — omit implementation detail
+  from agent-facing responses.
+
+Data quality guidance for doc_title consistency and doc_section granularity
+is documented in `docs/onboarding-journey-va-cpg.md` (section 4a). A
+future data-owner usability epic should address:
+- Tooling to validate doc_title consistency post-ingestion
+- Configurable doc_section splitting in the normalization stage
+- Score distribution profiling per source for relevance threshold config
+
 ---
 
 ## If blocked

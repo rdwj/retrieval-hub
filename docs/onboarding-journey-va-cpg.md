@@ -175,6 +175,62 @@ scale linearly with chunk count.
 
 ---
 
+## 4a. Data quality for retrieval and refine
+
+After ingestion, data owners should verify three fields that affect
+retrieval and refinement quality. These checks take minutes and catch
+problems that are hard to diagnose later.
+
+**doc_title consistency.** The `doc_title` field on each chunk is what the
+`refine` tool uses to locate chunks from the same document. If ingestion
+produces inconsistent titles for chunks from the same document (e.g., the
+full formal title for some chunks and a heading fragment for others), refine
+calls will fail silently or return incomplete results. Data owners should
+verify that `doc_title` is consistent within each document after ingestion.
+A quick check:
+
+```sql
+SELECT doc_title, COUNT(*) FROM idx_va_cpg_v1 GROUP BY doc_title ORDER BY doc_title;
+```
+
+Each document should appear as exactly one `doc_title` value. If you see
+variants (e.g., "VA/DoD CLINICAL PRACTICE GUIDELINE FOR..." and "for the
+treatment of..."), the extraction or normalization step needs adjustment.
+
+**doc_section granularity.** The `refine` tool's section strategy fetches
+all chunks sharing the same `doc_section` value. If `doc_section` is too
+coarse (e.g., "Discussion" spanning 48 chunks across many topics), section
+expansion returns large, unfocused context that agents must filter with a
+token budget. If `doc_section` is too fine (one section per paragraph),
+section expansion adds no value over adjacent-chunk retrieval.
+
+Good granularity for clinical documents is typically at the level of
+individual recommendations or clinical topics — each recommendation and its
+discussion should share a `doc_section` value distinct from other
+recommendations. For the VA CPG corpus, the Docling extraction produces
+section headings from the PDF structure. If these are too broad, the
+normalization step can refine them.
+
+Data owners should check the section distribution after ingestion:
+
+```sql
+SELECT doc_section, COUNT(*) as chunks
+FROM idx_va_cpg_v1
+GROUP BY doc_section
+ORDER BY chunks DESC
+LIMIT 20;
+```
+
+Sections with 30+ chunks may be too broad for the section strategy and are
+candidates for sub-section splitting in a future normalization pass.
+
+**chunk_tokens accuracy.** The `refine` tool uses the `chunk_tokens` column
+for token budgeting. This is populated during ingestion and should be
+accurate. If you change the chunker's tokenizer encoding (e.g., from
+`cl100k_base` to `o200k_base`), re-ingest to update chunk_tokens values.
+
+---
+
 ## 5. Set usage rules
 
 Usage rules define how consuming agents should behave when presenting
@@ -265,6 +321,9 @@ using streamable-http transport:
   usage rules, and evaluation scores.
 - `retrieve` performs vector similarity search against a source's physical
   index and returns ranked chunks with provenance metadata and usage rules.
+- `refine` expands context around a previously retrieved chunk — given a
+  chunk from a retrieve result, fetch the surrounding section or adjacent
+  chunks, respecting a token budget.
 
 The deployment uses OpenShift manifests with Kustomize overlays for different
 environments. The MCP server container is built from a Red Hat UBI base
@@ -309,6 +368,12 @@ proper provenance. Test queries included:
 For each query, we checked that returned chunks came from the expected
 clinical category, that source URLs pointed to valid VA.gov PDFs, and that
 usage rules were included in the response.
+
+**Refinement.** `refine` with a chunk from a retrieve result should return
+the full section containing that chunk. Test with `max_context_tokens` to
+verify token budgeting works. For clinical documents, verify that the
+section strategy returns complete recommendation text — a recommendation
+and its full discussion, not a fragment that cuts off mid-sentence.
 
 **Data owner provides:** Sample queries that exercise the breadth of their
 content. The data owner knows their domain best and can spot irrelevant or
