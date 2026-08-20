@@ -9,6 +9,7 @@ from retrieval_hub.schemas.semantic import (
     EntityDefinition,
     MetricDefinition,
     MetricThreshold,
+    RefinementStrategy,
     RelationshipHint,
     SemanticContext,
 )
@@ -85,6 +86,27 @@ class TestMetricDefinition:
         assert m.unit is None
 
 
+class TestRefinementStrategy:
+    def test_defaults(self):
+        s = RefinementStrategy(kind="adjacent")
+        assert s.kind == "adjacent"
+        assert s.window == 2
+        assert s.enabled is True
+
+    def test_custom_window(self):
+        s = RefinementStrategy(kind="adjacent", window=5, enabled=False)
+        assert s.window == 5
+        assert s.enabled is False
+
+    def test_rejects_extra_fields(self):
+        with pytest.raises(ValidationError):
+            RefinementStrategy(kind="adjacent", unknown="bad")
+
+    def test_kind_required(self):
+        with pytest.raises(ValidationError):
+            RefinementStrategy()
+
+
 class TestSemanticContext:
     def test_empty(self):
         ctx = SemanticContext()
@@ -93,6 +115,7 @@ class TestSemanticContext:
         assert ctx.metrics == []
         assert ctx.abbreviations == {}
         assert ctx.domain_context is None
+        assert ctx.refinement_strategies == []
 
     def test_round_trip(self):
         ctx = SemanticContext(
@@ -116,6 +139,18 @@ class TestSemanticContext:
         data = ctx.model_dump(mode="json")
         restored = SemanticContext.model_validate(data)
         assert restored == ctx
+
+    def test_with_refinement_strategies(self):
+        ctx = SemanticContext(
+            refinement_strategies=[
+                RefinementStrategy(kind="adjacent", window=3),
+                RefinementStrategy(kind="section", enabled=False),
+            ],
+        )
+        assert len(ctx.refinement_strategies) == 2
+        assert ctx.refinement_strategies[0].kind == "adjacent"
+        assert ctx.refinement_strategies[0].window == 3
+        assert ctx.refinement_strategies[1].enabled is False
 
     def test_rejects_extra_fields(self):
         with pytest.raises(ValidationError):

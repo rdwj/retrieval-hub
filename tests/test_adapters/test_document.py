@@ -153,6 +153,7 @@ def test_document_adapter_retrieve_wires_embedder_and_sql() -> None:
     assert first.doc_title == "Doc One"
     assert first.doc_url == "https://example/1"
     assert first.doc_section == "intro"
+    assert first.chunk_index == 0
     # Every result must carry the full lineage handle.
     assert first.physical_index_id == index.id
     assert first.recipe_version == recipe.version_number
@@ -160,7 +161,75 @@ def test_document_adapter_retrieve_wires_embedder_and_sql() -> None:
 
     second = results[1]
     assert second.doc_section is None
+    assert second.chunk_index == 3
     assert second.score == pytest.approx(0.87)
+
+
+def test_document_adapter_refine_fetches_adjacent_chunks() -> None:
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        MagicMock(name="id"),
+        MagicMock(name="chunk_text"),
+        MagicMock(name="doc_title"),
+        MagicMock(name="doc_url"),
+        MagicMock(name="doc_section"),
+        MagicMock(name="chunk_index"),
+    ]
+    for col, name in zip(
+        fake_cursor.description,
+        ["id", "chunk_text", "doc_title", "doc_url", "doc_section", "chunk_index"],
+        strict=True,
+    ):
+        col.name = name
+    fake_cursor.fetchall.return_value = [
+        ("uuid-1", "before text", "Doc One", "https://example/1", "intro", 2),
+        ("uuid-2", "target text", "Doc One", "https://example/1", "intro", 3),
+        ("uuid-3", "after text", "Doc One", "https://example/1", "intro", 4),
+    ]
+    fake_conn = MagicMock()
+    fake_conn.cursor.return_value.__enter__.return_value = fake_cursor
+    fake_conn.cursor.return_value.__exit__.return_value = False
+
+    fake_connect_ctx = MagicMock()
+    fake_connect_ctx.__enter__.return_value = fake_conn
+    fake_connect_ctx.__exit__.return_value = False
+
+    with patch("psycopg.connect", return_value=fake_connect_ctx):
+        results = adapter.refine(
+            doc_title="Doc One",
+            chunk_index=3,
+            query="tell me more",
+            window=1,
+            request_id="req-refine",
+        )
+
+    assert len(results) == 3
+    assert results[0].text == "before text"
+    assert results[0].chunk_index == 2
+    assert results[1].text == "target text"
+    assert results[1].chunk_index == 3
+    assert results[2].text == "after text"
+    assert results[2].chunk_index == 4
+    assert all(r.request_id == "req-refine" for r in results)
+    assert all(r.physical_index_id == index.id for r in results)
+    assert all(r.score == 1.0 for r in results)
+
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "doc_title" in executed_sql
+    assert "chunk_index BETWEEN" in executed_sql
 
 
 def test_document_adapter_embedding_model_name_missing_raises() -> None:

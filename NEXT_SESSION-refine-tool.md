@@ -1,9 +1,70 @@
 # Next Session — refine-tool
 
-## Next: to be planned via /plan-next-session
+## Next: Baseline refine tool with adjacent chunk retrieval
 
-(No next-session focus selected yet. Run `/plan-next-session refine-tool`
-to pick the first slice from the phases below.)
+Implement the `refine` MCP tool end-to-end using the simplest useful
+strategy: fetch adjacent chunks by `chunk_index` from the same document.
+This is Phase 1 of the refine-tool epic — no dependencies, fully
+independent of eval-convergence.
+
+1. **Plumb `chunk_index` through the retrieve path**
+   `RetrievalResult` (in `src/retrieval_hub/retrieval/api.py`) lacks a
+   `chunk_index` field even though the SQL query in `DocumentAdapter`
+   already selects it. Add the field to `RetrievalResult`, populate it in
+   `DocumentAdapter.retrieve()`, and map it through in the MCP server's
+   `retrieve` tool (`retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`
+   lines 439-451). The `RetrievalHit` schema already has a `chunk_index`
+   field that's always `None` — this fixes it.
+
+2. **Add `DocumentAdapter.refine()` with adjacent-chunk strategy**
+   New method on `DocumentAdapter` (in `src/retrieval_hub/adapters/document.py`).
+   Given `doc_title + chunk_index`, query the pgvector table for chunks
+   where `doc_title` matches and `chunk_index` is within a window (default
+   2 before + 2 after). Order by `chunk_index`. Add an abstract `refine()`
+   to `SourceAdapter` base class (`src/retrieval_hub/adapters/base.py`).
+
+3. **Add the `refine` MCP tool to the server**
+   Register in `server.py` following the `retrieve` pattern. Parameters:
+   `source` (slug), `doc_title`, `chunk_index` (int), `query` (str),
+   `window` (int, default 2). The reference handle is the composite
+   `(source_slug, doc_title, chunk_index)` — human-readable and
+   debuggable, no opaque UUIDs. Returns refined chunks with provenance
+   linking back to the original hit.
+
+4. **Add `refinement_strategies` to `SemanticContext`**
+   New field on `SemanticContext` (`src/retrieval_hub/schemas/semantic.py`).
+   For Phase 1, the schema captures adjacent-chunk config (window size).
+   No Alembic migration needed — `semantic_context` is already a JSON
+   column on `Source`. Update the schema validation tests.
+
+**Sequencing.** Steps 1 → 2 → 3 are strictly sequential (each builds on
+the prior). Step 4 can run in parallel with step 3 since it's schema-only
+work, but doing it last is fine too.
+
+**Constraints for the session:**
+- The untracked eval/rerank files in `eval/rewrite_lift/runs/` and
+  `scripts/eval_rerank_strategies.py` are from the eval-convergence epic.
+  Leave them alone.
+- `SemanticContext` uses `extra="forbid"` — adding `refinement_strategies`
+  requires updating both the model and any tests that construct it.
+
+**Session start protocol:**
+- Premise checks (~5 min, report before acting):
+  - Confirm `chunk_index` is still not plumbed: `grep -n chunk_index
+    src/retrieval_hub/retrieval/api.py` should show no field definition.
+  - Confirm no refine code has landed: `grep -r "refine"
+    src/ retrieval-hub-mcp/src/` should return zero hits.
+  - Run `pytest tests/ retrieval-hub-mcp/tests/` to confirm green baseline.
+- Rules with history:
+  - The `DocumentAdapter` uses raw psycopg SQL, not an ORM. Match that
+    pattern for the refine query — don't introduce SQLAlchemy Core or ORM
+    queries into the adapter.
+  - `RetrievalHit.chunk_index` already exists in the MCP schema. Populate
+    it, don't rename or restructure the schema field.
+- Stop-and-ask before: Any changes to the pgvector table DDL (there
+  shouldn't be any for Phase 1, but if you think you need one, stop).
+- Close ritual: session summary, commit with conventional format, update
+  this file's "What landed" section.
 
 ## Remaining epic phases
 

@@ -41,6 +41,7 @@ class RetrievalResult:
     doc_title: str
     doc_url: str
     doc_section: str | None
+    chunk_index: int | None
     physical_index_id: str
     recipe_version: int
     request_id: str
@@ -160,5 +161,67 @@ def query(
     return adapter.retrieve(
         query_text,
         top_k=top_k,
+        request_id=effective_request_id,
+    )
+
+
+def refine(
+    source_slug: str,
+    *,
+    doc_title: str,
+    chunk_index: int,
+    query_text: str,
+    window: int = 2,
+    session: Session,
+    vectors_db_url: str | None = None,
+    request_id: str | None = None,
+) -> list[RetrievalResult]:
+    """Return adjacent context around a previously retrieved chunk.
+
+    Raises the same exceptions as ``query`` for unknown / unqueryable sources.
+    """
+    source = session.query(Source).filter(Source.slug == source_slug).one_or_none()
+    if source is None:
+        raise SourceNotFoundError(f"No source with slug {source_slug!r}")
+
+    if source.active_physical_index_id is None:
+        raise SourceNotQueryableError(
+            f"Source {source_slug!r} has no active physical index; "
+            f"run ingestion before querying it."
+        )
+
+    physical_index = (
+        session.query(PhysicalIndex)
+        .filter(PhysicalIndex.id == source.active_physical_index_id)
+        .one()
+    )
+    recipe_version = (
+        session.query(RecipeVersion)
+        .filter(RecipeVersion.id == physical_index.recipe_version_id)
+        .one()
+    )
+
+    adapter = _build_adapter(
+        source,
+        physical_index,
+        recipe_version,
+        vectors_db_url=vectors_db_url,
+    )
+
+    effective_request_id = request_id or str(uuid.uuid4())
+    logger.info(
+        "retrieval.refine source=%s doc_title=%s chunk_index=%d window=%d request_id=%s",
+        source_slug,
+        doc_title,
+        chunk_index,
+        window,
+        effective_request_id,
+    )
+
+    return adapter.refine(
+        doc_title=doc_title,
+        chunk_index=chunk_index,
+        query=query_text,
+        window=window,
         request_id=effective_request_id,
     )

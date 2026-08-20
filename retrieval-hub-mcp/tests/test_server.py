@@ -13,12 +13,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from retrieval_hub_mcp.schemas import (
+    RefineHit,
+    RefineResponse,
     RetrievalHit,
     RetrievalResponse,
     SourceDetail,
     SourceSummary,
 )
-from retrieval_hub_mcp.server import describe_source, list_sources, retrieve
+from retrieval_hub_mcp.server import describe_source, list_sources, refine, retrieve
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -94,6 +96,7 @@ def _make_retrieval_result(
     doc_title="Manual v3",
     doc_url="https://example.com/manual-v3",
     doc_section="Chapter 2",
+    chunk_index=0,
     physical_index_id="pi-001",
     recipe_version=1,
     request_id="req-abc",
@@ -104,6 +107,7 @@ def _make_retrieval_result(
         doc_title=doc_title,
         doc_url=doc_url,
         doc_section=doc_section,
+        chunk_index=chunk_index,
         physical_index_id=physical_index_id,
         recipe_version=recipe_version,
         request_id=request_id,
@@ -334,6 +338,7 @@ async def test_retrieve_delegates_to_query():
     assert resp.hits[0].doc_title == "Manual v3"
     assert resp.hits[0].doc_url == "https://example.com/manual-v3"
     assert resp.hits[0].doc_section == "Chapter 2"
+    assert resp.hits[0].chunk_index == 0
     assert resp.hits[0].physical_index_id == "pi-001"
     assert resp.hits[0].recipe_version == 1
     assert resp.hits[0].request_id == "req-abc"
@@ -751,3 +756,170 @@ async def test_retrieve_deduplicates_hits():
     assert len(resp.hits) == 1
     assert resp.hits[0].text == "shared passage"
     assert resp.hits[0].score == 0.9
+
+
+# ---------------------------------------------------------------------------
+# refine
+# ---------------------------------------------------------------------------
+
+
+def _make_refine_result(
+    text="Adjacent chunk text",
+    score=1.0,
+    doc_title="Manual v3",
+    doc_url="https://example.com/manual-v3",
+    doc_section="Chapter 2",
+    chunk_index=0,
+    physical_index_id="pi-001",
+    recipe_version=1,
+    request_id="req-refine",
+):
+    return SimpleNamespace(
+        text=text,
+        score=score,
+        doc_title=doc_title,
+        doc_url=doc_url,
+        doc_section=doc_section,
+        chunk_index=chunk_index,
+        physical_index_id=physical_index_id,
+        recipe_version=recipe_version,
+        request_id=request_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_refine_returns_adjacent_chunks():
+    """refine delegates to retrieval_refine and maps results to RefineResponse."""
+    mock_results = [
+        _make_refine_result(text="before", chunk_index=4),
+        _make_refine_result(text="target", chunk_index=5),
+        _make_refine_result(text="after", chunk_index=6),
+    ]
+
+    source = _make_source()
+    session = _make_retrieve_session(source)
+
+    with patch("retrieval_hub_mcp.server.retrieval_refine", return_value=mock_results):
+        resp = await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=5,
+            query="tell me more",
+            window=1,
+            session=session,
+        )
+
+    assert isinstance(resp, RefineResponse)
+    assert resp.source == "test-source"
+    assert resp.doc_title == "Manual v3"
+    assert resp.doc_url == "https://example.com/manual-v3"
+    assert resp.origin_chunk_index == 5
+    assert resp.strategy == "adjacent"
+    assert len(resp.chunks) == 3
+    assert isinstance(resp.chunks[0], RefineHit)
+    assert resp.chunks[0].text == "before"
+    assert resp.chunks[0].is_origin is False
+    assert not hasattr(resp.chunks[0], "doc_title")
+    assert resp.chunks[1].is_origin is True
+    assert resp.chunks[2].is_origin is False
+
+
+@pytest.mark.asyncio
+async def test_refine_source_not_found():
+    """refine raises ToolError for a missing source slug."""
+    from fastmcp.exceptions import ToolError
+
+    from retrieval_hub.retrieval.api import SourceNotFoundError
+
+    session = _make_retrieve_session(None)
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        side_effect=SourceNotFoundError("No source"),
+    ):
+        with pytest.raises(ToolError, match="not found"):
+            await refine(
+                source="missing",
+                doc_title="Doc",
+                chunk_index=0,
+                query="more",
+                session=session,
+            )
+
+
+@pytest.mark.asyncio
+async def test_refine_passes_window():
+    """refine forwards the window parameter to retrieval_refine."""
+    source = _make_source()
+    session = _make_retrieve_session(source)
+    mock_results = [_make_refine_result(chunk_index=3)]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine", return_value=mock_results
+    ) as mock_ref:
+        await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=3,
+            query="details",
+            window=5,
+            session=session,
+        )
+
+    mock_ref.assert_called_once_with(
+        source_slug="test-source",
+        doc_title="Manual v3",
+        chunk_index=3,
+        query_text="details",
+        window=5,
+        session=session,
+    )
+
+
+@pytest.mark.asyncio
+async def test_refine_empty_result_raises_tool_error():
+    """refine raises ToolError with actionable guidance when no chunks are found."""
+    from fastmcp.exceptions import ToolError
+
+    source = _make_source()
+    session = _make_retrieve_session(source)
+
+    with patch("retrieval_hub_mcp.server.retrieval_refine", return_value=[]):
+        with pytest.raises(ToolError, match="No chunks found"):
+            await refine(
+                source="test-source",
+                doc_title="Wrong Title",
+                chunk_index=999,
+                query="more",
+                session=session,
+            )
+
+
+@pytest.mark.asyncio
+async def test_refine_includes_usage_rules():
+    """refine passes usage_rules and data_freshness through from the source."""
+    source = _make_source(
+        usage_rules={
+            "citation": "Cite as VA CPG",
+            "data_freshness": {
+                "source_name": "VA CPG",
+                "last_refreshed": "2026-01-15",
+            },
+        }
+    )
+    session = _make_retrieve_session(source)
+    mock_results = [_make_refine_result(chunk_index=0)]
+
+    with patch("retrieval_hub_mcp.server.retrieval_refine", return_value=mock_results):
+        resp = await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=0,
+            query="more",
+            session=session,
+        )
+
+    assert resp.usage_rules is not None
+    assert resp.usage_rules.citation == "Cite as VA CPG"
+    assert resp.data_freshness is not None
+    assert resp.data_freshness.last_refreshed == "2026-01-15"

@@ -45,3 +45,15 @@ class SourceAdapter(ABC):
         ``RetrievalResult`` (``physical_index_id``, ``recipe_version``,
         ``request_id``) so the MCP layer never has to reconstruct them.
         """
+
+    @abstractmethod
+    def refine(
+        self,
+        *,
+        doc_title: str,
+        chunk_index: int,
+        query: str,
+        window: int,
+        request_id: str,
+    ) -> list[RetrievalResult]:
+        """Return additional context around a previously retrieved chunk."""

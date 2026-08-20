@@ -1,10 +1,11 @@
 """RetrievalHub MCP server — catalog browsing and retrieval over MCP.
 
-Exposes three read-only tools:
+Exposes four read-only tools:
 
 * ``list_sources``   — browse the catalog of queryable sources
 * ``describe_source`` — full metadata for one source (recipe, prompts, counts)
 * ``retrieve``       — semantic search against a source's physical index
+* ``refine``         — expand context around a previously retrieved chunk
 """
 
 from __future__ import annotations
@@ -32,11 +33,16 @@ from retrieval_hub.retrieval.api import (
 from retrieval_hub.retrieval.api import (
     query as retrieval_query,
 )
+from retrieval_hub.retrieval.api import (
+    refine as retrieval_refine,
+)
 from retrieval_hub.rewriter import LlmClient, RewriterService
 from retrieval_hub.rewriter.schemas import RewriteResult
 from retrieval_hub.schemas.rewriter import RewriterMetadata
 from retrieval_hub_mcp.schemas import (
     DataFreshness,
+    RefineHit,
+    RefineResponse,
     RetrievalHit,
     RetrievalResponse,
     RewrittenQueryInfo,
@@ -443,6 +449,7 @@ async def retrieve(
                 doc_title=r.doc_title,
                 doc_url=r.doc_url,
                 doc_section=r.doc_section,
+                chunk_index=r.chunk_index,
                 physical_index_id=r.physical_index_id,
                 recipe_version=r.recipe_version,
                 request_id=r.request_id,
@@ -542,3 +549,131 @@ def _build_response(
         data_freshness=data_freshness,
         rewritten_queries=rewritten_queries,
     )
+
+
+def _extract_usage(source_obj) -> tuple[UsageRules | None, DataFreshness | None]:
+    """Pull usage_rules and data_freshness from a source object."""
+    if not source_obj or not source_obj.usage_rules:
+        return None, None
+    rules = source_obj.usage_rules
+    usage_rules = UsageRules(
+        citation=rules.get("citation"),
+        scope_disclaimer=rules.get("scope_disclaimer"),
+        handling=rules.get("handling"),
+        custom_rules=rules.get("custom_rules"),
+    )
+    freshness_data = rules.get("data_freshness", {})
+    data_freshness = None
+    if freshness_data:
+        data_freshness = DataFreshness(
+            source_name=freshness_data.get("source_name", source_obj.name),
+            source_url=freshness_data.get("source_url"),
+            last_refreshed=freshness_data.get("last_refreshed"),
+            refresh_cadence=freshness_data.get("refresh_cadence"),
+            staleness_note=freshness_data.get("staleness_note"),
+        )
+    return usage_rules, data_freshness
+
+
+# ---------------------------------------------------------------------------
+# refine
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
+    tags={"retrieval"},
+    timeout=30.0,
+)
+async def refine(
+    source: str,
+    doc_title: str,
+    chunk_index: int,
+    query: str,
+    window: int = 2,
+    session: Session = Depends(get_catalog_session),
+) -> RefineResponse:
+    """Expand context around a previously retrieved chunk.
+
+    Given a reference to a specific chunk (identified by ``source``,
+    ``doc_title``, and ``chunk_index`` from a prior ``retrieve`` result),
+    return the surrounding chunks from the same document.  Use this when
+    a retrieve hit looks like part of a larger process, procedure, or
+    section and you need to see what comes before and after it to
+    determine whether you have the complete picture.
+
+    The ``doc_title`` and ``chunk_index`` values must be copied exactly
+    from a previous ``retrieve`` result — do not paraphrase or modify
+    the ``doc_title``.
+
+    The response contains chunks ordered by document position. Each
+    chunk's ``doc_section`` field tells you which section it belongs to,
+    so you can see if the context spans section boundaries.  The chunk
+    where ``is_origin`` is true is the one you originally retrieved.
+
+    Parameters:
+        source: Source slug (from ``list_sources``).
+        doc_title: Document title copied exactly from the ``retrieve`` hit.
+        chunk_index: Chunk index from the ``retrieve`` hit.
+        query: Describes what additional context you are looking for.
+            Currently logged for observability; future refinement
+            strategies will use it to select relevant content.
+        window: How many chunks before and after to include (default 2).
+    """
+    try:
+        source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
+
+        results = retrieval_refine(
+            source_slug=source,
+            doc_title=doc_title,
+            chunk_index=chunk_index,
+            query_text=query,
+            window=window,
+            session=session,
+        )
+
+        if not results:
+            raise ToolError(
+                f"No chunks found for doc_title={doc_title!r} at chunk_index={chunk_index} "
+                f"in source {source!r}. Verify that doc_title and chunk_index were copied "
+                f"exactly from a previous retrieve result."
+            )
+
+        doc_url = results[0].doc_url
+
+        chunks = [
+            RefineHit(
+                text=r.text,
+                doc_section=r.doc_section,
+                chunk_index=r.chunk_index,
+                is_origin=(r.chunk_index == chunk_index),
+            )
+            for r in results
+        ]
+
+        usage_rules, data_freshness = _extract_usage(source_obj)
+
+        return RefineResponse(
+            source=source,
+            doc_title=doc_title,
+            doc_url=doc_url,
+            origin_chunk_index=chunk_index,
+            strategy="adjacent",
+            chunks=chunks,
+            usage_rules=usage_rules,
+            data_freshness=data_freshness,
+        )
+    except SourceNotFoundError as exc:
+        raise ToolError(
+            f"Source {source!r} not found. Use list_sources to see available sources."
+        ) from exc
+    except SourceNotQueryableError as exc:
+        raise ToolError(
+            f"Source {source!r} exists but has no active index. It may still be ingesting data."
+        ) from exc
+    except UnsupportedFamilyError as exc:
+        raise ToolError(
+            f"Source {source!r} uses a family that is not yet supported for refinement."
+        ) from exc
+    finally:
+        session.close()

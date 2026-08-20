@@ -82,6 +82,34 @@ class RewrittenQueryInfo(BaseModel):
     confidence: float
 
 
+class RefineHit(BaseModel):
+    """One chunk from a refinement expansion."""
+
+    text: str
+    doc_section: str | None = None
+    chunk_index: int
+    is_origin: bool
+
+
+class RefineResponse(BaseModel):
+    """Response from the ``refine`` tool.
+
+    Contains the expanded context chunks ordered by document position,
+    with the original chunk marked via ``is_origin``.  Document-level
+    fields (``doc_title``, ``doc_url``) live on the envelope, not
+    per-chunk, since all chunks come from the same document.
+    """
+
+    source: str
+    doc_title: str
+    doc_url: str
+    origin_chunk_index: int
+    strategy: str
+    chunks: list[RefineHit]
+    usage_rules: UsageRules | None = None
+    data_freshness: DataFreshness | None = None
+
+
 class RetrievalResponse(BaseModel):
     """Full retrieve response: hits plus source-level metadata.
 

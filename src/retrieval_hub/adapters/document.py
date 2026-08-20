@@ -113,12 +113,42 @@ class DocumentAdapter(SourceAdapter):
                     doc_title=row["doc_title"] or "",
                     doc_url=row["doc_url"] or "",
                     doc_section=row["doc_section"],
+                    chunk_index=row["chunk_index"],
                     physical_index_id=self.physical_index.id,
                     recipe_version=self.recipe_version.version_number,
                     request_id=request_id,
                 )
             )
         return results
+
+    # -- the refine entry point --------------------------------------------
+
+    def refine(
+        self,
+        *,
+        doc_title: str,
+        chunk_index: int,
+        query: str,
+        window: int,
+        request_id: str,
+    ) -> list[Any]:
+        from retrieval_hub.retrieval.api import RetrievalResult
+
+        rows = self._adjacent_chunks(doc_title, chunk_index, window)
+        return [
+            RetrievalResult(
+                text=row["chunk_text"],
+                score=1.0,
+                doc_title=row["doc_title"] or "",
+                doc_url=row["doc_url"] or "",
+                doc_section=row["doc_section"],
+                chunk_index=row["chunk_index"],
+                physical_index_id=self.physical_index.id,
+                recipe_version=self.recipe_version.version_number,
+                request_id=request_id,
+            )
+            for row in rows
+        ]
 
     # -- internals --------------------------------------------------------
 
@@ -145,6 +175,33 @@ class DocumentAdapter(SourceAdapter):
                 f"an embedding.model. Recipe body: {content!r}"
             )
         return name
+
+    def _adjacent_chunks(
+        self,
+        doc_title: str,
+        chunk_index: int,
+        window: int,
+    ) -> list[dict[str, Any]]:
+        """Fetch chunks adjacent to ``chunk_index`` within the same document."""
+        import psycopg
+
+        table = self.physical_index.location
+        lo = max(0, chunk_index - window)
+        hi = chunk_index + window
+
+        sql = (
+            f"SELECT id, chunk_text, doc_title, doc_url, doc_section, chunk_index "
+            f"FROM {table} "
+            f"WHERE doc_title = %s AND chunk_index BETWEEN %s AND %s "
+            f"ORDER BY chunk_index"
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (doc_title, lo, hi))
+                cols = [desc.name for desc in cur.description or []]
+                rows = cur.fetchall()
+        return [dict(zip(cols, row, strict=True)) for row in rows]
 
     def _similarity_search(
         self,

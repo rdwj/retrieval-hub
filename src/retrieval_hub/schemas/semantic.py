@@ -62,6 +62,20 @@ class MetricDefinition(BaseModel):
     thresholds: list[MetricThreshold] = Field(default_factory=list)
 
 
+class RefinementStrategy(BaseModel):
+    """Configuration for a single refinement strategy.
+
+    Data owners add these to ``SemanticContext.refinement_strategies`` to
+    control how the ``refine`` tool expands context for their source.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    window: int = 2
+    enabled: bool = True
+
+
 class SemanticContext(BaseModel):
     """Per-source semantic layer stored on ``Source.semantic_context``."""
 
@@ -72,3 +86,4 @@ class SemanticContext(BaseModel):
     metrics: list[MetricDefinition] = Field(default_factory=list)
     abbreviations: dict[str, str] = Field(default_factory=dict)
     domain_context: str | None = None
+    refinement_strategies: list[RefinementStrategy] = Field(default_factory=list)
