@@ -1,41 +1,47 @@
 # Next Session — refine-tool
 
-## Next: Entity-arc retrieval (Phase 4, research)
+## Next: Entity-arc retrieval (Phase 4, implementation)
 
-Investigate whether the current architecture can support entity-arc
-retrieval — tracing an entity's mentions across a document in
-narrative/structural order. This is a research phase: the outcome may be
-a working prototype, a design document, or a documented finding that the
-problem needs capabilities beyond what exists.
+Research complete — entity-arc retrieval is feasible. Design is in
+`docs/entity-arc-retrieval-research.md`. This session implements the
+`entity_arc` refine strategy.
 
-1. **#28 — Entity-arc retrieval for temporal/narrative traversal**
-   The core question: given an entity (e.g., "SSRIs" in the PTSD CPG),
-   can we retrieve all mentions across sections in document order and
-   return a coherent arc (screening -> treatment selection -> dosing ->
-   maintenance -> relapse)? The PTSD CPG has SSRIs mentioned across 13
-   sections — a concrete test case. The Phase 3 infrastructure
-   (`_resolve_cross_reference_targets`, `_filtered_similarity_search`,
-   entity graph walk) provides building blocks.
+**Implementation tasks:**
 
-   **Research questions to answer:**
-   - Does entity-scoped filtered search (embed entity name, filter to
-     one document, order by chunk_index) produce a usable arc? Or does
-     vector similarity cluster too tightly around one meaning?
-   - Is `doc_section` ordering sufficient for structural position, or do
-     we need explicit section-order metadata?
-   - How should the response shape differ from cross-reference? An arc
-     is ordered and spans many sections; cross-reference is unordered
-     and spans documents.
-   - What's the token budget story? An entity arc across 13 sections
-     could be huge — need a summarization or sampling strategy.
+1. **New SQL helper: `_keyword_search_with_scores`**
+   In `src/retrieval_hub/adapters/document.py`. Runs
+   `WHERE doc_title = %s AND chunk_text ILIKE %s` but also computes
+   cosine similarity against a query vector for ranking. Returns the
+   same row shape as `_filtered_similarity_search`.
 
-   **Approach:** Start with empirical exploration against the cluster DB
-   (query SSRIs, sertraline, CPT across the PTSD CPG; trace the
-   treatment pathway). Evaluate whether a simple "embed entity + filter
-   to document + order by chunk_index" strategy produces coherent arcs.
-   If it does, prototype a `entity_arc` refine strategy. If it doesn't,
-   document why and what would be needed (co-reference resolution,
-   process metadata, etc.).
+2. **New adapter method: `_entity_arc_refine`**
+   Hybrid vector+keyword search within one document:
+   - Embed query, filtered ANN search (`top_k=window`)
+   - Keyword search for entity name (and aliases from SemanticContext)
+   - Union by chunk_index, keeping higher score for duplicates
+   - Apply score floor (default 0.30) to remove noise
+   - Sort by chunk_index for structural ordering
+   - Token budgeting: select by score, re-sort by position
+   - Return `RefineOutput`
+
+3. **Register `entity_arc` strategy**
+   - Add `"entity_arc"` case in `DocumentAdapter.refine` dispatch
+   - Add to `_FAMILY_DEFAULT_STRATEGY` comments (not as default)
+   - Add to `_resolve_refine_strategy` documentation
+   - Update MCP tool docstring for the strategy parameter
+
+4. **Optional: `min_score` on RefinementStrategy**
+   New optional field. Default null. Only meaningful for entity_arc.
+   Filters keyword-only matches with low vector relevance.
+
+5. **Tests**
+   - Unit tests for `_keyword_search_with_scores` (mock pgvector)
+   - Unit tests for `_entity_arc_refine` (mock SQL helpers)
+   - Integration test if cluster is available
+
+6. **Verify end-to-end against cluster**
+   Query: "SSRIs" against PTSD CPG with `strategy="entity_arc"`.
+   Confirm arc order, token truncation, score filtering.
 
 **Session start protocol:**
 - Premise checks:
@@ -43,22 +49,35 @@ problem needs capabilities beyond what exists.
   - Run `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` to
     confirm green baseline (should be 212 + 33).
   - Port-forward cluster PG: `scripts/port_forward_cluster_pg.sh`
-  - Verify semantic_context is populated (Phase 3 seeded entities with
-    doc_titles and relationships).
 - Rules with history:
   - Raw psycopg SQL in the adapter, not SQLAlchemy Core.
   - `RefineOutput` wrapper carries truncation metadata from the adapter.
   - `_resolve_refine_strategy` in the MCP server resolves strategy from
     source config with family defaults; tool-level params override.
-  - This is a research phase — document findings even if the outcome is
-    "this approach doesn't work." A design document is a valid
-    deliverable.
+  - **Embedding model comes from the recipe version** — use
+    `_embedding_model_name()` and `_query_prefix()`, never hardcode.
+    VA CPG uses PubMedBERT (no prefix), code source uses Nomic v1.5.
 - Stop-and-ask before: Any changes to the pgvector table DDL or the
-  ingestion write path. Any new fields on `RefineResponse` envelope
-  (cross-reference set precedent for per-hit fields; entity-arc may
-  need a different shape).
+  ingestion write path. Any new fields on `RefineResponse` envelope.
 
-## What landed last session (2026-08-20, third session)
+## What landed last session (2026-08-20, fourth session)
+
+Phase 4 research complete: entity-arc retrieval is feasible.
+See `session-summaries/2026-08-20-refine-tool-phase4-research.md` and
+`docs/entity-arc-retrieval-research.md` for detail.
+
+Key findings:
+- PubMedBERT entity-scoped search produces 0.39-0.56 scores (usable)
+- Hybrid vector+keyword needed for full recall (7 of 15 keyword
+  matches missed by vector top-20)
+- doc_section ordering unreliable (13/19 sections fragmented);
+  chunk_index is the only valid structural signal
+- Token budget (4,000 tokens) fits ~7 of 27 arc chunks; score-weighted
+  sampling preserves the most relevant segments
+
+**Commit:** (research docs, no code changes)
+
+## What landed earlier (2026-08-20, third session)
 
 Phase 3 complete: cross-reference following with entity relationship
 traversal across VA CPG documents.
@@ -102,11 +121,11 @@ auth, MCP-level eval). #28 maps to Phase 4 of this epic.
 
 ## Remaining epic phases
 
-### Phase 4: Entity-arc retrieval (research phase) ← NEXT
+### Phase 4: Entity-arc retrieval ← NEXT (implementation)
 
-The hardest refinement problem: tracing an entity's arc across a document
-or corpus. This is a research phase -- the outcome may be a working
-implementation, a design document, or a documented finding.
+Research complete. Hybrid vector+keyword approach within a document,
+ordered by chunk_index, with score-based token truncation. Design in
+`docs/entity-arc-retrieval-research.md`. Implementation session needed.
 
 **Dependencies:** Phase 2 (done). Independent of Phase 3.
 
@@ -144,16 +163,20 @@ future data-owner usability epic should address:
 
 ## Watch out for
 
+- **Embedding model mismatch:** VA CPG data uses `NeuML/pubmedbert-base-embeddings`
+  (no prefix). Code source uses `nomic-ai/nomic-embed-text-v1.5` (with
+  `search_query:` prefix). Always read the model from the recipe version
+  via `_embedding_model_name()` and `_query_prefix()`. Using the wrong
+  model produces near-zero similarity scores that look like "search is
+  broken" but are actually a model mismatch.
 - The PTSD CPG doc_title is `"for the treatment of nightmares associated
   with PTSD"` — poorly extracted. Entity-arc queries against this document
   will need the exact title string.
-- Entity-arc retrieval may surface that `doc_section` ordering doesn't
-  match narrative order (sections are alphabetically or arbitrarily named,
-  not sequentially numbered). If so, chunk_index ordering within a
-  document may be the only reliable structural signal.
+- **doc_section is not orderable.** 13/19 multi-chunk sections are
+  fragmented (non-contiguous chunk ranges). Use chunk_index for ordering.
 - Phantom entities (CKD, Stroke, Benzodiazepines) in the relationship
   graph have no EntityDefinition — entity-arc queries for these will
-  silently return nothing. Not blocking for research but worth noting.
+  silently return nothing. Not blocking but worth noting.
 
 ## If blocked
 
