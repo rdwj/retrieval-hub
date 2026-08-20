@@ -1,0 +1,89 @@
+{
+  "aggregate": {
+    "context_precision": 0.75763888885961,
+    "answer_relevancy": 0.7203466308493419,
+    "faithfulness": 0.8618253968253968
+  },
+  "per_query": [
+    {
+      "query_id": "q033",
+      "language_register": "lay",
+      "cpg_slug": "lower-back-pain",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8723857914259968,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q009",
+      "language_register": "lay",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.94999999997625,
+      "answer_relevancy": 0.5612581836352887,
+      "faithfulness": 0.8
+    },
+    {
+      "query_id": "q038",
+      "language_register": "lay",
+      "cpg_slug": "mtbi",
+      "context_precision": 0.19999999998,
+      "answer_relevancy": 0.5450156674427469,
+      "faithfulness": 0.6
+    },
+    {
+      "query_id": "q027",
+      "language_register": "clinical",
+      "cpg_slug": "suicide-risk",
+      "context_precision": 0.8874999999778125,
+      "answer_relevancy": 0.7613966516611043,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q003",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.99999999995,
+      "answer_relevancy": 0.7812456639942045,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q021",
+      "language_register": "clinical",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.19999999998,
+      "answer_relevancy": 0.9022633733074271,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q004",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.9999999999666667,
+      "answer_relevancy": 0.8200931775053465,
+      "faithfulness": 0.7777777777777778
+    },
+    {
+      "query_id": "q005",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.699999999965,
+      "answer_relevancy": 0.796651424150195,
+      "faithfulness": 0.8333333333333334
+    },
+    {
+      "query_id": "q017",
+      "language_register": "lay",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.8333333332916666,
+      "answer_relevancy": 0.6536444812217563,
+      "faithfulness": 0.75
+    },
+    {
+      "query_id": "q019",
+      "language_register": "lay",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.8055555555287036,
+      "answer_relevancy": 0.5095118941493524,
+      "faithfulness": 0.8571428571428571
+    }
+  ]
+}

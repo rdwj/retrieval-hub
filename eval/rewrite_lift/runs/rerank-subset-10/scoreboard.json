@@ -1,0 +1,116 @@
+{
+  "date": "2026-08-20T15:45:42Z",
+  "strategies": {
+    "cosine_dedup": {
+      "context_precision": 0.75763888885961,
+      "answer_relevancy": 0.7203466308493419,
+      "faithfulness": 0.8618253968253968,
+      "hit_rate": 1.0,
+      "mrr": 0.8833
+    },
+    "rrf": {
+      "context_precision": 0.741805555530839,
+      "answer_relevancy": 0.6540529302858488,
+      "faithfulness": 0.696854256854257,
+      "hit_rate": 1.0,
+      "mrr": 1.0
+    },
+    "cross_encoder": {
+      "context_precision": 0.8487499999727118,
+      "answer_relevancy": 0.7206371797875406,
+      "faithfulness": 0.8626543209876544,
+      "hit_rate": 1.0,
+      "mrr": 0.8833
+    },
+    "cosine_original": {
+      "context_precision": 0.7731944444174802,
+      "answer_relevancy": 0.5835185129538728,
+      "faithfulness": 0.7598244348244348,
+      "hit_rate": 1.0,
+      "mrr": 1.0
+    },
+    "llm_rerank": {
+      "context_precision": 0.7543055555296376,
+      "answer_relevancy": 0.612078576311438,
+      "faithfulness": 0.7864197530864198,
+      "hit_rate": 1.0,
+      "mrr": 1.0
+    }
+  },
+  "by_register": {
+    "lay": {
+      "cosine_dedup": {
+        "context_precision": 0.7981,
+        "answer_relevancy": 0.6603,
+        "faithfulness": 0.7975,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "rrf": {
+        "context_precision": 0.775,
+        "answer_relevancy": 0.5908,
+        "faithfulness": 0.8138,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "cross_encoder": {
+        "context_precision": 0.8167,
+        "answer_relevancy": 0.6512,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9167
+      },
+      "cosine_original": {
+        "context_precision": 0.7333,
+        "answer_relevancy": 0.6017,
+        "faithfulness": 0.7842,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "llm_rerank": {
+        "context_precision": 0.7287,
+        "answer_relevancy": 0.6529,
+        "faithfulness": 0.8241,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      }
+    },
+    "clinical": {
+      "cosine_dedup": {
+        "context_precision": 0.6969,
+        "answer_relevancy": 0.8104,
+        "faithfulness": 0.9583,
+        "hit_rate": 1.0,
+        "mrr": 0.7083
+      },
+      "rrf": {
+        "context_precision": 0.692,
+        "answer_relevancy": 0.749,
+        "faithfulness": 0.5214,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "cross_encoder": {
+        "context_precision": 0.8969,
+        "answer_relevancy": 0.8248,
+        "faithfulness": 0.95,
+        "hit_rate": 1.0,
+        "mrr": 0.8333
+      },
+      "cosine_original": {
+        "context_precision": 0.833,
+        "answer_relevancy": 0.5562,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "llm_rerank": {
+        "context_precision": 0.7927,
+        "answer_relevancy": 0.5509,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      }
+    }
+  }
+}

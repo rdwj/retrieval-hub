@@ -1,0 +1,53 @@
+{
+  "date": "2026-08-20T18:28:31Z",
+  "strategies": {
+    "cosine_dedup": {
+      "context_precision": 0.7381018518168977,
+      "answer_relevancy": 0.7336108047236111,
+      "faithfulness": 0.8381764069264069,
+      "hit_rate": 1.0,
+      "mrr": 0.9028
+    },
+    "cross_encoder": {
+      "context_precision": 0.8590740740461421,
+      "answer_relevancy": 0.6547088451868603,
+      "faithfulness": 0.8365229677729679,
+      "hit_rate": 1.0,
+      "mrr": 0.9056
+    }
+  },
+  "by_register": {
+    "lay": {
+      "cosine_dedup": {
+        "context_precision": 0.7742,
+        "answer_relevancy": 0.6531,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9643
+      },
+      "cross_encoder": {
+        "context_precision": 0.8479,
+        "answer_relevancy": 0.5865,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9286
+      }
+    },
+    "clinical": {
+      "cosine_dedup": {
+        "context_precision": 0.7065,
+        "answer_relevancy": 0.804,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.849
+      },
+      "cross_encoder": {
+        "context_precision": 0.8688,
+        "answer_relevancy": 0.7144,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.8854
+      }
+    }
+  }
+}
