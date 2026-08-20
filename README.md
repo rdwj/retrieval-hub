@@ -1,8 +1,10 @@
 # retrieval-hub
 
-A catalog-driven retrieval platform for AI agents. Every queryable corpus is published as a versioned *source* with a recipe, eval scores, a per-source semantic layer, access policy, and lineage. Agents consume sources through six MCP tools; humans curate sources through an admin UI and a CLI built on the same core library.
+One MCP server for every retrieval corpus across an enterprise. Clinical guidelines, internal documentation, codebases, policy libraries, regulatory filings -- any corpus that exists to be searched, referenced, and cited. Agents connect to one server, call `retrieve`, and get governed, domain-adapted results with provenance. They never know or care whether they're querying a vector store, a SQL database, or a knowledge graph.
 
-Each source carries a **per-source semantic layer** that data owners control: entity definitions, relationship hints, metric definitions, abbreviation glossaries, and vocabulary mappings. The platform's query rewriter uses this semantic context to translate user queries into domain-specific terminology before retrieval, measurably improving hit rates on lay-language queries. The semantic layer is general-purpose and works for any domain (clinical, code, legal, etc.).
+Data owners publish sources with a **per-source semantic layer** they control: entity definitions, vocabulary mappings, relationship hints, metric definitions, and refinement strategies. The platform uses this metadata to rewrite queries into domain-specific terminology, rerank results, and expand context -- all invisible to the agent. The data owner's domain expertise is encoded once and reused by every agent that consumes the source.
+
+retrieval-hub is a **retrieval platform**, not an agent framework. It provides six MCP tools (`list_sources`, `describe_source`, `retrieve`, `refine`, `write`, `request_access`) that any agent architecture can compose -- including agentic RAG implementations. Query rewriting, reranking, elicitation, and semantic layer lookups are internal mechanisms that make `retrieve` and `refine` better. The agent calls one tool and gets the best result the platform can produce.
 
 **Status: early development.** Design documentation and a scaffolded core library are in place. See [`docs/SYSTEMS.md`](docs/SYSTEMS.md) for the build order and the status of every subsystem.
 
