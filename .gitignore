@@ -104,5 +104,7 @@ temp/
 .internal/
 
 # Claude Code and MemoryHub local config
-.claude/
+.claude/*
+!.claude/commands/
+!.claude/rules/
 .memoryhub.yaml
