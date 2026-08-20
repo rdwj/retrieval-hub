@@ -108,6 +108,7 @@ class RefineResponse(BaseModel):
     chunks: list[RefineHit]
     truncated: bool = False
     total_section_chunks: int | None = None
+    embedding_model: str | None = None
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None
 
@@ -121,10 +122,15 @@ class RetrievalResponse(BaseModel):
     retrieval so the agent cannot miss them.
 
     ``request_id`` is a per-query lineage handle shared by all hits.
+
+    ``embedding_model`` identifies which model produced the similarity
+    scores.  Scores reflect the combination of embedding model, corpus,
+    and query, so they are not comparable across separate retrieve calls.
     """
 
     request_id: str
     hits: list[RetrievalHit]
+    embedding_model: str | None = None
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None
     rewritten_queries: list[RewrittenQueryInfo] | None = None

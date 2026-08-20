@@ -21,6 +21,7 @@ from retrieval_hub_mcp.schemas import (
     SourceSummary,
 )
 from retrieval_hub_mcp.server import (
+    _resolve_embedding_model,
     _resolve_refine_strategy,
     describe_source,
     list_sources,
@@ -70,11 +71,13 @@ def _make_physical_index(
     id="pi-001",
     document_count=42,
     build_metadata=None,
+    recipe_version_id="rv-001",
 ):
     return SimpleNamespace(
         id=id,
         document_count=document_count,
         build_metadata=build_metadata,
+        recipe_version_id=recipe_version_id,
     )
 
 
@@ -297,10 +300,33 @@ async def test_describe_source_no_index_or_prompts():
 # ---------------------------------------------------------------------------
 
 
-def _make_retrieve_session(source=None):
-    """Build a mock session that returns *source* from the Source query."""
+def _make_retrieve_session(source=None, embedding_model="test-embed-model"):
+    """Build a mock session for retrieve/refine tests.
+
+    Dispatches by model class so Source, PhysicalIndex, and RecipeVersion
+    queries each return the correct mock object.
+    """
+    from retrieval_hub.models import PhysicalIndex as PIModel
+    from retrieval_hub.models import RecipeVersion as RVModel
+    from retrieval_hub.models import Source as SModel
+
+    pi = _make_physical_index()
+    rv = _make_recipe_version(
+        content={"embedding": {"model": embedding_model}},
+    )
+
     session = MagicMock()
-    session.query.return_value = _MockQuery(source)
+
+    def mock_query(model):
+        if model is SModel:
+            return _MockQuery(source)
+        if model is PIModel:
+            return _MockQuery(pi)
+        if model is RVModel:
+            return _MockQuery(rv)
+        return _MockQuery(None)
+
+    session.query.side_effect = mock_query
     return session
 
 
@@ -342,6 +368,7 @@ async def test_retrieve_delegates_to_query():
     assert resp.hits[0].doc_section == "Chapter 2"
     assert resp.hits[0].chunk_index == 0
     assert resp.request_id == "req-abc"
+    assert resp.embedding_model == "test-embed-model"
 
     assert resp.hits[1].doc_section is None
 
@@ -485,6 +512,7 @@ async def test_retrieve_file_path_fetches_from_github():
     assert resp.hits[0].score == 1.0
     assert resp.hits[0].text == "print('hello')\n"
     assert resp.hits[0].doc_title == "hello.py"
+    assert resp.embedding_model is None
 
 
 @pytest.mark.asyncio
@@ -830,6 +858,7 @@ async def test_refine_returns_section_chunks():
     assert resp.origin_chunk_index == 5
     assert resp.strategy == "section"
     assert not resp.truncated
+    assert resp.embedding_model == "test-embed-model"
     assert len(resp.chunks) == 3
     assert isinstance(resp.chunks[0], RefineHit)
     assert resp.chunks[0].text == "before"
@@ -1413,3 +1442,64 @@ async def test_refine_entity_arc_strategy():
     call_kwargs = mock_ref.call_args[1]
     assert call_kwargs["strategy"] == "entity_arc"
     assert call_kwargs["min_score"] == pytest.approx(0.30)
+
+
+# ---------------------------------------------------------------------------
+# _resolve_embedding_model
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_embedding_model_from_recipe():
+    """_resolve_embedding_model returns the model name from the recipe content."""
+    from retrieval_hub.models import PhysicalIndex as PIModel
+    from retrieval_hub.models import RecipeVersion as RVModel
+
+    source = _make_source()
+    pi = _make_physical_index()
+    rv = _make_recipe_version(
+        content={"embedding": {"model": "NeuML/pubmedbert-base-embeddings"}},
+    )
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model is PIModel:
+            return _MockQuery(pi)
+        if model is RVModel:
+            return _MockQuery(rv)
+        return _MockQuery(None)
+
+    session.query.side_effect = mock_query
+
+    assert _resolve_embedding_model(source, session) == "NeuML/pubmedbert-base-embeddings"
+
+
+def test_resolve_embedding_model_no_active_index():
+    """_resolve_embedding_model returns None when the source has no active index."""
+    source = _make_source(active_physical_index_id=None)
+    session = MagicMock()
+
+    assert _resolve_embedding_model(source, session) is None
+
+
+def test_resolve_embedding_model_no_embedding_in_recipe():
+    """_resolve_embedding_model returns None when the recipe lacks embedding config."""
+    from retrieval_hub.models import PhysicalIndex as PIModel
+    from retrieval_hub.models import RecipeVersion as RVModel
+
+    source = _make_source()
+    pi = _make_physical_index()
+    rv = _make_recipe_version(content={"parser": "docling"})
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model is PIModel:
+            return _MockQuery(pi)
+        if model is RVModel:
+            return _MockQuery(rv)
+        return _MockQuery(None)
+
+    session.query.side_effect = mock_query
+
+    assert _resolve_embedding_model(source, session) is None

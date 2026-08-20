@@ -180,6 +180,24 @@ def _resolve_github_repo(source_obj, session: Session) -> str | None:
     return None
 
 
+def _resolve_embedding_model(source_obj, session: Session) -> str | None:
+    """Read ``embedding.model`` from the source's active recipe content."""
+    if not source_obj or not source_obj.active_physical_index_id:
+        return None
+    pi = (
+        session.query(PhysicalIndex)
+        .filter(PhysicalIndex.id == source_obj.active_physical_index_id)
+        .one_or_none()
+    )
+    if not pi or not pi.recipe_version_id:
+        return None
+    rv = session.query(RecipeVersion).filter(RecipeVersion.id == pi.recipe_version_id).one_or_none()
+    if rv and rv.content:
+        embedding = rv.content.get("embedding") or {}
+        return embedding.get("model")
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Query rewriter helpers
 # ---------------------------------------------------------------------------
@@ -366,6 +384,12 @@ async def retrieve(
 ) -> RetrievalResponse:
     """Search a data source and return relevant passages with provenance metadata.
 
+    Each hit includes a cosine similarity ``score``.  Scores reflect the
+    combination of embedding model, corpus, and query -- all three shape
+    the scale, so scores from different sources are not directly
+    comparable.  The ``embedding_model`` field on the response identifies
+    which model produced these scores.
+
     The response includes usage_rules (citation requirements, scope
     disclaimers, handling constraints) and data_freshness metadata
     authored by the data owner.  These ride with every retrieval so the
@@ -446,11 +470,14 @@ async def retrieve(
             for r in deduped
         ]
 
+        embedding_model = _resolve_embedding_model(source_obj, session)
+
         return _build_response(
             hits,
             source_obj,
             request_id=request_id,
             rewritten_queries=rewritten_queries_info,
+            embedding_model=embedding_model,
         )
     except SourceNotFoundError as exc:
         raise ToolError(
@@ -509,6 +536,7 @@ def _build_response(
     *,
     request_id: str = "",
     rewritten_queries: list[RewrittenQueryInfo] | None = None,
+    embedding_model: str | None = None,
 ) -> RetrievalResponse:
     """Assemble a RetrievalResponse with usage_rules and data_freshness."""
     usage_rules = None
@@ -534,6 +562,7 @@ def _build_response(
     return RetrievalResponse(
         request_id=request_id,
         hits=hits,
+        embedding_model=embedding_model,
         usage_rules=usage_rules,
         data_freshness=data_freshness,
         rewritten_queries=rewritten_queries,
@@ -763,6 +792,7 @@ async def refine(
         ]
 
         usage_rules, data_freshness = _extract_usage(source_obj)
+        embedding_model = _resolve_embedding_model(source_obj, session)
 
         return RefineResponse(
             source=source,
@@ -773,6 +803,7 @@ async def refine(
             chunks=chunks,
             truncated=output.truncated,
             total_section_chunks=output.total_chunks,
+            embedding_model=embedding_model,
             usage_rules=usage_rules,
             data_freshness=data_freshness,
         )
