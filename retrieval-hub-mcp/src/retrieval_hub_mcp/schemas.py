@@ -103,6 +103,8 @@ class RefineResponse(BaseModel):
     origin_chunk_index: int
     strategy: str
     chunks: list[RefineHit]
+    truncated: bool = False
+    total_section_chunks: int | None = None
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None
 

@@ -47,6 +47,15 @@ class RetrievalResult:
     request_id: str
 
 
+@dataclass(frozen=True)
+class RefineOutput:
+    """Wrapper for refine results with truncation metadata."""
+
+    results: list[RetrievalResult]
+    truncated: bool = False
+    total_chunks: int | None = None
+
+
 class SourceNotFoundError(LookupError):
     """Raised when ``query`` cannot find a source by slug."""
 
@@ -175,7 +184,9 @@ def refine(
     session: Session,
     vectors_db_url: str | None = None,
     request_id: str | None = None,
-) -> list[RetrievalResult]:
+    strategy: str = "adjacent",
+    max_context_tokens: int | None = None,
+) -> RefineOutput:
     """Return adjacent context around a previously retrieved chunk.
 
     Raises the same exceptions as ``query`` for unknown / unqueryable sources.
@@ -210,10 +221,11 @@ def refine(
 
     effective_request_id = request_id or str(uuid.uuid4())
     logger.info(
-        "retrieval.refine source=%s doc_title=%s chunk_index=%d window=%d request_id=%s",
+        "retrieval.refine source=%s doc_title=%s chunk_index=%d strategy=%s window=%d request_id=%s",
         source_slug,
         doc_title,
         chunk_index,
+        strategy,
         window,
         effective_request_id,
     )
@@ -224,4 +236,6 @@ def refine(
         query=query_text,
         window=window,
         request_id=effective_request_id,
+        strategy=strategy,
+        max_context_tokens=max_context_tokens,
     )

@@ -98,6 +98,13 @@ class TestRefinementStrategy:
         assert s.window == 5
         assert s.enabled is False
 
+    def test_max_context_tokens(self):
+        rs = RefinementStrategy(kind="section", max_context_tokens=8000)
+        assert rs.max_context_tokens == 8000
+
+        rs_none = RefinementStrategy(kind="adjacent")
+        assert rs_none.max_context_tokens is None
+
     def test_rejects_extra_fields(self):
         with pytest.raises(ValidationError):
             RefinementStrategy(kind="adjacent", unknown="bad")

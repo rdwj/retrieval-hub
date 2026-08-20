@@ -40,6 +40,7 @@ def _make_source(
     id="src-001",
     usage_rules=None,
     rewriter_metadata=None,
+    semantic_context=None,
 ):
     """Build a mock Source object with the fields the tools read."""
     return SimpleNamespace(
@@ -55,6 +56,7 @@ def _make_source(
         recipe_version_id=recipe_version_id,
         usage_rules=usage_rules,
         rewriter_metadata=rewriter_metadata,
+        semantic_context=semantic_context,
     )
 
 
@@ -784,9 +786,21 @@ def _make_refine_result(
     )
 
 
+def _make_refine_output(results, *, truncated=False, total_chunks=None):
+    """Wrap refine results in a RefineOutput-like namespace."""
+    return SimpleNamespace(
+        results=results,
+        truncated=truncated,
+        total_chunks=total_chunks,
+    )
+
+
 @pytest.mark.asyncio
-async def test_refine_returns_adjacent_chunks():
-    """refine delegates to retrieval_refine and maps results to RefineResponse."""
+async def test_refine_returns_section_chunks():
+    """refine delegates to retrieval_refine and maps results to RefineResponse.
+
+    A ``document`` family source defaults to the ``section`` strategy.
+    """
     mock_results = [
         _make_refine_result(text="before", chunk_index=4),
         _make_refine_result(text="target", chunk_index=5),
@@ -796,7 +810,10 @@ async def test_refine_returns_adjacent_chunks():
     source = _make_source()
     session = _make_retrieve_session(source)
 
-    with patch("retrieval_hub_mcp.server.retrieval_refine", return_value=mock_results):
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ):
         resp = await refine(
             source="test-source",
             doc_title="Manual v3",
@@ -811,7 +828,8 @@ async def test_refine_returns_adjacent_chunks():
     assert resp.doc_title == "Manual v3"
     assert resp.doc_url == "https://example.com/manual-v3"
     assert resp.origin_chunk_index == 5
-    assert resp.strategy == "adjacent"
+    assert resp.strategy == "section"
+    assert not resp.truncated
     assert len(resp.chunks) == 3
     assert isinstance(resp.chunks[0], RefineHit)
     assert resp.chunks[0].text == "before"
@@ -845,14 +863,15 @@ async def test_refine_source_not_found():
 
 
 @pytest.mark.asyncio
-async def test_refine_passes_window():
-    """refine forwards the window parameter to retrieval_refine."""
+async def test_refine_passes_window_and_strategy():
+    """refine forwards window, strategy, and max_context_tokens to retrieval_refine."""
     source = _make_source()
     session = _make_retrieve_session(source)
     mock_results = [_make_refine_result(chunk_index=3)]
 
     with patch(
-        "retrieval_hub_mcp.server.retrieval_refine", return_value=mock_results
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
     ) as mock_ref:
         await refine(
             source="test-source",
@@ -870,6 +889,8 @@ async def test_refine_passes_window():
         query_text="details",
         window=5,
         session=session,
+        strategy="section",
+        max_context_tokens=None,
     )
 
 
@@ -881,7 +902,10 @@ async def test_refine_empty_result_raises_tool_error():
     source = _make_source()
     session = _make_retrieve_session(source)
 
-    with patch("retrieval_hub_mcp.server.retrieval_refine", return_value=[]):
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output([]),
+    ):
         with pytest.raises(ToolError, match="No chunks found"):
             await refine(
                 source="test-source",
@@ -907,7 +931,10 @@ async def test_refine_includes_usage_rules():
     session = _make_retrieve_session(source)
     mock_results = [_make_refine_result(chunk_index=0)]
 
-    with patch("retrieval_hub_mcp.server.retrieval_refine", return_value=mock_results):
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ):
         resp = await refine(
             source="test-source",
             doc_title="Manual v3",
@@ -920,3 +947,110 @@ async def test_refine_includes_usage_rules():
     assert resp.usage_rules.citation == "Cite as VA CPG"
     assert resp.data_freshness is not None
     assert resp.data_freshness.last_refreshed == "2026-01-15"
+
+
+@pytest.mark.asyncio
+async def test_refine_strategy_from_source_semantic_context():
+    """semantic_context.refinement_strategies overrides the family default strategy."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "adjacent", "window": 3, "enabled": True},
+            ],
+        },
+    )
+    session = _make_retrieve_session(source)
+    mock_results = [_make_refine_result(chunk_index=0)]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ) as mock_ref:
+        await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=0,
+            query="more",
+            session=session,
+        )
+
+    # The source is family="document" which defaults to "section",
+    # but semantic_context overrides it to "adjacent".
+    mock_ref.assert_called_once()
+    call_kwargs = mock_ref.call_args[1]
+    assert call_kwargs["strategy"] == "adjacent"
+
+
+@pytest.mark.asyncio
+async def test_refine_truncated_response():
+    """When truncated=True, response carries truncation metadata."""
+    source = _make_source()
+    session = _make_retrieve_session(source)
+    mock_results = [
+        _make_refine_result(text="chunk A", chunk_index=4),
+        _make_refine_result(text="chunk B", chunk_index=5),
+    ]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results, truncated=True, total_chunks=15),
+    ):
+        resp = await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=5,
+            query="more",
+            session=session,
+        )
+
+    assert resp.truncated is True
+    assert resp.total_section_chunks == 15
+
+
+@pytest.mark.asyncio
+async def test_refine_max_context_tokens_passed_through():
+    """max_context_tokens is forwarded to retrieval_refine."""
+    source = _make_source()
+    session = _make_retrieve_session(source)
+    mock_results = [_make_refine_result(chunk_index=3)]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ) as mock_ref:
+        await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=3,
+            query="details",
+            max_context_tokens=4000,
+            session=session,
+        )
+
+    mock_ref.assert_called_once()
+    call_kwargs = mock_ref.call_args[1]
+    assert call_kwargs["max_context_tokens"] == 4000
+
+
+@pytest.mark.asyncio
+async def test_refine_code_source_defaults_to_adjacent():
+    """A code-family source with no semantic_context defaults to 'adjacent' strategy."""
+    source = _make_source(family="code")
+    session = _make_retrieve_session(source)
+    mock_results = [_make_refine_result(chunk_index=0)]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ) as mock_ref:
+        await refine(
+            source="test-source",
+            doc_title="main.py",
+            chunk_index=0,
+            query="context",
+            session=session,
+        )
+
+    mock_ref.assert_called_once()
+    call_kwargs = mock_ref.call_args[1]
+    assert call_kwargs["strategy"] == "adjacent"

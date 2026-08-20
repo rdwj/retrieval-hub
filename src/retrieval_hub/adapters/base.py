@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 
 if TYPE_CHECKING:
-    from retrieval_hub.retrieval.api import RetrievalResult
+    from retrieval_hub.retrieval.api import RefineOutput, RetrievalResult
 
 
 class SourceAdapter(ABC):
@@ -55,5 +55,7 @@ class SourceAdapter(ABC):
         query: str,
         window: int,
         request_id: str,
-    ) -> list[RetrievalResult]:
+        strategy: str = "adjacent",
+        max_context_tokens: int | None = None,
+    ) -> RefineOutput:
         """Return additional context around a previously retrieved chunk."""

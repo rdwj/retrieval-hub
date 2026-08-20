@@ -74,6 +74,7 @@ class RefinementStrategy(BaseModel):
     kind: str
     window: int = 2
     enabled: bool = True
+    max_context_tokens: int | None = None
 
 
 class SemanticContext(BaseModel):

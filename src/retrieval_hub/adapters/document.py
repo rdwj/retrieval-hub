@@ -26,11 +26,14 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 from retrieval_hub.models.enums import PhysicalIndexBackend
+
+if TYPE_CHECKING:
+    from retrieval_hub.retrieval.api import RefineOutput
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +134,24 @@ class DocumentAdapter(SourceAdapter):
         query: str,
         window: int,
         request_id: str,
-    ) -> list[Any]:
-        from retrieval_hub.retrieval.api import RetrievalResult
+        strategy: str = "adjacent",
+        max_context_tokens: int | None = None,
+    ) -> RefineOutput:
+        from retrieval_hub.retrieval.api import RefineOutput, RetrievalResult
 
-        rows = self._adjacent_chunks(doc_title, chunk_index, window)
-        return [
+        if strategy == "section":
+            rows = self._resolve_section_chunks(doc_title, chunk_index)
+        else:
+            rows = self._adjacent_chunks(doc_title, chunk_index, window)
+
+        total_chunks = len(rows)
+
+        if max_context_tokens is not None:
+            rows = self._truncate_to_budget(rows, chunk_index, max_context_tokens)
+
+        truncated = len(rows) < total_chunks
+
+        results = [
             RetrievalResult(
                 text=row["chunk_text"],
                 score=1.0,
@@ -149,6 +165,12 @@ class DocumentAdapter(SourceAdapter):
             )
             for row in rows
         ]
+
+        return RefineOutput(
+            results=results,
+            truncated=truncated,
+            total_chunks=total_chunks if truncated else None,
+        )
 
     # -- internals --------------------------------------------------------
 
@@ -190,7 +212,7 @@ class DocumentAdapter(SourceAdapter):
         hi = chunk_index + window
 
         sql = (
-            f"SELECT id, chunk_text, doc_title, doc_url, doc_section, chunk_index "
+            f"SELECT id, chunk_text, chunk_tokens, doc_title, doc_url, doc_section, chunk_index "
             f"FROM {table} "
             f"WHERE doc_title = %s AND chunk_index BETWEEN %s AND %s "
             f"ORDER BY chunk_index"
@@ -202,6 +224,128 @@ class DocumentAdapter(SourceAdapter):
                 cols = [desc.name for desc in cur.description or []]
                 rows = cur.fetchall()
         return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    def _get_chunk(
+        self,
+        doc_title: str,
+        chunk_index: int,
+    ) -> dict[str, Any] | None:
+        """Fetch a single chunk by document title and index."""
+        import psycopg
+
+        table = self.physical_index.location
+
+        sql = (
+            f"SELECT id, chunk_text, chunk_tokens, doc_title, doc_url, doc_section, chunk_index "
+            f"FROM {table} "
+            f"WHERE doc_title = %s AND chunk_index = %s "
+            f"LIMIT 1"
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (doc_title, chunk_index))
+                cols = [desc.name for desc in cur.description or []]
+                row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(zip(cols, row, strict=True))
+
+    def _section_chunks(
+        self,
+        doc_title: str,
+        doc_section: str,
+    ) -> list[dict[str, Any]]:
+        """Fetch all chunks from the given section within a document."""
+        import psycopg
+
+        table = self.physical_index.location
+
+        sql = (
+            f"SELECT id, chunk_text, chunk_tokens, doc_title, doc_url, doc_section, chunk_index "
+            f"FROM {table} "
+            f"WHERE doc_title = %s AND doc_section = %s "
+            f"ORDER BY chunk_index"
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (doc_title, doc_section))
+                cols = [desc.name for desc in cur.description or []]
+                rows = cur.fetchall()
+        return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    def _resolve_section_chunks(
+        self,
+        doc_title: str,
+        chunk_index: int,
+    ) -> list[dict[str, Any]]:
+        """Look up the origin chunk's section, then fetch all chunks in that section."""
+        origin = self._get_chunk(doc_title, chunk_index)
+        if origin is None:
+            return []
+        doc_section = origin.get("doc_section")
+        if not doc_section:
+            # Chunk has no section -- fall back to returning just the origin
+            return [origin]
+        return self._section_chunks(doc_title, doc_section)
+
+    def _truncate_to_budget(
+        self,
+        rows: list[dict[str, Any]],
+        origin_chunk_index: int,
+        max_tokens: int,
+    ) -> list[dict[str, Any]]:
+        """Keep the origin chunk and expand outward until the token budget is exhausted."""
+        if not rows:
+            return rows
+
+        # Find the origin row's position in the sorted list
+        origin_pos = None
+        for i, row in enumerate(rows):
+            if row["chunk_index"] == origin_chunk_index:
+                origin_pos = i
+                break
+
+        if origin_pos is None:
+            # Origin not in results (shouldn't happen); return all
+            return rows
+
+        total_tokens = sum(row.get("chunk_tokens", 0) for row in rows)
+        if total_tokens <= max_tokens:
+            return rows
+
+        # Start with the origin chunk
+        selected_positions = [origin_pos]
+        budget_used = rows[origin_pos].get("chunk_tokens", 0)
+
+        # Expand outward alternating before/after
+        lo = origin_pos - 1
+        hi = origin_pos + 1
+
+        while lo >= 0 or hi < len(rows):
+            # Try adding the chunk before
+            if lo >= 0:
+                cost = rows[lo].get("chunk_tokens", 0)
+                if budget_used + cost <= max_tokens:
+                    selected_positions.append(lo)
+                    budget_used += cost
+                else:
+                    lo = -1  # Stop expanding in this direction
+                lo -= 1
+
+            # Try adding the chunk after
+            if hi < len(rows):
+                cost = rows[hi].get("chunk_tokens", 0)
+                if budget_used + cost <= max_tokens:
+                    selected_positions.append(hi)
+                    budget_used += cost
+                else:
+                    hi = len(rows)  # Stop expanding in this direction
+                hi += 1
+
+        selected_positions.sort()
+        return [rows[i] for i in selected_positions]
 
     def _similarity_search(
         self,

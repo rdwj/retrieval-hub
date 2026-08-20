@@ -580,6 +580,59 @@ def _extract_usage(source_obj) -> tuple[UsageRules | None, DataFreshness | None]
 # refine
 # ---------------------------------------------------------------------------
 
+_FAMILY_DEFAULT_STRATEGY: dict[str, str] = {
+    "document": "section",
+    "clinical_document": "section",
+    "code": "adjacent",
+}
+
+
+def _resolve_refine_strategy(
+    source_obj: object | None,
+    tool_max_tokens: int | None,
+    tool_window: int | None,
+) -> tuple[str, int | None, int]:
+    """Determine which refinement strategy, token budget, and window to use.
+
+    Resolution order:
+    1. Source's ``semantic_context.refinement_strategies`` (first enabled entry).
+    2. Family default: ``section`` for document/clinical_document, ``adjacent``
+       for code.
+    3. Fall back to ``adjacent`` if nothing else matches.
+
+    Tool-level ``max_context_tokens`` and ``window`` override source defaults.
+    """
+    strategy = "adjacent"
+    source_max_tokens: int | None = None
+    source_window: int = 2
+
+    if source_obj is not None:
+        family = getattr(source_obj, "family", None)
+        if family:
+            strategy = _FAMILY_DEFAULT_STRATEGY.get(str(family), "adjacent")
+
+        raw_sc = getattr(source_obj, "semantic_context", None)
+        if raw_sc:
+            try:
+                from retrieval_hub.schemas.semantic import SemanticContext
+
+                sc = SemanticContext.model_validate(raw_sc)
+                for rs in sc.refinement_strategies:
+                    if rs.enabled:
+                        strategy = rs.kind
+                        source_max_tokens = rs.max_context_tokens
+                        source_window = rs.window
+                        break
+            except Exception:
+                logger.warning(
+                    "Failed to parse semantic_context for strategy resolution",
+                    exc_info=True,
+                )
+
+    effective_max_tokens = tool_max_tokens if tool_max_tokens is not None else source_max_tokens
+    effective_window = tool_window if tool_window is not None else source_window
+    return strategy, effective_max_tokens, effective_window
+
 
 @mcp.tool(
     annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
@@ -591,7 +644,8 @@ async def refine(
     doc_title: str,
     chunk_index: int,
     query: str,
-    window: int = 2,
+    window: int | None = None,
+    max_context_tokens: int | None = None,
     session: Session = Depends(get_catalog_session),
 ) -> RefineResponse:
     """Expand context around a previously retrieved chunk.
@@ -612,6 +666,11 @@ async def refine(
     so you can see if the context spans section boundaries.  The chunk
     where ``is_origin`` is true is the one you originally retrieved.
 
+    When ``truncated`` is true in the response, the section was larger
+    than the token budget and only a window around the origin chunk is
+    included.  ``total_section_chunks`` tells you how large the full
+    section is.
+
     Parameters:
         source: Source slug (from ``list_sources``).
         doc_title: Document title copied exactly from the ``retrieve`` hit.
@@ -619,28 +678,39 @@ async def refine(
         query: Describes what additional context you are looking for.
             Currently logged for observability; future refinement
             strategies will use it to select relevant content.
-        window: How many chunks before and after to include (default 2).
+        window: How many chunks before and after to include.  Used by
+            the ``adjacent`` strategy.  Defaults to the source's
+            configured window or 2 if unconfigured.
+        max_context_tokens: Maximum number of tokens to return.  When
+            the expanded context exceeds this budget, chunks are trimmed
+            from the edges toward the origin chunk.  Omit for no limit.
     """
     try:
         source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
 
-        results = retrieval_refine(
+        effective_strategy, effective_max_tokens, effective_window = _resolve_refine_strategy(
+            source_obj, max_context_tokens, window,
+        )
+
+        output = retrieval_refine(
             source_slug=source,
             doc_title=doc_title,
             chunk_index=chunk_index,
             query_text=query,
-            window=window,
+            window=effective_window,
             session=session,
+            strategy=effective_strategy,
+            max_context_tokens=effective_max_tokens,
         )
 
-        if not results:
+        if not output.results:
             raise ToolError(
                 f"No chunks found for doc_title={doc_title!r} at chunk_index={chunk_index} "
                 f"in source {source!r}. Verify that doc_title and chunk_index were copied "
                 f"exactly from a previous retrieve result."
             )
 
-        doc_url = results[0].doc_url
+        doc_url = output.results[0].doc_url
 
         chunks = [
             RefineHit(
@@ -649,7 +719,7 @@ async def refine(
                 chunk_index=r.chunk_index,
                 is_origin=(r.chunk_index == chunk_index),
             )
-            for r in results
+            for r in output.results
         ]
 
         usage_rules, data_freshness = _extract_usage(source_obj)
@@ -659,8 +729,10 @@ async def refine(
             doc_title=doc_title,
             doc_url=doc_url,
             origin_chunk_index=chunk_index,
-            strategy="adjacent",
+            strategy=effective_strategy,
             chunks=chunks,
+            truncated=output.truncated,
+            total_section_chunks=output.total_chunks,
             usage_rules=usage_rules,
             data_freshness=data_freshness,
         )
