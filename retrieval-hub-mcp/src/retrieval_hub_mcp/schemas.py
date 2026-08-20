@@ -86,15 +86,19 @@ class RefineHit(BaseModel):
     doc_section: str | None = None
     chunk_index: int
     is_origin: bool
+    doc_title: str | None = None
+    doc_url: str | None = None
 
 
 class RefineResponse(BaseModel):
     """Response from the ``refine`` tool.
 
     Contains the expanded context chunks ordered by document position,
-    with the original chunk marked via ``is_origin``.  Document-level
-    fields (``doc_title``, ``doc_url``) live on the envelope, not
-    per-chunk, since all chunks come from the same document.
+    with the original chunk marked via ``is_origin``.  For same-document
+    strategies (adjacent, section), document-level fields live on the
+    envelope and per-chunk ``doc_title``/``doc_url`` are null.  For the
+    ``cross_reference`` strategy, each chunk carries its own values
+    since chunks span multiple documents.
     """
 
     source: str

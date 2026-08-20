@@ -141,6 +141,15 @@ class DocumentAdapter(SourceAdapter):
 
         if strategy == "section":
             rows = self._resolve_section_chunks(doc_title, chunk_index)
+        elif strategy == "cross_reference":
+            return self._cross_reference_refine(
+                doc_title=doc_title,
+                chunk_index=chunk_index,
+                query=query,
+                window=window,
+                request_id=request_id,
+                max_context_tokens=max_context_tokens,
+            )
         else:
             rows = self._adjacent_chunks(doc_title, chunk_index, window)
 
@@ -380,3 +389,229 @@ class DocumentAdapter(SourceAdapter):
                 cols = [desc.name for desc in cur.description or []]
                 rows = cur.fetchall()
         return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    def _filtered_similarity_search(
+        self,
+        query_vec: list[float],
+        doc_titles: list[str],
+        *,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Run an ANN search filtered to specific documents.
+
+        Same as ``_similarity_search`` but restricted to chunks whose
+        ``doc_title`` is in the provided list.  Returns rows sorted by
+        descending score.
+        """
+        import psycopg
+        from pgvector.psycopg import register_vector
+
+        table = self.physical_index.location
+        logger.info(
+            "document_adapter._filtered_similarity_search table=%s "
+            "doc_titles=%s top_k=%d",
+            table,
+            doc_titles,
+            top_k,
+        )
+
+        sql = (
+            f"SELECT id, chunk_text, chunk_tokens, doc_title, doc_url, "
+            f"doc_section, chunk_index, "
+            f"1 - (embedding <=> %s::vector) AS score "
+            f"FROM {table} "
+            f"WHERE doc_title = ANY(%s) "
+            f"ORDER BY embedding <=> %s::vector "
+            f"LIMIT %s"
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            register_vector(conn)
+            with conn.cursor() as cur:
+                cur.execute(sql, (query_vec, doc_titles, query_vec, top_k))
+                cols = [desc.name for desc in cur.description or []]
+                rows = cur.fetchall()
+        return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    def _resolve_cross_reference_targets(
+        self,
+        doc_title: str,
+    ) -> list[str]:
+        """Resolve which document titles are related to *doc_title* via the semantic layer.
+
+        Pure logic -- no I/O.  Reads ``self.source.semantic_context``,
+        walks entities and relationships, and returns the deduplicated
+        list of doc_titles from related entities.
+        """
+        from retrieval_hub.schemas.semantic import SemanticContext
+
+        raw_sc = self.source.semantic_context
+        if raw_sc is None:
+            return []
+        try:
+            sc = SemanticContext.model_validate(raw_sc)
+        except Exception:
+            logger.warning("Failed to parse semantic_context for cross-reference resolution", exc_info=True)
+            return []
+
+        entities_by_name: dict[str, Any] = {e.name: e for e in sc.entities}
+
+        # Find which entity owns `doc_title`
+        origin_entity_name: str | None = None
+        for entity in sc.entities:
+            if doc_title in entity.doc_titles:
+                origin_entity_name = entity.name
+                break
+
+        if origin_entity_name is None:
+            return []
+
+        # Walk relationships to find related entity names
+        target_entity_names: list[str] = []
+        for rel in sc.relationships:
+            if rel.directionality == "bidirectional":
+                if rel.source_entity == origin_entity_name:
+                    target_entity_names.append(rel.target_entity)
+                elif rel.target_entity == origin_entity_name:
+                    target_entity_names.append(rel.source_entity)
+            else:
+                # directed: only follow outgoing edges
+                if rel.source_entity == origin_entity_name:
+                    target_entity_names.append(rel.target_entity)
+
+        # Collect doc_titles from target entities
+        result: list[str] = []
+        for name in target_entity_names:
+            target_entity = entities_by_name.get(name)
+            if target_entity is not None and target_entity.doc_titles:
+                result.extend(target_entity.doc_titles)
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for title in result:
+            if title not in seen:
+                seen.add(title)
+                deduped.append(title)
+        return deduped
+
+    def _truncate_cross_reference_to_budget(
+        self,
+        origin_row: dict[str, Any],
+        xref_rows: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """Keep the origin row and greedily add cross-reference rows within the token budget.
+
+        ``xref_rows`` are expected to be sorted by score descending (from the
+        similarity search).  Returns ``(combined_rows, was_truncated)``.
+        """
+        budget_used = origin_row.get("chunk_tokens", 0)
+        kept: list[dict[str, Any]] = [origin_row]
+
+        for row in xref_rows:
+            cost = row.get("chunk_tokens", 0)
+            if budget_used + cost <= max_tokens:
+                kept.append(row)
+                budget_used += cost
+            else:
+                return kept, True
+
+        return kept, False
+
+    def _cross_reference_refine(
+        self,
+        *,
+        doc_title: str,
+        chunk_index: int,
+        query: str,
+        window: int,
+        request_id: str,
+        max_context_tokens: int | None = None,
+    ) -> RefineOutput:
+        """Expand context by pulling semantically related chunks from cross-referenced documents."""
+        from retrieval_hub.ingestion.embed import QueryEmbedder
+        from retrieval_hub.retrieval.api import RefineOutput, RetrievalResult
+
+        # 1. Fetch the origin chunk
+        origin = self._get_chunk(doc_title, chunk_index)
+        if origin is None:
+            return RefineOutput(results=[], truncated=False)
+
+        # 2. Resolve cross-reference targets
+        target_doc_titles = self._resolve_cross_reference_targets(doc_title)
+        if not target_doc_titles:
+            return RefineOutput(
+                results=[
+                    RetrievalResult(
+                        text=origin["chunk_text"],
+                        score=1.0,
+                        doc_title=origin["doc_title"] or "",
+                        doc_url=origin["doc_url"] or "",
+                        doc_section=origin["doc_section"],
+                        chunk_index=origin["chunk_index"],
+                        physical_index_id=self.physical_index.id,
+                        recipe_version=self.recipe_version.version_number,
+                        request_id=request_id,
+                    )
+                ],
+                truncated=False,
+            )
+
+        # 3. Embed the query
+        embedder = QueryEmbedder(
+            model_name=self._embedding_model_name(),
+            query_prefix=self._query_prefix(),
+            prompt_name=self._query_prompt_name(),
+        )
+        query_vec = embedder.embed(query)
+
+        # 4. Filtered similarity search across related documents
+        xref_rows = self._filtered_similarity_search(
+            query_vec, target_doc_titles, top_k=window
+        )
+
+        # 5. Token budgeting
+        truncated = False
+        total_before_truncation = 1 + len(xref_rows)
+        if max_context_tokens is not None:
+            combined, truncated = self._truncate_cross_reference_to_budget(
+                origin, xref_rows, max_context_tokens
+            )
+            if truncated:
+                xref_rows = combined[1:]
+
+        # 6. Build results: origin first, then cross-reference hits
+        results: list[RetrievalResult] = [
+            RetrievalResult(
+                text=origin["chunk_text"],
+                score=1.0,
+                doc_title=origin["doc_title"] or "",
+                doc_url=origin["doc_url"] or "",
+                doc_section=origin["doc_section"],
+                chunk_index=origin["chunk_index"],
+                physical_index_id=self.physical_index.id,
+                recipe_version=self.recipe_version.version_number,
+                request_id=request_id,
+            )
+        ]
+        for row in xref_rows:
+            results.append(
+                RetrievalResult(
+                    text=row["chunk_text"],
+                    score=float(row["score"]),
+                    doc_title=row["doc_title"] or "",
+                    doc_url=row["doc_url"] or "",
+                    doc_section=row["doc_section"],
+                    chunk_index=row["chunk_index"],
+                    physical_index_id=self.physical_index.id,
+                    recipe_version=self.recipe_version.version_number,
+                    request_id=request_id,
+                )
+            )
+
+        return RefineOutput(
+            results=results,
+            truncated=truncated,
+            total_chunks=total_before_truncation if truncated else None,
+        )

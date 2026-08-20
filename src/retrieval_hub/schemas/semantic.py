@@ -25,6 +25,7 @@ class EntityDefinition(BaseModel):
     entity_type: str
     definition: str
     aliases: list[str] = Field(default_factory=list)
+    doc_titles: list[str] = Field(default_factory=list)
     attributes: dict[str, Any] | None = None
 
 

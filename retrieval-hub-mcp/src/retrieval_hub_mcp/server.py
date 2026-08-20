@@ -589,16 +589,19 @@ _FAMILY_DEFAULT_STRATEGY: dict[str, str] = {
 
 def _resolve_refine_strategy(
     source_obj: object | None,
+    tool_strategy: str | None,
     tool_max_tokens: int | None,
     tool_window: int | None,
 ) -> tuple[str, int | None, int]:
     """Determine which refinement strategy, token budget, and window to use.
 
     Resolution order:
-    1. Source's ``semantic_context.refinement_strategies`` (first enabled entry).
-    2. Family default: ``section`` for document/clinical_document, ``adjacent``
+    1. If ``tool_strategy`` is provided, use it.  Look up its config in
+       ``refinement_strategies`` for default window/max_tokens.
+    2. Source's ``semantic_context.refinement_strategies`` (first enabled entry).
+    3. Family default: ``section`` for document/clinical_document, ``adjacent``
        for code.
-    3. Fall back to ``adjacent`` if nothing else matches.
+    4. Fall back to ``adjacent`` if nothing else matches.
 
     Tool-level ``max_context_tokens`` and ``window`` override source defaults.
     """
@@ -617,17 +620,32 @@ def _resolve_refine_strategy(
                 from retrieval_hub.schemas.semantic import SemanticContext
 
                 sc = SemanticContext.model_validate(raw_sc)
-                for rs in sc.refinement_strategies:
-                    if rs.enabled:
-                        strategy = rs.kind
-                        source_max_tokens = rs.max_context_tokens
-                        source_window = rs.window
-                        break
+
+                if tool_strategy is not None:
+                    strategy = tool_strategy
+                    for rs in sc.refinement_strategies:
+                        if rs.kind == tool_strategy and rs.enabled:
+                            source_max_tokens = rs.max_context_tokens
+                            source_window = rs.window
+                            break
+                else:
+                    for rs in sc.refinement_strategies:
+                        if rs.enabled:
+                            strategy = rs.kind
+                            source_max_tokens = rs.max_context_tokens
+                            source_window = rs.window
+                            break
             except Exception:
                 logger.warning(
                     "Failed to parse semantic_context for strategy resolution",
                     exc_info=True,
                 )
+
+        if tool_strategy is not None and not raw_sc:
+            strategy = tool_strategy
+
+    elif tool_strategy is not None:
+        strategy = tool_strategy
 
     effective_max_tokens = tool_max_tokens if tool_max_tokens is not None else source_max_tokens
     effective_window = tool_window if tool_window is not None else source_window
@@ -646,6 +664,7 @@ async def refine(
     query: str,
     window: int | None = None,
     max_context_tokens: int | None = None,
+    strategy: str | None = None,
     session: Session = Depends(get_catalog_session),
 ) -> RefineResponse:
     """Expand context around a previously retrieved chunk.
@@ -676,20 +695,29 @@ async def refine(
         doc_title: Document title copied exactly from the ``retrieve`` hit.
         chunk_index: Chunk index from the ``retrieve`` hit.
         query: Describes what additional context you are looking for.
-            Currently logged for observability; future refinement
-            strategies will use it to select relevant content.
+            Used by the ``cross_reference`` strategy to find
+            semantically relevant chunks in related documents.
+            For other strategies, logged for observability.
         window: How many chunks before and after to include.  Used by
-            the ``adjacent`` strategy.  Defaults to the source's
-            configured window or 2 if unconfigured.
+            the ``adjacent`` strategy; for ``cross_reference``, controls
+            how many cross-document hits to return.  Defaults to the
+            source's configured window or 2 if unconfigured.
         max_context_tokens: Maximum number of tokens to return.  When
             the expanded context exceeds this budget, chunks are trimmed
             from the edges toward the origin chunk.  Omit for no limit.
+        strategy: Refinement strategy to use.  ``section`` returns the
+            full document section containing the chunk.  ``adjacent``
+            returns chunks positionally near the origin.
+            ``cross_reference`` follows entity relationships to find
+            relevant content in related documents (e.g., PTSD to SUD
+            comorbidity guidelines).  When omitted, the source's
+            configured default strategy is used.
     """
     try:
         source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
 
         effective_strategy, effective_max_tokens, effective_window = _resolve_refine_strategy(
-            source_obj, max_context_tokens, window,
+            source_obj, strategy, max_context_tokens, window,
         )
 
         output = retrieval_refine(
@@ -712,12 +740,16 @@ async def refine(
 
         doc_url = output.results[0].doc_url
 
+        is_cross_ref = effective_strategy == "cross_reference"
+
         chunks = [
             RefineHit(
                 text=r.text,
                 doc_section=r.doc_section,
                 chunk_index=r.chunk_index,
-                is_origin=(r.chunk_index == chunk_index),
+                is_origin=(r.chunk_index == chunk_index and r.doc_title == doc_title),
+                doc_title=r.doc_title if is_cross_ref else None,
+                doc_url=r.doc_url if is_cross_ref else None,
             )
             for r in output.results
         ]

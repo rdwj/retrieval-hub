@@ -436,3 +436,395 @@ def test_document_adapter_embedding_model_name_missing_raises() -> None:
 
     with pytest.raises(ValueError, match=r"embedding\.model"):
         adapter._embedding_model_name()
+
+
+# ---------------------------------------------------------------------------
+# Cross-reference refinement tests
+# ---------------------------------------------------------------------------
+
+_XREF_COLS = [
+    "id", "chunk_text", "chunk_tokens", "doc_title",
+    "doc_url", "doc_section", "chunk_index", "score",
+]
+
+
+def _semantic_context_ptsd_sud() -> dict:
+    """Minimal semantic context with a PTSD <-> SUD bidirectional relationship."""
+    return {
+        "entities": [
+            {
+                "name": "PTSD",
+                "entity_type": "condition",
+                "definition": "Post-traumatic stress disorder",
+                "doc_titles": ["PTSD Doc"],
+            },
+            {
+                "name": "SUD",
+                "entity_type": "condition",
+                "definition": "Substance use disorder",
+                "doc_titles": ["SUD Doc"],
+            },
+        ],
+        "relationships": [
+            {
+                "source_entity": "PTSD",
+                "target_entity": "SUD",
+                "relationship_type": "comorbidity",
+                "directionality": "bidirectional",
+            },
+        ],
+    }
+
+
+def test_refine_cross_reference_happy_path() -> None:
+    """Origin chunk from PTSD Doc, cross-reference hits from SUD Doc."""
+    source = _make_source()
+    source.semantic_context = _semantic_context_ptsd_sud()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    # Mock the embedder
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    # Connection 1: _get_chunk returns the origin chunk
+    get_chunk_conn = _make_fake_connection(
+        _REFINE_COLS,
+        [("uuid-origin", "ptsd origin text", 100, "PTSD Doc", "https://example/ptsd", "Treatment", 10)],
+    )
+
+    # Connection 2: _filtered_similarity_search returns 2 xref rows
+    xref_cursor = MagicMock()
+    xref_cursor.description = [MagicMock(name=n) for n in _XREF_COLS]
+    for col, name in zip(xref_cursor.description, _XREF_COLS, strict=True):
+        col.name = name
+    xref_cursor.fetchall.return_value = [
+        ("uuid-xref-1", "sud comorbidity text", 120, "SUD Doc", "https://example/sud", "Screening", 5, 0.88),
+        ("uuid-xref-2", "sud treatment text", 110, "SUD Doc", "https://example/sud", "Treatment", 8, 0.82),
+    ]
+    xref_conn_inner = MagicMock()
+    xref_conn_inner.cursor.return_value.__enter__.return_value = xref_cursor
+    xref_conn_inner.cursor.return_value.__exit__.return_value = False
+    xref_connect_ctx = MagicMock()
+    xref_connect_ctx.__enter__.return_value = xref_conn_inner
+    xref_connect_ctx.__exit__.return_value = False
+
+    with (
+        patch(
+            "retrieval_hub.ingestion.embed.QueryEmbedder",
+            return_value=fake_embedder,
+        ),
+        patch("psycopg.connect", side_effect=[get_chunk_conn, xref_connect_ctx]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        output = adapter.refine(
+            doc_title="PTSD Doc",
+            chunk_index=10,
+            query="substance use comorbidity",
+            window=5,
+            request_id="req-xref",
+            strategy="cross_reference",
+        )
+
+    assert len(output.results) == 3
+    # Origin chunk
+    assert output.results[0].doc_title == "PTSD Doc"
+    assert output.results[0].score == 1.0
+    assert output.results[0].chunk_index == 10
+    # Cross-reference hits
+    assert output.results[1].doc_title == "SUD Doc"
+    assert output.results[1].score == pytest.approx(0.88)
+    assert output.results[2].doc_title == "SUD Doc"
+    assert output.results[2].score == pytest.approx(0.82)
+    # Lineage on all results
+    for r in output.results:
+        assert r.physical_index_id == index.id
+        assert r.recipe_version == recipe.version_number
+        assert r.request_id == "req-xref"
+    assert output.truncated is False
+
+
+def test_cross_reference_no_semantic_context() -> None:
+    """Source with no semantic_context returns only the origin chunk."""
+    source = _make_source()
+    source.semantic_context = None
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    get_chunk_conn = _make_fake_connection(
+        _REFINE_COLS,
+        [("uuid-1", "some text", 100, "Lone Doc", "https://example/lone", "Intro", 3)],
+    )
+
+    with patch("psycopg.connect", return_value=get_chunk_conn):
+        output = adapter.refine(
+            doc_title="Lone Doc",
+            chunk_index=3,
+            query="anything",
+            window=5,
+            request_id="req-nosc",
+            strategy="cross_reference",
+        )
+
+    assert len(output.results) == 1
+    assert output.results[0].doc_title == "Lone Doc"
+    assert output.results[0].score == 1.0
+    assert output.truncated is False
+
+
+def test_cross_reference_entity_not_found() -> None:
+    """Origin doc_title matches no entity -- returns only the origin chunk."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "COPD", "entity_type": "condition", "definition": "...", "doc_titles": ["COPD Doc"]},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    get_chunk_conn = _make_fake_connection(
+        _REFINE_COLS,
+        [("uuid-unk", "unknown text", 100, "Unknown Doc", "https://example/unk", None, 7)],
+    )
+
+    with patch("psycopg.connect", return_value=get_chunk_conn):
+        output = adapter.refine(
+            doc_title="Unknown Doc",
+            chunk_index=7,
+            query="anything",
+            window=5,
+            request_id="req-notfound",
+            strategy="cross_reference",
+        )
+
+    assert len(output.results) == 1
+    assert output.results[0].doc_title == "Unknown Doc"
+    assert output.truncated is False
+
+
+def test_cross_reference_no_relationships() -> None:
+    """Origin entity exists but has no relationships -- returns only origin."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "COPD", "entity_type": "condition", "definition": "...", "doc_titles": ["COPD Doc"]},
+        ],
+        "relationships": [],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    get_chunk_conn = _make_fake_connection(
+        _REFINE_COLS,
+        [("uuid-copd", "copd text", 100, "COPD Doc", "https://example/copd", "Intro", 0)],
+    )
+
+    with patch("psycopg.connect", return_value=get_chunk_conn):
+        output = adapter.refine(
+            doc_title="COPD Doc",
+            chunk_index=0,
+            query="anything",
+            window=5,
+            request_id="req-norel",
+            strategy="cross_reference",
+        )
+
+    assert len(output.results) == 1
+    assert output.results[0].doc_title == "COPD Doc"
+    assert output.truncated is False
+
+
+def test_cross_reference_directionality_respected() -> None:
+    """Directed relationship PHQ-9 -> MDD should not produce xrefs when origin is MDD."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "MDD", "entity_type": "condition", "definition": "Major depressive disorder", "doc_titles": ["MDD Doc"]},
+            {"name": "PHQ-9", "entity_type": "instrument", "definition": "Screening instrument", "doc_titles": []},
+        ],
+        "relationships": [
+            {
+                "source_entity": "PHQ-9",
+                "target_entity": "MDD",
+                "relationship_type": "screens_for",
+                "directionality": "directed",
+            },
+        ],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    get_chunk_conn = _make_fake_connection(
+        _REFINE_COLS,
+        [("uuid-mdd", "mdd text", 100, "MDD Doc", "https://example/mdd", "Diagnosis", 2)],
+    )
+
+    with patch("psycopg.connect", return_value=get_chunk_conn):
+        output = adapter.refine(
+            doc_title="MDD Doc",
+            chunk_index=2,
+            query="depression screening",
+            window=5,
+            request_id="req-dir",
+            strategy="cross_reference",
+        )
+
+    assert len(output.results) == 1
+    assert output.results[0].doc_title == "MDD Doc"
+    assert output.truncated is False
+
+
+def test_cross_reference_truncation() -> None:
+    """Cross-reference results exceeding max_context_tokens are truncated."""
+    source = _make_source()
+    source.semantic_context = _semantic_context_ptsd_sud()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    # Origin chunk: 200 tokens
+    get_chunk_conn = _make_fake_connection(
+        _REFINE_COLS,
+        [("uuid-origin", "ptsd text", 200, "PTSD Doc", "https://example/ptsd", "S1", 10)],
+    )
+
+    # 3 xref rows, each 200 tokens
+    xref_cursor = MagicMock()
+    xref_cursor.description = [MagicMock(name=n) for n in _XREF_COLS]
+    for col, name in zip(xref_cursor.description, _XREF_COLS, strict=True):
+        col.name = name
+    xref_cursor.fetchall.return_value = [
+        ("uuid-x1", "xref 1", 200, "SUD Doc", "https://example/sud", "S1", 1, 0.90),
+        ("uuid-x2", "xref 2", 200, "SUD Doc", "https://example/sud", "S2", 4, 0.85),
+        ("uuid-x3", "xref 3", 200, "SUD Doc", "https://example/sud", "S3", 7, 0.80),
+    ]
+    xref_conn_inner = MagicMock()
+    xref_conn_inner.cursor.return_value.__enter__.return_value = xref_cursor
+    xref_conn_inner.cursor.return_value.__exit__.return_value = False
+    xref_connect_ctx = MagicMock()
+    xref_connect_ctx.__enter__.return_value = xref_conn_inner
+    xref_connect_ctx.__exit__.return_value = False
+
+    with (
+        patch(
+            "retrieval_hub.ingestion.embed.QueryEmbedder",
+            return_value=fake_embedder,
+        ),
+        patch("psycopg.connect", side_effect=[get_chunk_conn, xref_connect_ctx]),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        output = adapter.refine(
+            doc_title="PTSD Doc",
+            chunk_index=10,
+            query="substance use comorbidity",
+            window=5,
+            request_id="req-trunc-xref",
+            strategy="cross_reference",
+            max_context_tokens=500,
+        )
+
+    # origin(200) + 1 xref(200) = 400 fits; + another(200) = 600 > 500
+    assert len(output.results) == 2
+    assert output.results[0].doc_title == "PTSD Doc"
+    assert output.results[1].doc_title == "SUD Doc"
+    assert output.truncated is True
+    assert output.total_chunks == 4  # 1 origin + 3 xref before truncation
+
+
+def test_resolve_cross_reference_targets() -> None:
+    """Unit test for _resolve_cross_reference_targets -- pure logic, no mocking."""
+    source = _make_source()
+    source.semantic_context = {
+        "entities": [
+            {"name": "PTSD", "entity_type": "condition", "definition": "...", "doc_titles": ["PTSD Doc"]},
+            {"name": "SUD", "entity_type": "condition", "definition": "...", "doc_titles": ["SUD Doc"]},
+            {"name": "MDD", "entity_type": "condition", "definition": "...", "doc_titles": ["MDD Doc"]},
+            {"name": "PHQ-9", "entity_type": "instrument", "definition": "...", "doc_titles": []},
+        ],
+        "relationships": [
+            {"source_entity": "PTSD", "target_entity": "SUD", "relationship_type": "comorbidity", "directionality": "bidirectional"},
+            {"source_entity": "PTSD", "target_entity": "MDD", "relationship_type": "comorbidity", "directionality": "bidirectional"},
+            {"source_entity": "PHQ-9", "target_entity": "MDD", "relationship_type": "screens_for", "directionality": "directed"},
+        ],
+    }
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://ignored",
+    )
+
+    # PTSD -> bidirectional with SUD and MDD
+    assert adapter._resolve_cross_reference_targets("PTSD Doc") == ["SUD Doc", "MDD Doc"]
+
+    # SUD -> bidirectional with PTSD only
+    assert adapter._resolve_cross_reference_targets("SUD Doc") == ["PTSD Doc"]
+
+    # MDD -> bidirectional with PTSD, but NOT PHQ-9 (directed, MDD is the target)
+    assert adapter._resolve_cross_reference_targets("MDD Doc") == ["PTSD Doc"]
+
+    # Unknown doc matches no entity
+    assert adapter._resolve_cross_reference_targets("Unknown Doc") == []

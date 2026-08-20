@@ -834,7 +834,8 @@ async def test_refine_returns_section_chunks():
     assert isinstance(resp.chunks[0], RefineHit)
     assert resp.chunks[0].text == "before"
     assert resp.chunks[0].is_origin is False
-    assert not hasattr(resp.chunks[0], "doc_title")
+    assert resp.chunks[0].doc_title is None
+    assert resp.chunks[0].doc_url is None
     assert resp.chunks[1].is_origin is True
     assert resp.chunks[2].is_origin is False
 
@@ -1054,3 +1055,226 @@ async def test_refine_code_source_defaults_to_adjacent():
     mock_ref.assert_called_once()
     call_kwargs = mock_ref.call_args[1]
     assert call_kwargs["strategy"] == "adjacent"
+
+
+# ---------------------------------------------------------------------------
+# refine — cross-reference strategy
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_refine_cross_reference_strategy():
+    """cross_reference strategy returns multi-doc results with per-hit doc fields."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "section", "window": 2, "enabled": True, "max_context_tokens": 4000},
+                {"kind": "cross_reference", "window": 5, "enabled": True, "max_context_tokens": 4000},
+            ],
+        },
+    )
+    session = _make_retrieve_session(source)
+
+    mock_results = [
+        _make_refine_result(
+            text="PTSD origin chunk",
+            doc_title="PTSD Doc",
+            doc_url="https://example.com/ptsd",
+            chunk_index=10,
+        ),
+        _make_refine_result(
+            text="SUD cross-ref hit 1",
+            doc_title="SUD Doc",
+            doc_url="https://example.com/sud",
+            chunk_index=15,
+        ),
+        _make_refine_result(
+            text="SUD cross-ref hit 2",
+            doc_title="SUD Doc",
+            doc_url="https://example.com/sud",
+            chunk_index=22,
+        ),
+    ]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ) as mock_ref:
+        resp = await refine(
+            source="test-source",
+            doc_title="PTSD Doc",
+            chunk_index=10,
+            query="substance use",
+            strategy="cross_reference",
+            session=session,
+        )
+
+    assert resp.strategy == "cross_reference"
+    assert len(resp.chunks) == 3
+
+    # Origin chunk
+    assert resp.chunks[0].is_origin is True
+    assert resp.chunks[0].doc_title == "PTSD Doc"
+    assert resp.chunks[0].doc_url == "https://example.com/ptsd"
+
+    # Cross-reference chunks
+    assert resp.chunks[1].doc_title == "SUD Doc"
+    assert resp.chunks[1].is_origin is False
+    assert resp.chunks[2].doc_title == "SUD Doc"
+    assert resp.chunks[2].is_origin is False
+
+    # All chunks have non-None doc fields for cross_reference strategy
+    for chunk in resp.chunks:
+        assert chunk.doc_title is not None
+        assert chunk.doc_url is not None
+
+    # Verify retrieval_refine was called with the right strategy
+    mock_ref.assert_called_once()
+    assert mock_ref.call_args[1]["strategy"] == "cross_reference"
+
+
+@pytest.mark.asyncio
+async def test_refine_explicit_strategy_overrides_default():
+    """An explicit strategy parameter overrides the source's default (first enabled entry)."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "section", "window": 2, "enabled": True, "max_context_tokens": 4000},
+                {"kind": "cross_reference", "window": 5, "enabled": True, "max_context_tokens": 4000},
+            ],
+        },
+    )
+    session = _make_retrieve_session(source)
+    mock_results = [_make_refine_result(chunk_index=0)]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ) as mock_ref:
+        resp = await refine(
+            source="test-source",
+            doc_title="Manual v3",
+            chunk_index=0,
+            query="more context",
+            strategy="cross_reference",
+            session=session,
+        )
+
+    # The source's first enabled strategy is "section", but the explicit
+    # parameter should override it.
+    mock_ref.assert_called_once()
+    assert mock_ref.call_args[1]["strategy"] == "cross_reference"
+    assert resp.strategy == "cross_reference"
+
+
+@pytest.mark.asyncio
+async def test_refine_cross_reference_per_hit_doc_fields():
+    """cross_reference populates per-hit doc fields; section leaves them None."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "section", "window": 2, "enabled": True},
+                {"kind": "cross_reference", "window": 5, "enabled": True},
+            ],
+        },
+    )
+    mock_results = [
+        _make_refine_result(
+            doc_title="Doc A",
+            doc_url="https://example.com/a",
+            chunk_index=3,
+        ),
+    ]
+
+    # Call 1: cross_reference — per-hit doc fields populated
+    session_xref = _make_retrieve_session(source)
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ):
+        resp_xref = await refine(
+            source="test-source",
+            doc_title="Doc A",
+            chunk_index=3,
+            query="related content",
+            strategy="cross_reference",
+            session=session_xref,
+        )
+
+    for chunk in resp_xref.chunks:
+        assert chunk.doc_title is not None, "cross_reference should populate doc_title"
+        assert chunk.doc_url is not None, "cross_reference should populate doc_url"
+
+    # Call 2: section (default, no explicit strategy) — per-hit doc fields None
+    session_section = _make_retrieve_session(source)
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ):
+        resp_section = await refine(
+            source="test-source",
+            doc_title="Doc A",
+            chunk_index=3,
+            query="related content",
+            session=session_section,
+        )
+
+    for chunk in resp_section.chunks:
+        assert chunk.doc_title is None, "section strategy should leave doc_title None"
+        assert chunk.doc_url is None, "section strategy should leave doc_url None"
+
+
+@pytest.mark.asyncio
+async def test_refine_cross_reference_is_origin_correct():
+    """is_origin matches on both chunk_index AND doc_title, not chunk_index alone."""
+    source = _make_source(
+        semantic_context={
+            "refinement_strategies": [
+                {"kind": "cross_reference", "window": 5, "enabled": True},
+            ],
+        },
+    )
+    session = _make_retrieve_session(source)
+
+    # Result 2 has the same chunk_index as the origin but a different doc_title.
+    mock_results = [
+        _make_refine_result(
+            text="PTSD chunk 10 — the actual origin",
+            doc_title="PTSD Doc",
+            doc_url="https://example.com/ptsd",
+            chunk_index=10,
+        ),
+        _make_refine_result(
+            text="SUD chunk 10 — same index, different doc",
+            doc_title="SUD Doc",
+            doc_url="https://example.com/sud",
+            chunk_index=10,
+        ),
+        _make_refine_result(
+            text="SUD chunk 20",
+            doc_title="SUD Doc",
+            doc_url="https://example.com/sud",
+            chunk_index=20,
+        ),
+    ]
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_refine",
+        return_value=_make_refine_output(mock_results),
+    ):
+        resp = await refine(
+            source="test-source",
+            doc_title="PTSD Doc",
+            chunk_index=10,
+            query="comorbidity",
+            strategy="cross_reference",
+            session=session,
+        )
+
+    assert resp.chunks[0].is_origin is True, (
+        "PTSD Doc chunk 10 should be the origin"
+    )
+    assert resp.chunks[1].is_origin is False, (
+        "SUD Doc chunk 10 shares the index but is a different document"
+    )
+    assert resp.chunks[2].is_origin is False

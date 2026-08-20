@@ -39,6 +39,7 @@ from retrieval_hub.schemas.semantic import (
     EntityDefinition,
     MetricDefinition,
     MetricThreshold,
+    RefinementStrategy,
     RelationshipHint,
     SemanticContext,
 )
@@ -66,6 +67,9 @@ ENTITIES: list[EntityDefinition] = [
             "changes, and hyperarousal per DSM-5-TR criteria."
         ),
         aliases=["post-traumatic stress disorder"],
+        doc_titles=[
+            "for the treatment of nightmares associated with PTSD",
+        ],
     ),
     EntityDefinition(
         name="MDD",
@@ -75,6 +79,9 @@ ENTITIES: list[EntityDefinition] = [
             "interest, with functional impairment lasting at least two weeks."
         ),
         aliases=["major depressive disorder", "major depression", "clinical depression"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+        ],
     ),
     EntityDefinition(
         name="Type 2 Diabetes Mellitus",
@@ -85,6 +92,9 @@ ENTITIES: list[EntityDefinition] = [
             "glucose >= 126 mg/dL."
         ),
         aliases=["T2DM", "diabetes", "type 2 diabetes"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF TYPE 2 DIABETES MELLITUS",
+        ],
     ),
     EntityDefinition(
         name="Hypertension",
@@ -94,6 +104,9 @@ ENTITIES: list[EntityDefinition] = [
             "primary care setting."
         ),
         aliases=["high blood pressure", "HTN"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+        ],
     ),
     EntityDefinition(
         name="COPD",
@@ -103,6 +116,9 @@ ENTITIES: list[EntityDefinition] = [
             "including emphysema and chronic bronchitis."
         ),
         aliases=["chronic obstructive pulmonary disease"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC OBSTRUCTIVE PULMONARY DISEASE",
+        ],
     ),
     EntityDefinition(
         name="Substance Use Disorder",
@@ -113,6 +129,9 @@ ENTITIES: list[EntityDefinition] = [
             "meet responsibilities."
         ),
         aliases=["SUD", "addiction"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+        ],
     ),
     EntityDefinition(
         name="Alcohol Use Disorder",
@@ -137,6 +156,9 @@ ENTITIES: list[EntityDefinition] = [
         entity_type="condition",
         definition="Pain in the lumbar region persisting for 12 weeks or longer.",
         aliases=["LBP", "low back pain"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSI S AND TREATMENT OF LOW BACK PAIN",
+        ],
     ),
     EntityDefinition(
         name="Mild Traumatic Brain Injury",
@@ -146,6 +168,9 @@ ENTITIES: list[EntityDefinition] = [
             "with GCS 13-15 and loss of consciousness less than 30 minutes."
         ),
         aliases=["mTBI", "concussion"],
+        doc_titles=[
+            "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT AND REHABILITATION OF POST-ACUTE MILD TRAUMATIC BRAIN INJURY",
+        ],
     ),
     EntityDefinition(
         name="Obesity",
@@ -154,6 +179,9 @@ ENTITIES: list[EntityDefinition] = [
             "Excess body fat accumulation, classified by BMI >= 30 kg/m2 "
             "(>= 25 for Asian Americans)."
         ),
+        doc_titles=[
+            "VA/DOD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+        ],
     ),
     EntityDefinition(
         name="Insomnia",
@@ -163,6 +191,9 @@ ENTITIES: list[EntityDefinition] = [
             "adequate opportunity, with associated daytime impairment."
         ),
         aliases=["chronic insomnia disorder"],
+        doc_titles=[
+            "VA/DOD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC INSOMNIA DISORDER AND OBSTRUCTIVE SLEEP APNEA",
+        ],
     ),
     # -- Screening instruments --
     EntityDefinition(
@@ -660,6 +691,20 @@ def build_context() -> SemanticContext:
         metrics=METRICS,
         abbreviations=ABBREVIATIONS,
         domain_context=DOMAIN_CONTEXT,
+        refinement_strategies=[
+            RefinementStrategy(
+                kind="section",
+                window=2,
+                enabled=True,
+                max_context_tokens=4000,
+            ),
+            RefinementStrategy(
+                kind="cross_reference",
+                window=5,
+                enabled=True,
+                max_context_tokens=4000,
+            ),
+        ],
     )
 
 
