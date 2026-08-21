@@ -98,32 +98,58 @@ templates for common sweep dimensions.
 
 ## 3. Choose embedding model
 
-PubMedBERT (`NeuML/pubmedbert-base-embeddings`) was selected over
-general-purpose embedding models.
+Nomic Embed Text v1.5 (`nomic-ai/nomic-embed-text-v1.5`) was selected after
+a structured comparison against two other candidates.
 
-PubMedBERT is pre-trained on PubMed abstracts and PMC full-text articles,
-giving it a vocabulary and representation space tuned for biomedical and
-clinical terminology. Terms like "hypertension," "PTSD," and "opioid use
-disorder" have more meaningful embeddings than they would in a model trained
-primarily on web text.
+The initial assumption was that a domain-specific biomedical model would
+perform best on clinical text. We tested three models on the full 30-query
+evaluation set (seed 42) using the same chunking (512/0), rewriting, and
+scoring configuration:
 
-The model produces 768-dimensional vectors, which is standard for pgvector
-storage. It uses no prefix convention for documents or queries. This is
-worth noting because other models like nomic-embed-text require
-"search_document:" and "search_query:" prefixes, and forgetting them
-silently degrades retrieval quality.
+- **PubMedBERT** (`NeuML/pubmedbert-base-embeddings`) — a biomedical model
+  pre-trained on PubMed abstracts and PMC full-text. 768-dim, no prefix.
+- **BioLORD-2023** (`FremyCompany/BioLORD-2023`) — a biomedical model
+  trained on PubMed and MIMIC-III. 768-dim, no prefix.
+- **Nomic Embed Text v1.5** (`nomic-ai/nomic-embed-text-v1.5`) — a
+  general-purpose model. 768-dim, requires `search_document:` and
+  `search_query:` prefixes (forgetting them silently degrades quality).
 
-**Decisions made.** PubMedBERT for domain-specific clinical embeddings. No
-prefix strings needed. 768-dimension vectors stored in pgvector.
+Nomic v1.5 outperformed both domain-specific models on every aggregate
+metric. On raw retrieval (no rewriting), it achieved 0.822 context
+precision and 0.740 answer relevancy, compared to PubMedBERT's 0.809 and
+0.646. BioLORD ranked chunks poorly (0.511 context precision) despite
+finding the right documents.
 
-**Data owner provides:** Domain context so the platform can recommend an
-appropriate embedding model. A clinical corpus calls for a biomedical model;
-a codebase would call for a code-trained model.
+We also tested hybrid cross-encoder reranking (alpha=0.3) on top of each
+embedding model. Nomic raw without reranking still beat PubMedBERT with
+the best reranking strategy. The simpler configuration won.
 
-**Platform provides:** Guidance on model selection and compatibility checks
-with vLLM for production serving.
+![Embedding model Pareto front](images/embedding-comparison-pareto.png)
 
-**Time:** 1-2 hours for model evaluation and validation.
+The upper-right corner is better on both axes. Nomic raw (starred) sits
+above and to the right of every PubMedBERT configuration, including
+PubMedBERT with hybrid reranking. BioLORD clusters in the lower-left.
+Adding reranking to Nomic pushes context precision higher but trades away
+answer relevancy, landing below Nomic raw on the Pareto front.
+
+The takeaway: the right embedding model depends on the corpus, not the
+domain label. A general-purpose model with a larger and more diverse
+training set can outperform a domain-specific model on domain-specific
+text. The only way to know is to run the comparison.
+
+**Decisions made.** Nomic Embed Text v1.5 for embeddings. Requires
+`search_document:` and `search_query:` prefixes. 768-dimension vectors
+stored in pgvector. No reranking needed.
+
+**Data owner provides:** Evaluation queries with ground truth, so the
+platform can run the embedding model comparison and report results.
+
+**Platform provides:** The embedding comparison pipeline
+(`scripts/ingest_va_cpg_alt_embedding.py` for re-ingestion,
+`scripts/eval_answer_quality.py` for scoring) and model hosting.
+
+**Time:** 2-4 hours for a three-model comparison including ingestion,
+retrieval, and Ragas scoring.
 
 ---
 
@@ -144,8 +170,9 @@ The ingestion script (`scripts/ingest_va_cpg.py`) runs a 7-stage pipeline:
 4. **Chunk** splits each document into 512-token chunks with zero overlap
    using the `cl100k_base` tokenizer.
 
-5. **Embed** generates 768-dimensional PubMedBERT embeddings for each chunk.
-   For 15,539 chunks, embedding took roughly 2 minutes on a single GPU.
+5. **Embed** generates 768-dimensional Nomic v1.5 embeddings for each chunk,
+   prepending the `search_document:` prefix. For 6,500 chunks, embedding
+   took roughly 50 seconds locally (132 chunks/s with batch size 32).
 
 6. **Write** stores the chunks and their embeddings in a pgvector table
    (`idx_va_cpg_v1`).

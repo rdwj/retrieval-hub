@@ -1,64 +1,82 @@
-# Session Summary: Embedding Model Comparison + Reranking (E4, E8)
+# Session Summary — 2026-08-21 · eval-convergence · Embedding model comparison + onboarding guides
 
-**Date:** 2026-08-21
-**Epic:** eval-convergence (Phase 3, steps 2-3)
+**Plan:** NEXT_SESSION-eval-convergence.md (Phase 3, step 2)   **Commits:** `da92735` (main)
+**Deployed:** none   **Model:** Opus 4.6
 
-## What happened
+## Plan vs. actual
 
-Compared three embedding models for the VA CPG clinical guidelines source:
-PubMedBERT (current baseline), BioLORD-2023 (biomedical domain), and
-nomic-embed-text-v1.5 (general-purpose, platform default). Then tested
-hybrid_0.3 reranking on top of Nomic embeddings to see if gains stack.
+Planned: compare PubMedBERT vs. jina-embeddings-v3 vs. BioLORD-2023 on the
+full 30-query eval. Shipped: compared PubMedBERT vs. BioLORD-2023 vs.
+nomic-embed-text-v1.5 (jina failed to load; nomic substituted per fallback
+plan), plus ran Nomic + hybrid_0.3 reranking (unplanned, completed same
+session). Also drafted two onboarding guides (data owner + ops) at user
+request. Scope expanded beyond the original plan to include reranking and
+documentation.
 
-## Key results
+## Shipped
 
-### Run 7: Embedding model comparison (no reranking)
-
-| Model (raw) | ctx_precision | ans_relevancy | hit_rate |
-|---|---|---|---|
-| PubMedBERT | 0.809 | 0.646 | 29/30 |
-| BioLORD-2023 | 0.511 | 0.655 | 30/30 |
-| **Nomic v1.5** | **0.822** | **0.740** | **30/30** |
-
-### Run 8: Nomic v1.5 + reranking
-
-| Config | ctx_precision | ans_relevancy | faithfulness | MRR |
-|---|---|---|---|---|
-| Nomic raw (Run 7) | 0.822 | **0.740** | -- | -- |
-| Nomic + cosine_dedup | 0.794 | 0.710 | 0.830 | 0.928 |
-| Nomic + hybrid_0.3 | **0.839** | 0.688 | 0.845 | 0.944 |
-| PubMedBERT + hybrid_0.3 (Run 6) | 0.817 | 0.729 | 0.881 | 0.961 |
-
-**Nomic raw is Pareto-optimal.** It beats every PubMedBERT configuration on
-both context_precision and answer_relevancy. Adding hybrid_0.3 reranking
-pushes ctx_precision higher (+1.7pts) but costs -5.2pts answer_relevancy.
-
-## What shipped
-
+- `da92735` — Embedding model comparison (Run 7): Nomic v1.5 dominates
+  PubMedBERT (+1.3pts ctx_precision, +9.4pts answer_relevancy). BioLORD
+  ranks poorly (~30pts lower ctx_precision). Switched VA CPG active index
+  to Nomic.
+- Run 8 (Nomic + hybrid_0.3 reranking): Nomic raw is Pareto-optimal.
+  Reranking adds marginal ctx_precision (+1.7pts) but costs -5.2pts
+  answer_relevancy. Recommendation: use Nomic without reranking.
 - `scripts/ingest_va_cpg_alt_embedding.py` — parameterized re-ingestion
-- `--prior-retrieval` flag added to `eval_rerank_strategies.py`
-- pgvector tables: `idx_va_cpg_biolord_v1`, `idx_va_cpg_nomic_v1`
-- Eval run data: `runs/embed-biolord/`, `runs/embed-nomic/`,
-  `runs/embed-nomic-rerank/`
-- Updated `EVAL_REGISTER.md` with Runs 7-8, cumulative progress revised
-- Updated `NEXT_SESSION-eval-convergence.md`
-- PubMedBERT restored as active index (pending decision to switch)
+  for embedding model comparison experiments
+- `--prior-retrieval` flag on `scripts/eval_rerank_strategies.py`
+- `docs/guide-data-owner.md` and `docs/guide-ops.md` (draft, uncommitted)
 
-## Surprising findings
+## Verification & confidence
 
-1. A general-purpose embedding model (Nomic v1.5) outperformed a
-   domain-specific biomedical model (PubMedBERT) on a clinical corpus.
+- Retrieval verified against live pgvector indexes with 30-query eval set
+- Ragas scoring via gpt-oss-120b (reasoning off) for all three models
+- Per-register (lay/clinical) breakdowns confirm Nomic advantage is
+  consistent across both registers
+- Confidence: **high** — three models compared on identical pipeline, same
+  30 queries (seed 42), same scoring LLM
 
-2. Nomic raw (no rewriting, no reranking) beats PubMedBERT + rewriting +
-   hybrid_0.3 reranking. The simpler configuration wins.
+## Judgment calls & deviations
 
-3. BioLORD-2023 ranks chunks poorly despite perfect hit_rate. Domain-
-   specific training does not guarantee domain-specific retrieval quality.
+- Substituted nomic-embed-text-v1.5 for jina-embeddings-v3 when jina failed
+  to load (transformers version mismatch). The fallback was specified in the
+  session plan.
+- Ran hybrid_0.3 reranking on Nomic in the same session (originally planned
+  for next session) because the embedding comparison finished faster than
+  expected and the user approved proceeding.
+- Recommended dropping hybrid reranking for Nomic — the simpler config is
+  Pareto-optimal. This reverses the Run 6 conclusion that hybrid_0.3 was
+  the best overall config (it was, for PubMedBERT).
 
-4. Rewriting and reranking add less value with better base embeddings,
-   suggesting these techniques partially compensate for embedding weakness.
+## Backlog delta
 
-## Decision: switch to Nomic v1.5
+Memory `design-per-source-model-selection` — embedding/rerank models are
+per-source config; data owners choose, ops hosts, agents don't care.
+Deferred: updating `docs/onboarding-journey-va-cpg.md` step 3 (still
+recommends PubMedBERT; now superseded).
 
-Recommendation: switch the VA CPG source to Nomic v1.5 without hybrid
-reranking. The raw Nomic config is both simpler and higher-quality.
+## Drift & forward-collisions
+
+- Backward — none
+- Forward — the onboarding guides (`guide-data-owner.md`, `guide-ops.md`)
+  partially address new-source-onboarding (future epic). Not a collision;
+  the guides are process documentation, not infrastructure.
+
+## For the reviewer
+
+- Sanity-check: the finding that a general-purpose embedding model beats a
+  domain-specific one on clinical text is counterintuitive. The eval data
+  backs it (Run 7 scores in `runs/embed-nomic/scores.json`), but worth
+  noting this may not generalize to all clinical corpora.
+- Thin verification: faithfulness was not scored in Run 7 (only
+  context_precision and answer_relevancy). Run 8 scored faithfulness for
+  Nomic + reranking (0.845) but not for Nomic raw. A future run should
+  fill this gap.
+- Wants guidance: none
+
+## Risks / watch-fors
+
+- Nomic v1.5 OOMs at batch_size=32 on Apple Silicon MPS. Use batch_size=8
+  for local ingestion. Recorded in NEXT_SESSION-eval-convergence.md.
+- The `onboarding-journey-va-cpg.md` doc still recommends PubMedBERT. It
+  should either be updated or marked as a historical case study.

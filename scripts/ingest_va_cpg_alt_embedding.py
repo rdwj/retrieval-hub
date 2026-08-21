@@ -304,7 +304,7 @@ def _run_ingestion(args: argparse.Namespace) -> int:
     print(f"  Source slug          : {result.source_slug}")
     print(f"  Recipe version       : v{result.recipe_version_number}")
     print(f"  Physical index       : {result.physical_index_id}")
-    print(f"  Active index updated : yes")
+    print("  Active index updated : yes")
     print()
     print(f"  Total wall time      : {wall_elapsed:.1f}s")
     print("=" * 72)

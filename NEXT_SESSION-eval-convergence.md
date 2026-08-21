@@ -1,27 +1,32 @@
 # Next Session — eval-convergence
 
-## Next: Nomic + hybrid_0.3 reranking (Phase 3, step 3)
+## Next: Make the Nomic switch official + chunk sweep (Phase 3, step 4)
 
-Combine the best embedding model (nomic-embed-text-v1.5, Run 7) with the
-best reranking strategy (hybrid_alpha_03, Run 6) to see if gains stack.
+The embedding comparison (Run 7) and reranking test (Run 8) are done.
+Nomic v1.5 raw is Pareto-optimal. Two things remain to close out Phase 3:
 
-1. **Switch active index to Nomic**
-   Update `active_physical_index_id` to the Nomic physical index
-   (`bfe5af70-839e-44b0-93fb-33678a036501`, table: `idx_va_cpg_nomic_v1`).
+1. **Update `ingest_va_cpg.py` to use Nomic v1.5**
+   Change `EMBEDDING_MODEL`, `DOCUMENT_PREFIX`, `QUERY_PREFIX`, and
+   `DESCRIPTION_LONG` in the base ingestion script. Re-ingest to create a
+   clean `idx_va_cpg_v2` table as the production index. This makes the
+   switch permanent and reproducible.
 
-2. **Run rerank eval with Nomic embeddings**
-   Use `eval_rerank_strategies.py` with `--strategies hybrid_alpha_03`
-   against the Nomic index. This requires fresh expanded retrieval since
-   the prior retrieval data used PubMedBERT.
+2. **Run chunk sweep with Nomic embeddings**
+   The VA CPG chunk sweep (E3) was planned in the data-products epic but
+   hasn't landed yet. Now that the embedding model is decided, run the
+   sweep with Nomic: 256/0, 512/0 (current), 512/64, 1024/0. Use the
+   `ingest_va_cpg_alt_embedding.py` script with different chunking params
+   (needs `--chunk-tokens` and `--overlap-tokens` flags added).
 
-3. **Compare and decide**
-   If Nomic + hybrid_0.3 > PubMedBERT + hybrid_0.3, switch the production
-   embedding model. Update the data card and CLAUDE.md lessons learned.
+3. **Score faithfulness for Nomic raw**
+   Run 7 scored context_precision and answer_relevancy but not
+   faithfulness. Fill this gap so the eval register has complete metrics
+   for the winning configuration.
 
-**Alternative next steps (if the user prefers):**
-- Make the Nomic switch official first (re-ingest with `ingest_va_cpg.py`
-  updated to use Nomic), then run reranking as a follow-up.
-- Run chunk sweep (E3) with Nomic embeddings instead of PubMedBERT.
+4. **Update docs**
+   Add a note to `docs/onboarding-journey-va-cpg.md` step 3 that the
+   embedding comparison (Run 7) superseded the PubMedBERT choice. Update
+   the onboarding guides if needed after review.
 
 **Session start protocol:**
 - Premise checks (~5 min):
@@ -35,8 +40,7 @@ best reranking strategy (hybrid_alpha_03, Run 6) to see if gains stack.
   - Nomic v1.5 with batch_size=8 on MPS to avoid OOM
   - Nomic requires `search_query: ` / `search_document: ` prefixes
 - Stop-and-ask before: modifying the eval register (append only);
-  dropping or altering existing index tables; switching the production
-  embedding model in `ingest_va_cpg.py`
+  dropping existing index tables
 
 ## Remaining epic phases
 
@@ -84,9 +88,9 @@ Run the Tier 2 experiments from `EVAL_PLAN.md` systematically.
    VA CPG). Results will be recorded here in the eval register and count
    toward this phase's definition of done. See
    `NEXT_SESSION-data-products.md` Phase 2 for the session plan.
-2. ~~Embedding model comparison~~ — **DONE** (Run 7, 2026-08-21). Nomic
-   v1.5 dominates PubMedBERT and BioLORD-2023. Next: confirm with
-   hybrid_0.3 reranking on top.
+2. ~~Embedding model comparison~~ — **DONE** (Runs 7-8, 2026-08-21). Nomic
+   v1.5 dominates PubMedBERT and BioLORD-2023. Nomic raw (no reranking)
+   is Pareto-optimal.
 3. Record all results in the eval register with the full configuration
    fingerprint.
 4. Identify the Pareto-optimal configuration.
@@ -166,23 +170,12 @@ concurrently with Phase 3's config sweep.
 
 ## What landed last session (2026-08-21)
 
-Embedding model comparison (E4) completed. Compared PubMedBERT (current),
-BioLORD-2023 (biomedical), and nomic-embed-text-v1.5 (general-purpose)
-on the full 30-query eval. Nomic v1.5 dominates PubMedBERT on all metrics:
-+1.3pts raw context_precision (0.822 vs 0.809), +9.4pts raw
-answer_relevancy (0.740 vs 0.646), +6.7pts rewrite context_precision
-(0.807 vs 0.740). BioLORD-2023 was dramatically worse (~30pts lower
-context_precision). jina-embeddings-v3 could not be tested due to a
-transformers version incompatibility.
-
-- Created `scripts/ingest_va_cpg_alt_embedding.py` for parameterized
-  re-ingestion with different embedding models
-- Ingested VA CPG corpus with BioLORD-2023 (table: idx_va_cpg_biolord_v1)
-  and nomic-embed-text-v1.5 (table: idx_va_cpg_nomic_v1)
-- Full Ragas eval (Run 7) comparing all three models
-- Eval register updated with Run 7, cumulative progress table revised
-- PubMedBERT restored as active index (pending decision to switch to Nomic)
-- Recommendation: switch VA CPG to Nomic v1.5
+Embedding model comparison (Runs 7-8) completed. Nomic v1.5 dominates
+PubMedBERT on all metrics. Nomic raw (no reranking) is Pareto-optimal:
+0.822 ctx_precision, 0.740 answer_relevancy. Adding hybrid_0.3 reranking
+pushes ctx_precision to 0.839 but costs -5.2pts answer_relevancy.
+Switched VA CPG active index to Nomic. Drafted data owner and ops
+onboarding guides.
 
 See `session-summaries/2026-08-21-eval-convergence-embedding-comparison.md`.
 
