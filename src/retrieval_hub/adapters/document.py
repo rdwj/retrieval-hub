@@ -100,6 +100,7 @@ class DocumentAdapter(SourceAdapter):
 
         embedder = QueryEmbedder(
             model_name=self._embedding_model_name(),
+            endpoint=self._embedding_endpoint(),
             query_prefix=self._query_prefix(),
             prompt_name=self._query_prompt_name(),
         )
@@ -239,6 +240,12 @@ class DocumentAdapter(SourceAdapter):
                 f"an embedding.model. Recipe body: {content!r}"
             )
         return name
+
+    def _embedding_endpoint(self) -> str | None:
+        """Pull the optional remote embedding endpoint from the recipe."""
+        content = self.recipe_version.content or {}
+        embedding = content.get("embedding") or {}
+        return embedding.get("endpoint")
 
     def _adjacent_chunks(
         self,
@@ -652,6 +659,7 @@ class DocumentAdapter(SourceAdapter):
         # 3. Embed the query
         embedder = QueryEmbedder(
             model_name=self._embedding_model_name(),
+            endpoint=self._embedding_endpoint(),
             query_prefix=self._query_prefix(),
             prompt_name=self._query_prompt_name(),
         )
@@ -731,6 +739,7 @@ class DocumentAdapter(SourceAdapter):
         # 2. Embed the query
         embedder = QueryEmbedder(
             model_name=self._embedding_model_name(),
+            endpoint=self._embedding_endpoint(),
             query_prefix=self._query_prefix(),
             prompt_name=self._query_prompt_name(),
         )

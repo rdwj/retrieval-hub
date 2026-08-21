@@ -1,0 +1,244 @@
+{
+  "metadata": {
+    "version": "v1",
+    "created": "2026-08-21",
+    "question_count": 25,
+    "description": "Retrieval evaluation dataset for Piper Aircraft service bulletins. 269 documents covering Cherokee PA-28 and Saratoga PA-32 families, including service bulletins (SB), service letters (SL), supplemental service letters (SSL), vendor service publications (VSP), and customer information letters (CIL).",
+    "categories_covered": ["procedure", "parts", "applicability", "cross_aircraft", "document_type", "cross_dataset"],
+    "document_types_covered": ["SB", "SL", "VSP", "CIL"],
+    "aircraft_families": ["Cherokee (PA-28)", "Saratoga (PA-32)"],
+    "cross_dataset_questions": 5
+  },
+  "questions": [
+    {
+      "id": "am-001",
+      "question": "What is the compliance time for the carburetor heat cable replacement on the PA-28-140 Cherokee?",
+      "expected_doc_title": "SB_0312 (Cherokee)",
+      "expected_section": null,
+      "query_type": "procedure",
+      "difficulty": "easy",
+      "notes": "Answer is 'prior to but not later than the next 100 hours of operation.' Tests retrieval of a specific, concise SB with clear compliance instructions."
+    },
+    {
+      "id": "am-002",
+      "question": "How is the control wheel shaft assembly verified as correctly installed according to SB 1197E?",
+      "expected_doc_title": "SB_1197E (Cherokee)",
+      "expected_section": null,
+      "query_type": "procedure",
+      "difficulty": "medium",
+      "notes": "A 3/64 inch drill rod is inserted into the witness hole; a penetration depth of approximately 0.2 inches indicates correct installation. SB 1197E exists in both Cherokee and Saratoga families; the system should retrieve one or both."
+    },
+    {
+      "id": "am-003",
+      "question": "What is the minimum acceptable edge distance from the end of the control wheel shaft to the taper pin hole centerline?",
+      "expected_doc_title": "SB_1197E (Cherokee)",
+      "expected_section": null,
+      "query_type": "procedure",
+      "difficulty": "medium",
+      "notes": "The minimum edge distance is 0.19 inches. Below this, shaft replacement is required. Tests retrieval of a specific dimensional tolerance within a multi-step inspection procedure."
+    },
+    {
+      "id": "am-004",
+      "question": "What cleaning products are specified for preparing wing spar surfaces before corrosion inspection on Cherokee and Cherokee Six aircraft?",
+      "expected_doc_title": "SB_1304B_w_AMOC (Cherokee)",
+      "expected_section": null,
+      "query_type": "procedure",
+      "difficulty": "medium",
+      "notes": "SB 1304B specifies a solvent-based degreaser conforming to SAE AMS 1525 (such as LPS Presolve Orange Degreaser) and/or an alkaline cleaner complying with SAE AMS 1526 (such as Chemetall Ardrox 6333A), followed by a clean water rinse and dry."
+    },
+    {
+      "id": "am-005",
+      "question": "What off-torque value range is used to test 3/8 inch diameter wing aft spar-to-fuselage attachment bolts?",
+      "expected_doc_title": "SB_1423B (Cherokee)",
+      "expected_section": null,
+      "query_type": "procedure",
+      "difficulty": "easy",
+      "notes": "The off-torque (loosening torque) test value is 180-195 in-lbs minimum per SB 1423B step 3.a. For 5/16 inch bolts, the value is 100-115 in-lbs."
+    },
+    {
+      "id": "am-006",
+      "question": "What kit number is required for the carburetor heat cable replacement on the PA-28-140 B Cherokee?",
+      "expected_doc_title": "SB_0312 (Cherokee)",
+      "expected_section": null,
+      "query_type": "parts",
+      "difficulty": "easy",
+      "notes": "Kit No. 760 387V, Carburetor Heat Cable Replacement. One kit is required per aircraft."
+    },
+    {
+      "id": "am-007",
+      "question": "What is the part number for the witness hole drill fixture used during the control wheel shaft inspection?",
+      "expected_doc_title": "SB_1197E (Cherokee)",
+      "expected_section": null,
+      "query_type": "parts",
+      "difficulty": "easy",
+      "notes": "Piper P/N 766-585. The fixture includes a bolt (P/N 400-453) and nut (P/N 404-534). Tests retrieval of a specific part number from within detailed inspection instructions."
+    },
+    {
+      "id": "am-008",
+      "question": "What is the part number for the wing spar inspection access panel kit, and what alternative access kit can be installed?",
+      "expected_doc_title": "SB_1304B_w_AMOC (Cherokee)",
+      "expected_section": null,
+      "query_type": "parts",
+      "difficulty": "medium",
+      "notes": "Primary kit is Inspection Access Hole Kit P/N 765-106V (or P/N 765-106 equivalent). Alternative is Kit - Access Cover Instl, P/N 88692-701, announced by SSL 508. Tests ability to find both primary and alternative part numbers within the same document."
+    },
+    {
+      "id": "am-009",
+      "question": "What replacement bolt, washer, and nut part numbers are specified for Group B aircraft with 3/8 inch bolt holes in the wing aft spar attachment?",
+      "expected_doc_title": "SB_1423B (Cherokee)",
+      "expected_section": null,
+      "query_type": "parts",
+      "difficulty": "hard",
+      "notes": "Chart 1 specifies: bolts NAS464P6LA6 or NAS464P6LA4 or NAS6206-4, washers NAS1149F0632P and/or NAS1149F0663P, nut MS21042-6, torque 360-390 in-lbs. For PA-28-181, NAS464P6LA4 or NAS6206-4 only when no gap exists. Tests retrieval of tabular hardware data with conditional installation notes."
+    },
+    {
+      "id": "am-010",
+      "question": "Which serial numbers of the PA-28-140 B Cherokee are affected by the carburetor heat cable replacement service bulletin?",
+      "expected_doc_title": "SB_0312 (Cherokee)",
+      "expected_section": null,
+      "query_type": "applicability",
+      "difficulty": "easy",
+      "notes": "Serial numbers 28-25001 to 28-25821 inclusive. SB 0312 supersedes the PA-28-140 B portion of SB 298."
+    },
+    {
+      "id": "am-011",
+      "question": "What specific Warrior III and Archer III serial numbers were delivered with defective altimeters according to SB 1297?",
+      "expected_doc_title": "SB 1297 (Cherokee)",
+      "expected_section": null,
+      "query_type": "applicability",
+      "difficulty": "medium",
+      "notes": "Group B lists: PA-28-161 Warrior III serial numbers 2842403 through 2842420, PA-28-181 Archer III serial numbers 2843824 through 2843827, and PA-28R-201 Arrow serial numbers 2844159 through 2844163, 2844165 and 2844166. These aircraft require mandatory replacement without inspection."
+    },
+    {
+      "id": "am-012",
+      "question": "What Piper models are affected by the main wing spar corrosion inspection service bulletin SB 1304B?",
+      "expected_doc_title": "SB_1304B_w_AMOC (Cherokee)",
+      "expected_section": null,
+      "query_type": "applicability",
+      "difficulty": "medium",
+      "notes": "Seven models: PA-28-150/160 Cherokee, PA-28-140 Cherokee, PA-28-180 Cherokee, PA-28-180 Challenger/Archer, PA-28-235 Cherokee, PA-32-260 Cherokee Six, and PA-32-300 Cherokee Six. Tests recognition of multi-model applicability across PA-28 and PA-32 families."
+    },
+    {
+      "id": "am-013",
+      "question": "How does SB 1423B distinguish between Group A and Group B aircraft for the wing aft spar-to-fuselage bolt inspection?",
+      "expected_doc_title": "SB_1423B (Cherokee)",
+      "expected_section": null,
+      "query_type": "applicability",
+      "difficulty": "hard",
+      "notes": "Group A includes PA-32-260/300 Cherokee Six, PA-32R-300 Lance, and PA-32S-300 Cherokee Six Seaplane. Group B includes all PA-28 variants (Cherokee 140/150/160/180/235, Warrior, Cadet, Archer, Arrow, Dakota), plus PA-32 Saratoga variants, PA-34 Seneca, and PA-44 Seminole. The groups determine repair procedures: Group A with oversized holes must contact a DER, while Group B can ream to 3/8 or 7/16 inch."
+    },
+    {
+      "id": "am-014",
+      "question": "Does the control wheel shaft inspection SB 1197E apply to both Cherokee and Saratoga aircraft families?",
+      "expected_doc_title": "SB_1197E (Cherokee)",
+      "expected_section": null,
+      "query_type": "cross_aircraft",
+      "difficulty": "easy",
+      "notes": "Yes. SB 1197E affects PA-28 models (Cherokee, Warrior, Archer, Arrow, Dakota) and PA-32 models (Cherokee Six, Lance, Saratoga SP/II HP/II TC, Piper 6X/6XT), plus PA-34 Seneca and PA-44 Seminole. Both Cherokee and Saratoga families have copies of this SB in the dataset."
+    },
+    {
+      "id": "am-015",
+      "question": "Which PA-32 Saratoga variants are affected by the control wheel shaft inspection, and what replacement parts do they need?",
+      "expected_doc_title": "SB_1197E (Saratoga)",
+      "expected_section": null,
+      "query_type": "cross_aircraft",
+      "difficulty": "medium",
+      "notes": "Saratoga variants listed in Table 3: PA-32R-301 Saratoga SP, PA-32R-301 Saratoga II HP (including Entegra), PA-32R-301T Turbo Saratoga SP, PA-32-301 Saratoga, PA-32-301T Turbo Saratoga, PA-32R-301T Saratoga II TC, PA-32-301FT Piper 6X, PA-32-301XTC Piper 6XT. All use shaft P/N 62716-007 and universal joint P/N 62834-002."
+    },
+    {
+      "id": "am-016",
+      "question": "Does Piper's position on unapproved aviation gasolines apply to both Cherokee and Saratoga aircraft?",
+      "expected_doc_title": "CIL_2025-002 (Cherokee)",
+      "expected_section": null,
+      "query_type": "cross_aircraft",
+      "difficulty": "easy",
+      "notes": "Yes. CIL 2025-002 applies to all piston engine aircraft models and all serial numbers. It appears in both Cherokee and Saratoga document sets. Piper states that using unapproved fuel (including STC-approved fuels like GAMI G100UL) will void the warranty."
+    },
+    {
+      "id": "am-017",
+      "question": "What maintenance action is required for Piper aircraft with Slick single point magnetos that have decreased service life?",
+      "expected_doc_title": "VSP_225 (Saratoga)",
+      "expected_section": null,
+      "query_type": "cross_aircraft",
+      "difficulty": "hard",
+      "notes": "VSP 225 covers Lycoming Service Bulletin 603 compliance for Champion Aerospace SB1-12 regarding decreased magneto service life. Affects both Cherokee models (PA-28 variants) and Saratoga models (PA-32 variants, plus PA-34 Seneca and PA-44 Seminole). Required action is to comply with Lycoming SB 603 which reprints Slick SB1-12. Tests whether the system retrieves the VSP document rather than a standard SB."
+    },
+    {
+      "id": "am-018",
+      "question": "What vendor service publications exist for Lycoming engine magneto maintenance on Piper aircraft?",
+      "expected_doc_title": "VSP_225 (Saratoga)",
+      "expected_section": null,
+      "query_type": "document_type",
+      "difficulty": "medium",
+      "notes": "VSP 225 is a Vendor Service Publication that republishes Lycoming Service Bulletin 603 regarding Champion Aerospace SB1-12 for Slick 4200/6200 and 4300/6300 series magnetos. Tests whether the system can filter by document type (VSP) and retrieve vendor-originated maintenance guidance."
+    },
+    {
+      "id": "am-019",
+      "question": "What service letter addresses firewall hole sealing on Piper aircraft, and what hazard does it warn about?",
+      "expected_doc_title": "SL_0177 (Cherokee)",
+      "expected_section": null,
+      "query_type": "document_type",
+      "difficulty": "easy",
+      "notes": "Service Letter SL 0177 (August 1951) warns that unsealed firewall holes allow exhaust gases and possible exhaust sparks to enter the cockpit, creating fire and asphyxiation hazards. Recommends inspection every 100 hours. Tests retrieval of the earliest document type (SL) in the corpus."
+    },
+    {
+      "id": "am-020",
+      "question": "What customer information letter did Piper issue about the use of GAMI G100UL unleaded aviation gasoline?",
+      "expected_doc_title": "CIL_2025-002 (Cherokee)",
+      "expected_section": null,
+      "query_type": "document_type",
+      "difficulty": "medium",
+      "notes": "CIL 2025-002 (February 2025) states Piper has not evaluated any STC fuels including GAMI G100UL. Piper will not approve unapproved fuel use and it will void the warranty. Tests retrieval by document type (CIL) and a specific named product."
+    },
+    {
+      "id": "am-021",
+      "question": "What are the risks to pilot health from repeated exposure to aircraft exhaust gases, and what blood pressure management guidelines exist for pilots?",
+      "expected_doc_title": null,
+      "expected_section": null,
+      "query_type": "cross_dataset",
+      "difficulty": "hard",
+      "notes": "Tests agent source selection. The aircraft maintenance source (SL_0177) documents the fire and asphyxiation hazard from unsealed firewall holes allowing exhaust gas into the cockpit. Clinical sources (VA CPG or PubMed hypertension) provide blood pressure management guidelines relevant to pilot medical certification. The agent should recognize the need to query both aircraft-maintenance and clinical data sources.",
+      "cross_dataset_sources": ["aircraft-maintenance", "va-cpg-clinical-guidelines"]
+    },
+    {
+      "id": "am-022",
+      "question": "What structural inspections are required for aging Piper Cherokee wing spars, and what occupational health precautions should mechanics observe when using solvents like MEK and acetone during these inspections?",
+      "expected_doc_title": null,
+      "expected_section": null,
+      "query_type": "cross_dataset",
+      "difficulty": "hard",
+      "notes": "The aircraft source (SB_1304B) specifies SAE AMS 1525/1526 degreasers and mentions MEK and acetone for removing adhesive residue from vibration damping mats. Clinical or occupational health sources would cover solvent exposure guidelines. Tests whether the agent recognizes the occupational health dimension beyond the maintenance procedure.",
+      "cross_dataset_sources": ["aircraft-maintenance", "pubmed-hypertension"]
+    },
+    {
+      "id": "am-023",
+      "question": "How do defective altimeters affect flight safety, and what medical conditions can impair a pilot's ability to recognize altitude-related symptoms?",
+      "expected_doc_title": null,
+      "expected_section": null,
+      "query_type": "cross_dataset",
+      "difficulty": "hard",
+      "notes": "The aircraft source (SB 1297) describes altimeters with slow diaphragm leaks that display altitude higher than actual, with the disparity increasing over time. Operators must not fly IMC if the altimeter error exceeds 50 feet. Clinical sources address how hypertension or other cardiovascular conditions affect a pilot's cognitive response to hypoxia at altitude. Tests cross-domain reasoning about equipment failure compounded by medical fitness.",
+      "cross_dataset_sources": ["aircraft-maintenance", "pubmed-hypertension"]
+    },
+    {
+      "id": "am-024",
+      "question": "What is Piper's position on unleaded aviation gasolines, and are there clinical studies on health effects of lead exposure from leaded aviation fuel?",
+      "expected_doc_title": null,
+      "expected_section": null,
+      "query_type": "cross_dataset",
+      "difficulty": "medium",
+      "notes": "CIL 2025-002 documents Piper's refusal to approve STC fuels like GAMI G100UL until fully evaluated, referencing the EAGLE initiative to eliminate lead from aviation gas. Clinical sources address the cardiovascular effects of chronic lead exposure, which is linked to hypertension. Tests whether the agent bridges the aviation fuel policy domain with clinical toxicology evidence.",
+      "cross_dataset_sources": ["aircraft-maintenance", "pubmed-hypertension"]
+    },
+    {
+      "id": "am-025",
+      "question": "What recurring inspections does Piper require for wing attachment hardware, and how should maintenance personnel manage fatigue and adherence to recurring inspection schedules?",
+      "expected_doc_title": null,
+      "expected_section": null,
+      "query_type": "cross_dataset",
+      "difficulty": "medium",
+      "notes": "SB 1423B requires an initial inspection within 100 hours TIS, then recurring every 100 hours. Adherence to recurring maintenance schedules parallels medication adherence research from clinical sources, where non-adherence increases mortality risk by 32%. Tests whether the agent can draw parallels between maintenance compliance and clinical adherence frameworks.",
+      "cross_dataset_sources": ["aircraft-maintenance", "pubmed-hypertension"]
+    }
+  ]
+}

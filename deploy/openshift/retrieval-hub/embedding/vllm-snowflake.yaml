@@ -1,0 +1,147 @@
+# vLLM embedding model service — Snowflake Arctic Embed M v1.5
+#
+# GPU-accelerated embedding model served via vLLM's OpenAI-compatible API.
+# Embedding models are cluster infrastructure, not per-service dependencies.
+# Each data source declares what model it needs in its recipe; the platform
+# ensures the model is served here.
+#
+# Model:     Snowflake/snowflake-arctic-embed-m-v1.5
+# Dimension: 768
+# License:   Apache-2.0 (no HF token required)
+# Endpoint:  http://vllm-snowflake-embedding:8000
+# API:       POST /v1/embeddings  (OpenAI-compatible)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-snowflake-model-cache
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+    model: snowflake-arctic
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp3-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-snowflake-embedding
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+    model: snowflake-arctic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retrieval-hub
+      component: embedding
+      model: snowflake-arctic
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub
+        component: embedding
+        model: snowflake-arctic
+    spec:
+      enableServiceLinks: false
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.8.5
+          command: ["vllm", "serve"]
+          args:
+            - "Snowflake/snowflake-arctic-embed-m-v1.5"
+            - "--task"
+            - "embed"
+            - "--port"
+            - "8000"
+            - "--max-model-len"
+            - "512"
+            - "--trust-remote-code"
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: HF_HOME
+              value: /model-cache
+            - name: TRANSFORMERS_CACHE
+              value: /model-cache
+          volumeMounts:
+            - name: model-cache
+              mountPath: /model-cache
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "4"
+              memory: 8Gi
+              nvidia.com/gpu: "1"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            failureThreshold: 5
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: vllm-snowflake-model-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-snowflake-embedding
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+    model: snowflake-arctic
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http
+  selector:
+    app: retrieval-hub
+    component: embedding
+    model: snowflake-arctic
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: vllm-snowflake-embedding
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: embedding
+    model: snowflake-arctic
+spec:
+  path: /
+  to:
+    kind: Service
+    name: vllm-snowflake-embedding
+  port:
+    targetPort: 8000
+  tls:
+    termination: edge
