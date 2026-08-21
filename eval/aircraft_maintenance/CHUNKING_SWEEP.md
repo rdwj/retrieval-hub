@@ -285,7 +285,23 @@ is a pure win: same recall, much better ranking, 10% fewer chunks.
 
 ## Answer quality validation (Methodology Step 7)
 
-*To be filled after Ragas evaluation.*
+Ragas metrics on TF-512-0 (winner) vs TF-512-64 (production baseline),
+run 2026-08-21. Generated answers using gpt-oss:20b (Ollama, local),
+scored with gpt-oss-120b (cluster endpoint). 20 single-source questions.
+
+| Metric | TF-512-0 | TF-512-64 | Delta |
+|---|---|---|---|
+| context_precision | 0.680 | 0.637 | +0.043 |
+| answer_relevancy | 0.793 | 0.737 | +0.056 |
+
+TF-512-0 wins on both answer-quality metrics. The answer_relevancy gap
+(+5.6pp) is larger than the context_precision gap (+4.3pp), consistent
+with the PubMed pattern where the retrieval winner also produced more
+relevant answers. Dropping overlap improves both the precision of
+retrieved context and the relevance of generated answers.
+
+**Decision rule check (from methodology doc):** The retrieval winner also
+wins on both Ragas metrics. Ship TF-512-0.
 
 ## Production re-ingestion
 
@@ -315,4 +331,6 @@ python scripts/eval_aircraft_answer_quality.py \
 
 - Per-config checkpoints: `eval/aircraft_maintenance/sweep_configs/`
 - Aggregate results: `eval/aircraft_maintenance/sweep_results.json`
-- Ragas comparison: `eval/aircraft_maintenance/ragas_chunking_comparison.json` (pending)
+- Ragas comparison: `eval/aircraft_maintenance/ragas_chunking_comparison.json`
+- Ragas per-condition scores: `eval/aircraft_maintenance/scores_TF-512-0.json`,
+  `eval/aircraft_maintenance/scores_TF-512-64.json`
