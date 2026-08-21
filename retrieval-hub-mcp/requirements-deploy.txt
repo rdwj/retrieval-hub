@@ -20,6 +20,7 @@ numpy>=1.26,<3.0
 
 # --- Embedding (needed at query time for QueryEmbedder) ---
 sentence-transformers>=3.0
+einops>=0.7  # required by nomic-embed-text-v1.5 attention layers
 
 # --- MCP server deps ---
 fastmcp==4.0.0b1

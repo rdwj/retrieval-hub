@@ -110,7 +110,7 @@ oc rollout status deployment/retrieval-hub-mcp -n "$PROJECT" $OC_CTX --timeout=3
 ROUTE_HOST=$(oc get route retrieval-hub-mcp -n "$PROJECT" $OC_CTX \
     -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
 ROUTE_PATH=$(oc get route retrieval-hub-mcp -n "$PROJECT" $OC_CTX \
-    -o jsonpath='{.spec.path}' 2>/dev/null || echo "/mcp/")
+    -o jsonpath='{.spec.path}' 2>/dev/null || echo "/mcp")
 
 echo ""
 echo "========================================="

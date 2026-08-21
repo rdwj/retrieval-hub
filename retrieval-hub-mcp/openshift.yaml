@@ -71,10 +71,10 @@ spec:
           mountPath: /opt/app-root/src/.model_cache
         resources:
           requests:
-            memory: 1Gi
+            memory: 2Gi
             cpu: 500m
           limits:
-            memory: 2Gi
+            memory: 4Gi
             cpu: "1"
         livenessProbe:
           tcpSocket:
@@ -112,7 +112,7 @@ metadata:
   labels:
     app: retrieval-hub-mcp
 spec:
-  path: /mcp/
+  path: /mcp
   to:
     kind: Service
     name: retrieval-hub-mcp
