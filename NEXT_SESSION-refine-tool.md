@@ -1,83 +1,76 @@
 # Next Session — refine-tool
 
-## Next: Stable chunk identifiers (#33)
+## Next: doc_title normalization + deploy chunk_id to production
 
-Add a `chunk_id` field (the pgvector row UUID) to retrieve and refine
-responses so consuming agents can reference chunks without fragile
-doc_title string matching. The UUID already exists in every pgvector
-table (`id UUID PRIMARY KEY`); it just needs to surface through the
-adapter, schemas, and MCP tool responses.
+Ship the chunk_id changes (`62f46e4`) to the deployed MCP server and
+clean up the doc_title inconsistencies in the VA CPG source. Small
+session that closes out the #33 work completely.
 
-1. **Expose `chunk_id` in retrieve hits**
-   The `RetrievalHit` schema in `retrieval-hub-mcp/src/retrieval_hub_mcp/schemas.py`
-   gets a new `chunk_id: str` field. The adapter's `_similarity_search()`
-   in `src/retrieval_hub/adapters/document.py` already SELECTs `id` from
-   the pgvector table — thread it through to the response. The MCP
-   `retrieve` tool returns it alongside `doc_title` and `chunk_index`.
+1. **Normalize doc_title values during ingestion**
+   The VA CPG titles have four classes of inconsistency:
+   - Mixed case: `VA/DOD` vs `VA/DoD` (should pick one canonical form)
+   - Fragment title: `for the treatment of nightmares associated with PTSD`
+     (should be the full guideline title)
+   - HTML entities: `&amp;` in the hip/knee osteoarthritis title
+   - Duplicate generic titles: two rows differ only in `VA/DOD` vs `VA/DoD`
 
-2. **Accept `chunk_id` in refine**
-   The `refine` tool should accept an optional `chunk_id` parameter as
-   an alternative to `doc_title` + `chunk_index`. When `chunk_id` is
-   provided, look up the chunk directly by UUID instead of title + index.
-   Keep `doc_title` + `chunk_index` working for backward compatibility.
+   Add a title-normalization step to the VA CPG ingestion script. This
+   requires re-ingestion of the VA CPG data (the normalization happens at
+   write time, not query time). Approach options: normalize in the
+   ingestion script itself, or add a reusable normalizer in the chunking
+   pipeline. Decide during the session based on whether other sources
+   (pubmed, tale-of-two-cities) also need normalization.
 
-3. **Expose `chunk_id` on refine response chunks**
-   Each chunk in the `RefineResponse.chunks` list should include its
-   `chunk_id` so agents can chain refine calls without reverting to
-   title-based lookup.
+2. **Deploy the updated MCP server**
+   The deployed server is running pre-chunk_id code. Build and deploy
+   with the chunk_id changes + any normalization updates. Follow the
+   deployment checklist from CLAUDE.md lessons learned:
+   - Verify `requirements-deploy.txt` has all deps
+   - Confirm memory limit (currently 4Gi, should be fine)
+   - Route path has no trailing slash
+   - Test with a retrieve query after deploy to confirm chunk_id appears
 
-4. **Normalize doc_title during ingestion**
-   While we're touching the identifier path, audit and normalize
-   doc_title values at ingestion time. The VA CPG has inconsistent
-   titles (e.g., "for the treatment of nightmares associated with PTSD"
-   is a fragment, not the full guideline title). Add a title-normalization
-   step in the ingestion pipeline or document why we don't.
-
-5. **Tests**
-   Update existing retrieve/refine tests to verify `chunk_id` appears
-   in responses and that refine-by-chunk_id works.
-
-**Sequencing.** Steps 1-3 together (the core plumbing), then step 4
-(ingestion normalization — may be deferred if it's a larger scope change),
-then step 5 (tests throughout, but a final pass at the end).
+**Sequencing.** Normalization first (requires re-ingestion of VA CPG),
+then deploy (ships both chunk_id and normalized titles together).
 
 **Session start protocol:**
 - Premise checks:
   - `git pull` and confirm clean merge.
   - `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` — green
-    baseline (should be 245 + 41).
+    baseline (should be 245 + 43).
   - Local databases up: `pg_isready -h localhost -p 5433` (vectors)
     and `pg_isready -h localhost -p 5434` (catalog).
-  - Confirm the UUID column exists on all pgvector tables:
-    `psql ... -c "\d idx_va_cpg_v1" | grep "^  id"`
+  - Verify current doc_title state:
+    `psql ... -c "SELECT DISTINCT doc_title FROM idx_va_cpg_v1"` —
+    should show the 28 titles with inconsistencies listed above.
+  - Check cluster access for deploy: `oc whoami --context=mcp-rhoai`
 - Rules with history:
   - Embedding model comes from the recipe version — use
     `_embedding_model_name()` and `_query_prefix()`, never hardcode.
-  - Raw psycopg SQL in the adapter, not SQLAlchemy Core.
   - Container deps must be explicit in `requirements-deploy.txt` —
     local venv masks transitive deps (see CLAUDE.md lessons learned).
-- Stop-and-ask before: Any changes to existing pgvector table DDL
-  (column adds/renames). The UUID column already exists; this session
-  should only need to SELECT it, not ALTER TABLE.
+  - Route path in `openshift.yaml` must not have trailing slash for
+    FastMCP (see CLAUDE.md lessons learned).
+- Stop-and-ask before: Re-ingesting VA CPG data (replaces all rows
+  in `idx_va_cpg_v1`). Confirm the table name and that no other
+  session is using it. Also stop-and-ask before any deploy to
+  production.
 - Close ritual: session summary, commit, update this file.
 
-## What landed last session (2026-08-20, seventh session)
+## What landed last session (2026-08-20, eighth session)
 
-Tale of Two Cities ingestion + entity-arc validation + deployment fixes.
-See `session-summaries/2026-08-20-refine-tool-tale-ingestion.md`.
+Stable chunk identifiers (#33). See
+`session-summaries/2026-08-20-refine-tool-stable-chunk-ids.md`.
 
-- `50ef540` — Ingestion script + semantic context seeder (376 chunks,
-  Nomic v1.5, 9 characters with aliases, entity_arc/section/cross_reference
-  strategies enabled)
-- `ae22366` — Fix deployed MCP server: route trailing slash → 503,
-  missing einops, OOMKill at 2Gi → 4Gi
-- `12e6805` — CLAUDE.md with deployment lessons learned
+- `62f46e4` — chunk_id (pgvector UUID) surfaced in retrieve/refine
+  responses; refine accepts optional chunk_id for UUID-based lookup
+- `6629200` — lint fix for import ordering
+- `54ba54f` — session summary
 
-Entity-arc validated locally against three queries (Carton arc, Evrémonde
-alias resolution, Doctor Manette arc). All returned coherent
-narrative-ordered chunks.
+Deferred: doc_title normalization (step 4 of #33) — requires ingestion
+pipeline changes and data re-ingestion.
 
-## What landed earlier (2026-08-20, sessions 1-6)
+## What landed earlier (2026-08-20, sessions 1-7)
 
 - Phase 1: refine MCP tool with adjacent-chunk retrieval (`c1c495d`)
 - Phase 2: section-aware expansion with token budgeting (`ea5fa67`)
@@ -85,6 +78,8 @@ narrative-ordered chunks.
 - Phase 4 research: entity-arc feasibility study (`8c033bd`)
 - Phase 4 impl: entity-arc refinement strategy (`29503b5`)
 - Tool ergonomics: embedding_model transparency (`c3eb259`), describe_source cleanup (`2026fe0`)
+- Tale of Two Cities ingestion + entity-arc validation (`50ef540`)
+- Deployment fixes: route trailing slash, missing einops, OOMKill (`ae22366`)
 
 ## Remaining epic phases
 
@@ -98,39 +93,37 @@ progress). Refine-tool Phases 1-4 all done.
 **Status:** Blocked. Phase 5 unblocks once the eval pipeline has
 baseline metrics to compare refine-augmented retrieval against.
 
-### Aircraft maintenance data source ingestion
-
-Import aircraft maintenance data sources. Sequenced after #33
-(stable chunk identifiers) so the new sources benefit from chunk_id
-from day one.
-
 ### #34 Multi-source retrieve
 
 Search across sources in one call. Sequenced after the aircraft
-maintenance ingestion — urgency increases with source count.
+maintenance ingestion (data-products epic Phase 4) — urgency increases
+with source count. Could be pulled forward with the existing 4 sources
+if Phase 5 remains blocked.
 
 ## Tool ergonomics backlog (from exercise-tools pass)
 
 - ~~#32 Score calibration~~ — Closed (`c3eb259`).
-- **#33** Stable chunk identifiers — **next session focus**.
+- ~~#33 Stable chunk identifiers~~ — Closed (`62f46e4`).
 - **#34** Multi-source retrieve — after aircraft data ingestion.
 - ~~#35 describe_source recipe_content~~ — Closed (`2026fe0`).
 
 ## Watch out for
 
-- **chunk_id is a UUID string, not an int.** The pgvector `id` column
-  is `UUID`. Surface it as a string in the schema, not as a typed UUID
-  (MCP tools serialize as JSON; string is the safest representation).
-- **Backward compatibility.** Agents already using `doc_title` +
-  `chunk_index` must keep working. `chunk_id` is additive, not a
-  replacement. The refine tool should accept either.
-- **Sub-agent drift.** Sub-agents introduced unrelated file changes
-  in earlier sessions. Verify `git diff --stat HEAD` after delegated
-  work.
+- **Re-ingestion replaces all rows.** The VA CPG ingestion script uses
+  `write_chunks(replace=True)`, which drops and recreates the table
+  contents. Confirm the table name before running.
+- **Deploy memory limit.** Currently 4Gi, sufficient for Nomic v1.5.
+  Don't change unless the embedding model changes.
+- **Parallel sessions.** The data-products and eval-convergence epics
+  may be running concurrently. Don't touch their pgvector tables.
 
 ## If blocked
 
-- If local databases can't start, the schema and adapter changes
-  (steps 1-3) can still be written and tested with mocked data.
-- If doc_title normalization (step 4) turns out to be a larger scope
-  change than expected, defer it to a follow-up and ship steps 1-3 + 5.
+- **Cluster unavailable for deploy:** Complete normalization and
+  re-ingestion locally, commit, and defer deploy to next available
+  cluster window.
+- **Normalization scope creep:** If title normalization turns into a
+  larger framework concern (multiple sources, complex rules), scope
+  down to VA CPG only and file a follow-up for a general normalizer.
+- **If both items finish quickly:** Pull #34 (multi-source retrieve)
+  forward — the 4 existing sources are enough to build and test it.
