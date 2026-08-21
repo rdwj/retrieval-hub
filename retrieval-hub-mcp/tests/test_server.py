@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastmcp.exceptions import ToolError
 from retrieval_hub_mcp.schemas import (
     RefineHit,
     RefineResponse,
@@ -102,6 +103,7 @@ def _make_sample_prompt(
 
 
 def _make_retrieval_result(
+    chunk_id="chunk-uuid-000",
     text="Relevant passage text",
     score=0.92,
     doc_title="Manual v3",
@@ -113,6 +115,7 @@ def _make_retrieval_result(
     request_id="req-abc",
 ):
     return SimpleNamespace(
+        chunk_id=chunk_id,
         text=text,
         score=score,
         doc_title=doc_title,
@@ -361,6 +364,7 @@ async def test_retrieve_delegates_to_query():
     assert isinstance(resp, RetrievalResponse)
     assert len(resp.hits) == 2
     assert isinstance(resp.hits[0], RetrievalHit)
+    assert resp.hits[0].chunk_id == "chunk-uuid-000"
     assert resp.hits[0].text == "Relevant passage text"
     assert resp.hits[0].score == 0.92
     assert resp.hits[0].doc_title == "Manual v3"
@@ -791,6 +795,7 @@ async def test_retrieve_deduplicates_hits():
 
 
 def _make_refine_result(
+    chunk_id="refine-uuid-000",
     text="Adjacent chunk text",
     score=1.0,
     doc_title="Manual v3",
@@ -802,6 +807,7 @@ def _make_refine_result(
     request_id="req-refine",
 ):
     return SimpleNamespace(
+        chunk_id=chunk_id,
         text=text,
         score=score,
         doc_title=doc_title,
@@ -861,6 +867,7 @@ async def test_refine_returns_section_chunks():
     assert resp.embedding_model == "test-embed-model"
     assert len(resp.chunks) == 3
     assert isinstance(resp.chunks[0], RefineHit)
+    assert resp.chunks[0].chunk_id == "refine-uuid-000"
     assert resp.chunks[0].text == "before"
     assert resp.chunks[0].is_origin is False
     assert resp.chunks[0].doc_title is None
@@ -1442,6 +1449,72 @@ async def test_refine_entity_arc_strategy():
     call_kwargs = mock_ref.call_args[1]
     assert call_kwargs["strategy"] == "entity_arc"
     assert call_kwargs["min_score"] == pytest.approx(0.30)
+
+
+@pytest.mark.asyncio
+async def test_refine_by_chunk_id():
+    """When chunk_id is provided, refine resolves doc_title/chunk_index from it."""
+    source = _make_source()
+    session = _make_retrieve_session(source)
+
+    mock_results = [
+        _make_refine_result(chunk_id="target-uuid", text="target", chunk_index=7),
+    ]
+
+    with (
+        patch(
+            "retrieval_hub_mcp.server.resolve_chunk_id",
+            return_value=("Manual v3", 7),
+        ) as mock_resolve,
+        patch(
+            "retrieval_hub_mcp.server.retrieval_refine",
+            return_value=_make_refine_output(mock_results),
+        ) as mock_ref,
+    ):
+        resp = await refine(
+            source="test-source",
+            doc_title="",
+            chunk_index=0,
+            query="tell me more",
+            chunk_id="target-uuid",
+            session=session,
+        )
+
+    mock_resolve.assert_called_once_with(
+        "test-source", "target-uuid", session=session,
+    )
+    call_kwargs = mock_ref.call_args[1]
+    assert call_kwargs["doc_title"] == "Manual v3"
+    assert call_kwargs["chunk_index"] == 7
+
+    assert isinstance(resp, RefineResponse)
+    assert resp.doc_title == "Manual v3"
+    assert resp.origin_chunk_index == 7
+    assert len(resp.chunks) == 1
+    assert resp.chunks[0].chunk_id == "target-uuid"
+
+
+@pytest.mark.asyncio
+async def test_refine_by_chunk_id_not_found():
+    """When chunk_id does not exist, refine raises ToolError."""
+    source = _make_source()
+    session = _make_retrieve_session(source)
+
+    with (
+        patch(
+            "retrieval_hub_mcp.server.resolve_chunk_id",
+            side_effect=LookupError("No chunk with id 'bad-uuid'"),
+        ),
+        pytest.raises(ToolError, match="chunk_id.*not found"),
+    ):
+        await refine(
+            source="test-source",
+            doc_title="",
+            chunk_index=0,
+            query="tell me more",
+            chunk_id="bad-uuid",
+            session=session,
+        )
 
 
 # ---------------------------------------------------------------------------

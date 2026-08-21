@@ -36,6 +36,7 @@ from retrieval_hub.retrieval.api import (
 from retrieval_hub.retrieval.api import (
     refine as retrieval_refine,
 )
+from retrieval_hub.retrieval.api import resolve_chunk_id
 from retrieval_hub.rewriter import LlmClient, RewriterService
 from retrieval_hub.rewriter.schemas import RewriteResult
 from retrieval_hub.schemas.rewriter import RewriterMetadata
@@ -460,6 +461,7 @@ async def retrieve(
 
         hits = [
             RetrievalHit(
+                chunk_id=r.chunk_id,
                 text=r.text,
                 score=r.score,
                 doc_title=r.doc_title,
@@ -520,6 +522,7 @@ async def _retrieve_file(
 
     hits = [
         RetrievalHit(
+            chunk_id="",
             text=content,
             score=1.0,
             doc_title=file_path,
@@ -687,6 +690,7 @@ async def refine(
     window: int | None = None,
     max_context_tokens: int | None = None,
     strategy: str | None = None,
+    chunk_id: str | None = None,
     session: Session = Depends(get_catalog_session),
 ) -> RefineResponse:
     """Expand context around a previously retrieved chunk.
@@ -741,8 +745,23 @@ async def refine(
             ``query`` carries the entity name and ``chunk_index`` is
             ignored.  When omitted, the source's configured default
             strategy is used.
+        chunk_id: Stable UUID identifier from a prior ``retrieve`` or
+            ``refine`` result.  When provided, ``doc_title`` and
+            ``chunk_index`` are resolved automatically from the chunk's
+            metadata — you can pass empty/zero values for those fields.
     """
     try:
+        if chunk_id is not None:
+            try:
+                doc_title, chunk_index = resolve_chunk_id(
+                    source, chunk_id, session=session,
+                )
+            except LookupError as exc:
+                raise ToolError(
+                    f"chunk_id {chunk_id!r} not found in source {source!r}. "
+                    f"Verify the chunk_id was copied from a previous retrieve or refine result."
+                ) from exc
+
         source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
 
         effective_strategy, effective_max_tokens, effective_window, effective_min_score = _resolve_refine_strategy(
@@ -778,6 +797,7 @@ async def refine(
 
         chunks = [
             RefineHit(
+                chunk_id=r.chunk_id,
                 text=r.text,
                 doc_section=r.doc_section,
                 chunk_index=r.chunk_index,

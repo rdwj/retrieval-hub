@@ -111,6 +111,7 @@ class DocumentAdapter(SourceAdapter):
         for row in rows:
             results.append(
                 RetrievalResult(
+                    chunk_id=str(row["id"]),
                     text=row["chunk_text"],
                     score=float(row["score"]),
                     doc_title=row["doc_title"] or "",
@@ -173,6 +174,7 @@ class DocumentAdapter(SourceAdapter):
 
         results = [
             RetrievalResult(
+                chunk_id=str(row["id"]),
                 text=row["chunk_text"],
                 score=1.0,
                 doc_title=row["doc_title"] or "",
@@ -191,6 +193,26 @@ class DocumentAdapter(SourceAdapter):
             truncated=truncated,
             total_chunks=total_chunks if truncated else None,
         )
+
+    def get_chunk_by_id(self, chunk_id: str) -> dict[str, Any] | None:
+        """Look up a single chunk by its UUID primary key."""
+        import psycopg
+
+        table = self.physical_index.location
+
+        query = (
+            f"SELECT id, chunk_text, chunk_tokens, doc_title, doc_url, doc_section, chunk_index "
+            f"FROM {table} WHERE id = %s LIMIT 1"
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (chunk_id,))
+                cols = [desc.name for desc in cur.description or []]
+                row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(zip(cols, row, strict=True))
 
     # -- internals --------------------------------------------------------
 
@@ -612,6 +634,7 @@ class DocumentAdapter(SourceAdapter):
             return RefineOutput(
                 results=[
                     RetrievalResult(
+                        chunk_id=str(origin["id"]),
                         text=origin["chunk_text"],
                         score=1.0,
                         doc_title=origin["doc_title"] or "",
@@ -652,6 +675,7 @@ class DocumentAdapter(SourceAdapter):
         # 6. Build results: origin first, then cross-reference hits
         results: list[RetrievalResult] = [
             RetrievalResult(
+                chunk_id=str(origin["id"]),
                 text=origin["chunk_text"],
                 score=1.0,
                 doc_title=origin["doc_title"] or "",
@@ -666,6 +690,7 @@ class DocumentAdapter(SourceAdapter):
         for row in xref_rows:
             results.append(
                 RetrievalResult(
+                    chunk_id=str(row["id"]),
                     text=row["chunk_text"],
                     score=float(row["score"]),
                     doc_title=row["doc_title"] or "",
@@ -763,6 +788,7 @@ class DocumentAdapter(SourceAdapter):
         # 9. Build results
         results = [
             RetrievalResult(
+                chunk_id=str(row["id"]),
                 text=row["chunk_text"],
                 score=float(row["score"]),
                 doc_title=row["doc_title"] or "",

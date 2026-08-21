@@ -39,6 +39,7 @@ class SourceDetail(BaseModel):
 class RetrievalHit(BaseModel):
     """One retrieval result with provenance metadata."""
 
+    chunk_id: str
     text: str
     score: float
     doc_title: str
@@ -81,6 +82,7 @@ class RewrittenQueryInfo(BaseModel):
 class RefineHit(BaseModel):
     """One chunk from a refinement expansion."""
 
+    chunk_id: str
     text: str
     doc_section: str | None = None
     chunk_index: int

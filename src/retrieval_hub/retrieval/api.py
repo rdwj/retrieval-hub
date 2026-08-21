@@ -36,6 +36,7 @@ class RetrievalResult:
     without reading adapter internals.
     """
 
+    chunk_id: str
     text: str
     score: float
     doc_title: str
@@ -241,3 +242,53 @@ def refine(
         max_context_tokens=max_context_tokens,
         min_score=min_score,
     )
+
+
+def resolve_chunk_id(
+    source_slug: str,
+    chunk_id: str,
+    *,
+    session: Session,
+    vectors_db_url: str | None = None,
+) -> tuple[str, int]:
+    """Resolve a chunk UUID to its (doc_title, chunk_index) pair.
+
+    Raises ``SourceNotFoundError`` / ``SourceNotQueryableError`` for
+    unknown or unindexed sources, and ``LookupError`` if the UUID
+    does not exist in the physical index.
+    """
+    source = session.query(Source).filter(Source.slug == source_slug).one_or_none()
+    if source is None:
+        raise SourceNotFoundError(f"No source with slug {source_slug!r}")
+
+    if source.active_physical_index_id is None:
+        raise SourceNotQueryableError(
+            f"Source {source_slug!r} has no active physical index; "
+            f"run ingestion before querying it."
+        )
+
+    physical_index = (
+        session.query(PhysicalIndex)
+        .filter(PhysicalIndex.id == source.active_physical_index_id)
+        .one()
+    )
+    recipe_version = (
+        session.query(RecipeVersion)
+        .filter(RecipeVersion.id == physical_index.recipe_version_id)
+        .one()
+    )
+
+    adapter = _build_adapter(
+        source,
+        physical_index,
+        recipe_version,
+        vectors_db_url=vectors_db_url,
+    )
+
+    row = adapter.get_chunk_by_id(chunk_id)
+    if row is None:
+        raise LookupError(
+            f"No chunk with id {chunk_id!r} in source {source_slug!r}"
+        )
+
+    return row["doc_title"] or "", row["chunk_index"]

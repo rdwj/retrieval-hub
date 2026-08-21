@@ -148,6 +148,7 @@ def test_document_adapter_retrieve_wires_embedder_and_sql() -> None:
 
     assert len(results) == 2
     first = results[0]
+    assert first.chunk_id == "chunk-uuid-1"
     assert first.text == "first hit text"
     assert first.score == pytest.approx(0.92)
     assert first.doc_title == "Doc One"
@@ -160,6 +161,7 @@ def test_document_adapter_retrieve_wires_embedder_and_sql() -> None:
     assert first.request_id == "req-abc"
 
     second = results[1]
+    assert second.chunk_id == "chunk-uuid-2"
     assert second.doc_section is None
     assert second.chunk_index == 3
     assert second.score == pytest.approx(0.87)
@@ -208,10 +210,13 @@ def test_document_adapter_refine_fetches_adjacent_chunks() -> None:
 
     results = output.results
     assert len(results) == 3
+    assert results[0].chunk_id == "uuid-1"
     assert results[0].text == "before text"
     assert results[0].chunk_index == 2
+    assert results[1].chunk_id == "uuid-2"
     assert results[1].text == "target text"
     assert results[1].chunk_index == 3
+    assert results[2].chunk_id == "uuid-3"
     assert results[2].text == "after text"
     assert results[2].chunk_index == 4
     assert all(r.request_id == "req-refine" for r in results)
