@@ -1,0 +1,218 @@
+{
+  "aggregate": {
+    "context_precision": 0.5709722221920034,
+    "answer_relevancy": 0.6984503930175465
+  },
+  "per_query": [
+    {
+      "query_id": "q033",
+      "language_register": "lay",
+      "cpg_slug": "lower-back-pain",
+      "context_precision": 0.7499999999625,
+      "answer_relevancy": 0.7246372936893453
+    },
+    {
+      "query_id": "q009",
+      "language_register": "lay",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.7555555555303703,
+      "answer_relevancy": 0.5628341313342461
+    },
+    {
+      "query_id": "q038",
+      "language_register": "lay",
+      "cpg_slug": "mtbi",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.6997203979371157
+    },
+    {
+      "query_id": "q027",
+      "language_register": "clinical",
+      "cpg_slug": "suicide-risk",
+      "context_precision": 0.6388888888675925,
+      "answer_relevancy": 0.8013079877127527
+    },
+    {
+      "query_id": "q003",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.6644349915421186
+    },
+    {
+      "query_id": "q021",
+      "language_register": "clinical",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.36666666664833336,
+      "answer_relevancy": 0.7209904394208816
+    },
+    {
+      "query_id": "q004",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.999999999975,
+      "answer_relevancy": 0.8264618693162576
+    },
+    {
+      "query_id": "q005",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.99999999995,
+      "answer_relevancy": 0.7863686332058121
+    },
+    {
+      "query_id": "q017",
+      "language_register": "lay",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.6388888888675925,
+      "answer_relevancy": 0.5732337490317553
+    },
+    {
+      "query_id": "q019",
+      "language_register": "lay",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.7277914825128787
+    },
+    {
+      "query_id": "q030",
+      "language_register": "clinical",
+      "cpg_slug": "opioids",
+      "context_precision": 0.7555555555303703,
+      "answer_relevancy": 0.6238399765017977
+    },
+    {
+      "query_id": "q040",
+      "language_register": "lay",
+      "cpg_slug": "pregnancy",
+      "context_precision": 0.94999999997625,
+      "answer_relevancy": 0.9694922758979501
+    },
+    {
+      "query_id": "q001",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.7724564926364321
+    },
+    {
+      "query_id": "q007",
+      "language_register": "clinical",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.7623930372979099
+    },
+    {
+      "query_id": "q043",
+      "language_register": "lay",
+      "cpg_slug": "pregnancy",
+      "context_precision": 0.6999999999766667,
+      "answer_relevancy": 0.5543325956752195
+    },
+    {
+      "query_id": "q048",
+      "language_register": "clinical",
+      "cpg_slug": "obesity",
+      "context_precision": 0.8666666666377778,
+      "answer_relevancy": 0.8090248929859271
+    },
+    {
+      "query_id": "q031",
+      "language_register": "lay",
+      "cpg_slug": "opioids",
+      "context_precision": 0.8333333332916666,
+      "answer_relevancy": 0.35972992754370303
+    },
+    {
+      "query_id": "q012",
+      "language_register": "clinical",
+      "cpg_slug": "copd",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.8177419209431359
+    },
+    {
+      "query_id": "q020",
+      "language_register": "clinical",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.249999999975,
+      "answer_relevancy": 0.9534156894474517
+    },
+    {
+      "query_id": "q046",
+      "language_register": "lay",
+      "cpg_slug": "tobacco",
+      "context_precision": 0.8055555555287036,
+      "answer_relevancy": 0.8011817872486379
+    },
+    {
+      "query_id": "q042",
+      "language_register": "clinical",
+      "cpg_slug": "pregnancy",
+      "context_precision": 0.9999999999,
+      "answer_relevancy": 0.7518996492746075
+    },
+    {
+      "query_id": "q034",
+      "language_register": "clinical",
+      "cpg_slug": "lower-back-pain",
+      "context_precision": 0.249999999975,
+      "answer_relevancy": 0.6889760342951922
+    },
+    {
+      "query_id": "q049",
+      "language_register": "clinical",
+      "cpg_slug": "osteoarthritis",
+      "context_precision": 0.6388888888675925,
+      "answer_relevancy": 0.7625856254878624
+    },
+    {
+      "query_id": "q022",
+      "language_register": "clinical",
+      "cpg_slug": "mdd",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.0
+    },
+    {
+      "query_id": "q002",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.499999999975,
+      "answer_relevancy": 0.5817264012513659
+    },
+    {
+      "query_id": "q008",
+      "language_register": "clinical",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.6791666666496875,
+      "answer_relevancy": 0.9167640714572232
+    },
+    {
+      "query_id": "q025",
+      "language_register": "clinical",
+      "cpg_slug": "mdd",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.6442527240766927
+    },
+    {
+      "query_id": "q026",
+      "language_register": "lay",
+      "cpg_slug": "suicide-risk",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.5924414277962172
+    },
+    {
+      "query_id": "q024",
+      "language_register": "lay",
+      "cpg_slug": "mdd",
+      "context_precision": 0.249999999975,
+      "answer_relevancy": 0.7253030701977915
+    },
+    {
+      "query_id": "q006",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.99999999995,
+      "answer_relevancy": 0.7781732148081144
+    }
+  ]
+}

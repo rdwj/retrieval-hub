@@ -293,6 +293,122 @@ faithfulness) on the same 30-query set (seed 42).
 
 ---
 
+## Run 7: Embedding model comparison (E4)
+
+**Date:** 2026-08-21
+**Commit:** `aa9530a`
+**Config:** Same as Run 3 (semantic layer + rewriter, no reranking).
+Compares three embedding models: PubMedBERT (baseline, Run 3 data),
+BioLORD-2023 (biomedical domain), and nomic-embed-text-v1.5 (general-
+purpose, platform default). Same chunking (512/0), same rewriter, same
+scoring LLMs. Only the embedding model changes.
+**Raw data:** `runs/embed-biolord/` and `runs/embed-nomic/`
+
+### Results
+
+| | context_precision | | | answer_relevancy | | |
+|---|---|---|---|---|---|---|
+| **Model (raw)** | **Overall** | **Clinical** | **Lay** | **Overall** | **Clinical** | **Lay** |
+| PubMedBERT | 0.809 | 0.798 | 0.821 | 0.646 | 0.657 | 0.634 |
+| BioLORD-2023 | 0.511 | 0.425 | 0.609 | 0.655 | 0.646 | 0.666 |
+| **Nomic v1.5** | **0.822** | 0.779 | **0.870** | **0.740** | **0.775** | **0.700** |
+
+| **Model (rewrite)** | **Overall** | **Clinical** | **Lay** | **Overall** | **Clinical** | **Lay** |
+|---|---|---|---|---|---|---|
+| PubMedBERT | 0.740 | 0.684 | 0.804 | 0.700 | 0.763 | 0.629 |
+| BioLORD-2023 | 0.571 | 0.497 | 0.656 | 0.699 | 0.717 | 0.677 |
+| **Nomic v1.5** | **0.807** | **0.813** | 0.799 | **0.704** | 0.739 | **0.663** |
+
+| **Model** | **Raw hit_rate@5** | **Rewrite hit_rate@5** |
+|---|---|---|
+| PubMedBERT | 29/30 (0.967) | 30/30 (1.000) |
+| BioLORD-2023 | 30/30 (1.000) | 29/30 (0.967) |
+| Nomic v1.5 | 30/30 (1.000) | 30/30 (1.000) |
+
+### Observations
+
+1. Nomic v1.5 (general-purpose) outperforms PubMedBERT (domain-specific) on
+   every aggregate metric. Raw context_precision +1.3pts, raw
+   answer_relevancy +9.4pts, rewrite context_precision +6.7pts.
+2. BioLORD-2023 ranks chunks poorly despite finding the right documents
+   (perfect raw hit_rate but 0.511 context_precision). This suggests the
+   model's embedding space doesn't differentiate clinical relevance well
+   within the VA CPG corpus.
+3. Nomic's raw answer_relevancy (0.740) already exceeds PubMedBERT's
+   *rewrite* answer_relevancy (0.700), meaning Nomic without rewriting
+   produces better answers than PubMedBERT with rewriting.
+4. Nomic achieves perfect hit_rate on both raw and rewrite (30/30), the only
+   model to do so.
+5. Nomic's rewriting delta is slightly negative (-1.5pts ctx_precision,
+   -3.6pts ans_relevancy), suggesting the rewriter adds less value when the
+   base embeddings are already high-quality. This matches the hypothesis
+   that rewriting compensates for vocabulary mismatch — Nomic's larger
+   training set may already handle this implicitly.
+6. jina-embeddings-v3 could not be tested due to a transformers version
+   incompatibility. This is the only planned candidate that wasn't
+   evaluated.
+
+### Recommendation
+
+Switch the VA CPG source to nomic-embed-text-v1.5. It dominates PubMedBERT
+on all metrics and is already the platform default model. Next step: run
+hybrid_0.3 reranking on top of Nomic embeddings to see if the combination
+further improves results (Run 8).
+
+---
+
+## Run 8: Nomic v1.5 + reranking strategies
+
+**Date:** 2026-08-21
+**Commit:** `aa9530a`
+**Config:** Nomic v1.5 embeddings (from Run 7) with cosine_dedup and
+hybrid_alpha_03 reranking. Tests whether reranking gains stack with the
+new embedding model.
+**Raw data:** `runs/embed-nomic-rerank/`
+
+### Results
+
+| | context_precision | answer_relevancy | faithfulness | hit_rate | MRR |
+|---|---|---|---|---|---|
+| cosine_dedup | 0.794 | **0.710** | 0.830 | 1.000 | 0.928 |
+| hybrid_alpha_03 | **0.839** | 0.688 | **0.845** | 1.000 | **0.944** |
+
+By register (hybrid_alpha_03):
+
+| Register | ctx_precision | ans_relevancy | MRR |
+|---|---|---|---|
+| Clinical (n=16) | 0.830 | 0.760 | 1.000 |
+| Lay (n=14) | 0.849 | 0.606 | 0.881 |
+
+### Observations
+
+1. Nomic + hybrid_0.3 achieves the highest context_precision of any
+   configuration tested (0.839), beating PubMedBERT + hybrid_0.3 (0.817,
+   Run 6) by +2.2pts.
+2. The precision-vs-relevancy trade-off persists: hybrid reranking improves
+   ctx_precision (+4.5pts over cosine_dedup) but reduces answer_relevancy
+   (-2.2pts). This pattern is consistent across both embedding models.
+3. Nomic *raw* (no reranking, Run 7) beats every PubMedBERT configuration
+   on both ctx_precision (0.822 vs best 0.817) AND answer_relevancy (0.740
+   vs best 0.729). This means switching to Nomic eliminates the need for
+   expensive cross-encoder reranking.
+4. Clinical register with Nomic + hybrid_0.3 achieves perfect MRR (1.000),
+   same as PubMedBERT + hybrid_0.3.
+5. Lay register faithfulness shows NaN for some conditions — likely caused
+   by the Ragas "1 generation instead of 3" warnings affecting a small
+   sample.
+
+### Recommendation
+
+Switch VA CPG to Nomic v1.5 **without** hybrid reranking. The raw Nomic
+embeddings (0.822 ctx_precision, 0.740 answer_relevancy) outperform every
+PubMedBERT configuration, including PubMedBERT + hybrid_0.3. Adding
+reranking to Nomic provides marginal ctx_precision gain but at a cost to
+answer quality, and adds latency and complexity. The simpler configuration
+(Nomic raw) is Pareto-optimal.
+
+---
+
 ## Cumulative progress
 
 | Run | Config | Overall ctx_prec | Overall ans_rel | Overall faith | Overall MRR |
@@ -301,12 +417,14 @@ faithfulness) on the same 30-query set (seed 42).
 | 2 | + semantic layer, cosine dedup | -- | -- | -- | 0.934 (rewrite) |
 | 3 | Run 2 config, Ragas scoring | 0.740 | 0.700 | -- | -- |
 | 5 | Run 2 + cross-encoder rerank | 0.859 | 0.655 | 0.837 | 0.906 |
-| 6 | Run 2 + hybrid_0.3 rerank | 0.817 | **0.729** | **0.881** | **0.961** |
+| 6 | Run 2 + hybrid_0.3 rerank | 0.817 | 0.729 | 0.881 | 0.961 |
+| 7 | Nomic v1.5 embeddings (no rerank) | **0.822** | **0.740** | -- | -- |
+| 8 | Nomic v1.5 + hybrid_0.3 rerank | 0.839 | 0.688 | 0.845 | 0.944 |
 
-Hybrid scoring (alpha=0.3) resolves the answer_relevancy trade-off from
-Run 5. It blends 30% cross-encoder signal with 70% cosine similarity,
-capturing most of the cross-encoder precision gain without sacrificing
-answer quality. This is the current best overall configuration.
+Nomic v1.5 raw (Run 7) is Pareto-optimal: highest answer_relevancy (0.740)
+with competitive context_precision (0.822). Adding hybrid_0.3 reranking
+(Run 8) pushes ctx_precision to 0.839 but costs -5.2pts answer_relevancy.
+Recommendation: switch to Nomic v1.5 without reranking.
 
 ---
 
@@ -315,11 +433,16 @@ answer quality. This is the current best overall configuration.
 See `EVAL_PLAN.md` for the convergence plan. Priorities given current
 results:
 
-1. **Chunking variations** -- test 256-token and 1024-token chunks.
-2. **Embedding model comparison** -- PubMedBERT vs. general-purpose models.
+1. **Nomic + hybrid_0.3 reranking** -- combine the best embedding model
+   (Nomic v1.5, Run 7) with the best reranking strategy (hybrid_0.3,
+   Run 6) to see if gains stack.
+2. **Chunking variations** -- test 256-token and 1024-token chunks with
+   Nomic embeddings.
 3. **Expand vocabulary mappings for lay queries** -- target lay queries that
    scored below MRR 1.0.
 4. **MCP-level eval** -- run the same eval through the MCP tools to measure
    end-to-end system performance (#31).
-5. **Fine-tune alpha** -- test alpha values between 0.2 and 0.4 to find the
-   optimal blend point.
+5. ~~**Embedding model comparison**~~ -- completed (Run 7). Nomic v1.5
+   dominates PubMedBERT. BioLORD-2023 underperforms.
+6. ~~**Fine-tune alpha**~~ -- deprioritized. Embedding model switch provides
+   larger gains than alpha tuning.

@@ -32,7 +32,7 @@ logger = logging.getLogger("eval_rerank_strategies")
 SOURCE_SLUG = "va-cpg-clinical-guidelines"
 QA_DATASET_PATH = Path("eval/autorag/qa_dataset_draft.json")
 DEFAULT_RUN_DIR = Path("eval/rewrite_lift/runs/rerank-comparison")
-PRIOR_RETRIEVAL_PATH = Path(
+DEFAULT_PRIOR_RETRIEVAL_PATH = Path(
     "eval/rewrite_lift/runs/9084a31205273246/retrieval.json"
 )
 
@@ -586,10 +586,11 @@ async def _run(args: argparse.Namespace) -> int:
     wall_start = time.monotonic()
 
     # Load prior retrieval data (has rewrites + raw_hits)
-    if not PRIOR_RETRIEVAL_PATH.exists():
-        logger.error("Prior retrieval cache not found: %s", PRIOR_RETRIEVAL_PATH)
+    prior_path = Path(args.prior_retrieval)
+    if not prior_path.exists():
+        logger.error("Prior retrieval cache not found: %s", prior_path)
         return 1
-    prior_data = json.loads(PRIOR_RETRIEVAL_PATH.read_text())
+    prior_data = json.loads(prior_path.read_text())
     if args.subset:
         prior_data = prior_data[:args.subset]
     logger.info("loaded %d queries from prior retrieval cache", len(prior_data))
@@ -718,6 +719,8 @@ async def _run(args: argparse.Namespace) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--prior-retrieval", default=str(DEFAULT_PRIOR_RETRIEVAL_PATH),
+                   help="Path to prior retrieval.json (has rewrites + raw_hits).")
     p.add_argument("--run-dir", default=str(DEFAULT_RUN_DIR))
     p.add_argument("--db-url", default=DEFAULT_DB_URL)
     p.add_argument("--vectors-db-url", default=DEFAULT_VECTORS_DB_URL)

@@ -1,0 +1,249 @@
+{
+  "aggregate": {
+    "context_precision": 0.8388888888618842,
+    "answer_relevancy": 0.6882109833720503,
+    "faithfulness": 0.8453179680360209
+  },
+  "per_query": [
+    {
+      "query_id": "q033",
+      "language_register": "lay",
+      "cpg_slug": "lower-back-pain",
+      "context_precision": 0.9999999999666667,
+      "answer_relevancy": 0.0,
+      "faithfulness": NaN
+    },
+    {
+      "query_id": "q009",
+      "language_register": "lay",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.999999999975,
+      "answer_relevancy": 0.4172405139428174,
+      "faithfulness": 0.6
+    },
+    {
+      "query_id": "q038",
+      "language_register": "lay",
+      "cpg_slug": "mtbi",
+      "context_precision": 0.8333333332916666,
+      "answer_relevancy": 0.5612479980877859,
+      "faithfulness": 0.5
+    },
+    {
+      "query_id": "q027",
+      "language_register": "clinical",
+      "cpg_slug": "suicide-risk",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8110045177879063,
+      "faithfulness": 0.75
+    },
+    {
+      "query_id": "q003",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.6388888888675925,
+      "answer_relevancy": 0.7457085038091971,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q021",
+      "language_register": "clinical",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.4499999999775,
+      "answer_relevancy": 0.6874926252375205,
+      "faithfulness": 0.75
+    },
+    {
+      "query_id": "q004",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8768318945690665,
+      "faithfulness": 0.8461538461538461
+    },
+    {
+      "query_id": "q005",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.999999999975,
+      "answer_relevancy": 0.7996054256025592,
+      "faithfulness": 0.8
+    },
+    {
+      "query_id": "q017",
+      "language_register": "lay",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.5840542300041507,
+      "faithfulness": 0.2857142857142857
+    },
+    {
+      "query_id": "q019",
+      "language_register": "lay",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.8055555555287036,
+      "answer_relevancy": 0.5032831984586973,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q030",
+      "language_register": "clinical",
+      "cpg_slug": "opioids",
+      "context_precision": 0.999999999975,
+      "answer_relevancy": 0.5030679734950201,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q040",
+      "language_register": "lay",
+      "cpg_slug": "pregnancy",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.9264715432071664,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q001",
+      "language_register": "clinical",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.7499999999625,
+      "answer_relevancy": 0.7924141363936688,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q007",
+      "language_register": "clinical",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8222347536670882,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q043",
+      "language_register": "lay",
+      "cpg_slug": "pregnancy",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.693333770445157,
+      "faithfulness": 0.8823529411764706
+    },
+    {
+      "query_id": "q048",
+      "language_register": "clinical",
+      "cpg_slug": "obesity",
+      "context_precision": 0.699999999965,
+      "answer_relevancy": 0.7069202108503675,
+      "faithfulness": 0.75
+    },
+    {
+      "query_id": "q031",
+      "language_register": "lay",
+      "cpg_slug": "opioids",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.37206078260805314,
+      "faithfulness": 0.875
+    },
+    {
+      "query_id": "q012",
+      "language_register": "clinical",
+      "cpg_slug": "copd",
+      "context_precision": 0.8333333332916666,
+      "answer_relevancy": 0.8181867902632702,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q020",
+      "language_register": "clinical",
+      "cpg_slug": "ptsd",
+      "context_precision": 0.6999999999766667,
+      "answer_relevancy": 0.726397032692223,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q046",
+      "language_register": "lay",
+      "cpg_slug": "tobacco",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8238579007253752,
+      "faithfulness": 0.875
+    },
+    {
+      "query_id": "q042",
+      "language_register": "clinical",
+      "cpg_slug": "pregnancy",
+      "context_precision": 0.999999999975,
+      "answer_relevancy": 0.7182674969989951,
+      "faithfulness": 0.8
+    },
+    {
+      "query_id": "q034",
+      "language_register": "clinical",
+      "cpg_slug": "lower-back-pain",
+      "context_precision": 0.94999999997625,
+      "answer_relevancy": 0.7385393874645357,
+      "faithfulness": 0.8333333333333334
+    },
+    {
+      "query_id": "q049",
+      "language_register": "clinical",
+      "cpg_slug": "osteoarthritis",
+      "context_precision": 0.7499999999625,
+      "answer_relevancy": 0.768465708625413,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q022",
+      "language_register": "clinical",
+      "cpg_slug": "mdd",
+      "context_precision": 0.6388888888675925,
+      "answer_relevancy": 0.9456846420947896,
+      "faithfulness": 0.9285714285714286
+    },
+    {
+      "query_id": "q002",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.4166666666458333,
+      "answer_relevancy": 0.5677899551657196,
+      "faithfulness": 0.5714285714285714
+    },
+    {
+      "query_id": "q008",
+      "language_register": "clinical",
+      "cpg_slug": "diabetes",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8648348115561199,
+      "faithfulness": 0.8
+    },
+    {
+      "query_id": "q025",
+      "language_register": "clinical",
+      "cpg_slug": "mdd",
+      "context_precision": 0.8666666666377778,
+      "answer_relevancy": 0.71647309652051,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q026",
+      "language_register": "lay",
+      "cpg_slug": "suicide-risk",
+      "context_precision": 0.4166666666458333,
+      "answer_relevancy": 0.8269710530747769,
+      "faithfulness": 1.0
+    },
+    {
+      "query_id": "q024",
+      "language_register": "lay",
+      "cpg_slug": "mdd",
+      "context_precision": 0.9166666666361111,
+      "answer_relevancy": 0.6458379897858645,
+      "faithfulness": 0.6666666666666666
+    },
+    {
+      "query_id": "q006",
+      "language_register": "lay",
+      "cpg_slug": "hypertension",
+      "context_precision": 0.9999999999666667,
+      "answer_relevancy": 0.6820515580276975,
+      "faithfulness": 1.0
+    }
+  ]
+}

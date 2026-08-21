@@ -1,0 +1,53 @@
+{
+  "date": "2026-08-21T14:20:03Z",
+  "strategies": {
+    "cosine_dedup": {
+      "context_precision": 0.7937499999711285,
+      "answer_relevancy": 0.7100425348332263,
+      "faithfulness": 0.8298487227058657,
+      "hit_rate": 1.0,
+      "mrr": 0.9278
+    },
+    "hybrid_alpha_03": {
+      "context_precision": 0.8388888888618842,
+      "answer_relevancy": 0.6882109833720503,
+      "faithfulness": 0.8453179680360209,
+      "hit_rate": 1.0,
+      "mrr": 0.9444
+    }
+  },
+  "by_register": {
+    "lay": {
+      "cosine_dedup": {
+        "context_precision": 0.7951,
+        "answer_relevancy": 0.6512,
+        "faithfulness": 0.8365,
+        "hit_rate": 1.0,
+        "mrr": 0.9167
+      },
+      "hybrid_alpha_03": {
+        "context_precision": 0.8492,
+        "answer_relevancy": 0.6058,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.881
+      }
+    },
+    "clinical": {
+      "cosine_dedup": {
+        "context_precision": 0.7925,
+        "answer_relevancy": 0.7616,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9375
+      },
+      "hybrid_alpha_03": {
+        "context_precision": 0.8299,
+        "answer_relevancy": 0.7603,
+        "faithfulness": 0.9007,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      }
+    }
+  }
+}
