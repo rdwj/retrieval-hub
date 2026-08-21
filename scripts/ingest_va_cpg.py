@@ -31,8 +31,10 @@ pgvector table name, and the exact command to query it next.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -41,7 +43,7 @@ from retrieval_hub.db.engine import create_db_engine, make_session_factory
 from retrieval_hub.ingestion.chunking.token_fixed import Chunk, chunk_document
 from retrieval_hub.ingestion.fetch import FetchError, load_corpus_tree
 from retrieval_hub.ingestion.normalize import normalize_document
-from retrieval_hub.ingestion.parse import parse_document
+from retrieval_hub.ingestion.parse import ParsedSection, parse_document
 from retrieval_hub.ingestion.register import register_document_source
 from retrieval_hub.ingestion.write import ensure_pgvector_schema, write_chunks
 from retrieval_hub.models.enums import SourceFamily
@@ -200,6 +202,31 @@ def _build_source_url_map(pdf_urls_path: Path) -> dict[str, str]:
     return url_map
 
 
+_CPG_TITLE_RE = re.compile(r"CLINICAL PRACTICE GUIDELINE(?!S)\b", re.IGNORECASE)
+
+
+def _normalize_title(title: str, sections: list[ParsedSection]) -> str:
+    """Fix doc_title inconsistencies in VA CPG extracted documents."""
+    t = html.unescape(title)
+    t = t.replace("VA/DOD", "VA/DoD")
+    t = t.replace("DIAGNOSI S", "DIAGNOSIS")
+
+    if not _CPG_TITLE_RE.search(t):
+        for sec in sections:
+            heading = html.unescape(sec.heading)
+            heading = heading.replace("VA/DOD", "VA/DoD")
+            heading = heading.replace("DIAGNOSI S", "DIAGNOSIS")
+            if _CPG_TITLE_RE.search(heading):
+                t = heading
+                break
+
+    # Two source docs use Title Case while the rest use ALL CAPS.
+    if _CPG_TITLE_RE.search(t):
+        t = t.upper().replace("VA/DOD", "VA/DoD")
+
+    return t
+
+
 def _run_ingestion(corpus_dir: Path, db_url: str, vectors_db_url: str) -> int:
     """Execute the full ingestion pipeline end-to-end."""
     wall_start = time.monotonic()
@@ -229,6 +256,7 @@ def _run_ingestion(corpus_dir: Path, db_url: str, vectors_db_url: str) -> int:
         if norm is None:
             logger.info("skipping empty/short document url=%s", raw.url)
             continue
+        norm.title = _normalize_title(norm.title, norm.sections)
         normalized.append(norm)
     logger.info("normalized %d documents", len(normalized))
 
