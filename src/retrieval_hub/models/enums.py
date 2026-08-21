@@ -16,6 +16,7 @@ class SourceFamily(StrEnum):
 
     DOCUMENT = "document"
     CLINICAL_DOCUMENT = "clinical_document"
+    TECHNICAL_DOCUMENT = "technical_document"
     CODE = "code"
     TABULAR = "tabular"
     GRAPH = "graph"
@@ -88,6 +89,7 @@ class EvalSuiteFamily(StrEnum):
 
     DOCUMENT = "document"
     CLINICAL_DOCUMENT = "clinical_document"
+    TECHNICAL_DOCUMENT = "technical_document"
     CODE = "code"
     TABULAR = "tabular"
     GRAPH = "graph"
