@@ -29,6 +29,7 @@ from retrieval_hub.retrieval.api import (
     SourceNotFoundError,
     SourceNotQueryableError,
     UnsupportedFamilyError,
+    resolve_chunk_id,
 )
 from retrieval_hub.retrieval.api import (
     query as retrieval_query,
@@ -36,7 +37,6 @@ from retrieval_hub.retrieval.api import (
 from retrieval_hub.retrieval.api import (
     refine as retrieval_refine,
 )
-from retrieval_hub.retrieval.api import resolve_chunk_id
 from retrieval_hub.rewriter import LlmClient, RewriterService
 from retrieval_hub.rewriter.schemas import RewriteResult
 from retrieval_hub.schemas.rewriter import RewriterMetadata
