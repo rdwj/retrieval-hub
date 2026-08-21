@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-21",
+  "results": {
+    "256_0": {
+      "table": "idx_va_cpg_nomic_256_0",
+      "chunk_tokens": 256,
+      "overlap": 0,
+      "chunk_count": 12973,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9111,
+      "mean_cosine_sim": 0.7929
+    },
+    "512_0": {
+      "table": "idx_va_cpg_nomic_v1",
+      "chunk_tokens": 512,
+      "overlap": 0,
+      "chunk_count": 6500,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9111,
+      "mean_cosine_sim": 0.7817
+    },
+    "512_64": {
+      "table": "idx_va_cpg_nomic_512_64",
+      "chunk_tokens": 512,
+      "overlap": 64,
+      "chunk_count": 7420,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9667,
+      "mean_cosine_sim": 0.7846
+    },
+    "1024_0": {
+      "table": "idx_va_cpg_nomic_1024_0",
+      "chunk_tokens": 1024,
+      "overlap": 0,
+      "chunk_count": 3263,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9667,
+      "mean_cosine_sim": 0.7609
+    }
+  }
+}

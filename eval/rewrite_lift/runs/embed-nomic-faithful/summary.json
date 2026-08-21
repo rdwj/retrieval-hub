@@ -1,0 +1,29 @@
+{
+  "config": {
+    "fingerprint": "9084a31205273246",
+    "source_slug": "va-cpg-clinical-guidelines",
+    "rewriter_llm": "/mnt/models",
+    "answer_llm": "gpt-oss:20b",
+    "scoring_llm": "/mnt/models",
+    "top_k": 5,
+    "eval_seed": 42,
+    "query_count": 30
+  },
+  "date": "2026-08-21T17:49:57Z",
+  "wall_time_seconds": 5987.8,
+  "raw": {
+    "context_precision": 0.8149999999733701,
+    "answer_relevancy": 0.7345127609447974,
+    "faithfulness": 0.854280045351474
+  },
+  "rewrite": {
+    "context_precision": 0.8085185184905586,
+    "answer_relevancy": 0.7040598133768695,
+    "faithfulness": 0.8132088076532521
+  },
+  "delta": {
+    "context_precision": -0.0065,
+    "answer_relevancy": -0.0305,
+    "faithfulness": -0.0411
+  }
+}

@@ -258,6 +258,7 @@ def _run_ingestion(corpus_dir: Path, db_url: str, vectors_db_url: str) -> int:
     embedder = ChunkEmbedder(
         model_name=EMBEDDING_MODEL,
         document_prefix=DOCUMENT_PREFIX,
+        batch_size=8,
     )
     actual_dim = embedder.dimension
     if actual_dim != EMBEDDING_DIMENSION:
