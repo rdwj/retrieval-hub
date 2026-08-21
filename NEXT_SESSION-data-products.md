@@ -1,68 +1,91 @@
 # Next Session -- data-products
 
-## Next: Chunking refinement sweeps (PubMed + aircraft)
+## Next: Aircraft chunking sweep + cross-domain comparison
 
 Run the chunking refinement methodology (`docs/chunking-refinement-methodology.md`)
-against both the pubmed-hypertension and aircraft-maintenance corpora. Two
-sweeps, same methodology, different domains -- the comparison is a paper
-contribution showing whether chunking defaults transfer across domains.
+against the aircraft-maintenance corpus. The PubMed sweep already landed
+(SA-256-0 won at 0.950 hit_rate, Ragas confirmed — see
+`eval/pubmed_hypertension/CHUNKING_SWEEP.md`). This session completes
+Phase 3 by running the aircraft sweep and writing the cross-domain
+comparison lab notes.
 
-Paper-quality lab notes are a first-class deliverable, not an afterthought.
-Run one sweep per session so each gets the full attention and documentation
-it deserves.
+The aircraft sweep is token-fixed only (no BioC structure — source is
+Docling-extracted markdown). The comparison with the PubMed results is
+a paper contribution: do chunking defaults transfer across domains, or
+does technical maintenance content need different parameters?
 
-### PubMed sweep (first session)
+1. **Write sweep script**
+   Adapt `scripts/sweep_pubmed_chunking.py` for the aircraft corpus.
+   Key differences: remote embedding via vLLM endpoint (not local
+   PubMedBERT), token-fixed chunker only, different eval dataset
+   (`eval/aircraft_maintenance/qa_dataset.json`). The baseline is
+   512/64 (current ingestion config).
 
-The BioC section-aware chunker adds a dimension the VA CPG sweep didn't
-have: `respect_section_boundaries` (True/False).
-
-1. **Define sweep grid and hypothesis**
-   Follow Steps 1-2 of the methodology doc. Grid:
-   - Chunker: section-aware (BioC) vs token-fixed
-   - Token sizes: 256 / 512 / 1024
+2. **Define sweep grid and hypothesis**
+   Grid (token-fixed only, ~6 configs):
+   - Token sizes: 256 / 384 / 512
    - Overlap: 0 / 64
-   - Section boundaries: respected vs ignored (section-aware only)
-   - Record hypothesis before running
+   - Hypothesis: aircraft service bulletins are shorter and more
+     structured than clinical literature — smaller chunks (256) may
+     win because each bulletin covers a single topic. But overlap
+     should help since procedural steps span chunk boundaries.
+   - Record hypothesis before running.
 
-2. **Sweep: re-ingest + eval per config (~8-10 configs)**
-   Re-ingest the 10 PMC articles per config into
-   `idx_pubmed_hypertension_v1`, run retrieval eval against the
-   25-question QA dataset using hit_rate@5 and MRR@5.
+3. **Sweep: re-ingest + eval per config**
+   Re-ingest all 263 docs per config via the remote vLLM endpoint,
+   run retrieval eval against the 25-question QA dataset using
+   hit_rate@5 and MRR@5.
+   - Important: the BERT tokenizer mismatch means `truncate_prompt_tokens`
+     is already set in the embed module. Larger chunk sizes (512) will
+     have some tokens truncated on outlier chunks — this is expected
+     and documented.
 
-3. **Ragas answer-quality on winner vs runner-up**
+4. **Ragas answer-quality on winner vs runner-up**
 
-4. **Lab notes (paper-quality)**
+5. **Lab notes: cross-domain comparison**
+   Write the full decision chain for both sweeps side by side:
+   hypothesis, results tables, why each winner won, whether the
+   methodology doc was followable for a second domain, and what
+   surprised us. These notes feed the arXiv paper.
 
-### Aircraft sweep (second session)
-
-Same methodology applied to a technical maintenance domain with
-token-fixed chunker only (no BioC structure available). This tests
-whether the methodology doc is domain-portable.
-
-**Session start protocol (PubMed sweep):**
+**Session start protocol:**
 - Premise checks (~5 min):
   - Verify local Postgres (ports 5434/5433) is running
-  - Verify `idx_pubmed_hypertension_v1` table exists with 233 rows
-  - Verify PubMedBERT model is cached in `.model_cache/`
-  - Commit any uncommitted files first
-  - Read `docs/chunking-refinement-methodology.md` and follow its steps
+  - Verify `idx_aircraft_maintenance_v1` table exists with 2330 rows
+  - Verify vLLM endpoint is reachable:
+    `curl -s https://vllm-snowflake-embedding-retrieval-hub.apps.cluster-khsm8.khsm8.sandbox780.opentlc.com/v1/embeddings -X POST -H 'Content-Type: application/json' -d '{"model":"Snowflake/snowflake-arctic-embed-m-v1.5","input":["test"]}'`
+    If 503/timeout: check the pod on agent-security-dev-3 (`oc get pods --context=agent-security-dev-3 -n retrieval-hub`). The GPU
+    machineset may have been scaled down between sessions.
+  - Read `docs/chunking-refinement-methodology.md` and the PubMed sweep
+    results (`eval/pubmed_hypertension/CHUNKING_SWEEP.md`) for context
+  - Read `scripts/sweep_pubmed_chunking.py` to understand the sweep
+    harness before adapting it
+  - `git status` — commit any uncommitted files first
 - Rules with history:
-  - TECHNICAL_DOCUMENT enum: resolved (a619ff3).
-  - Record sweep results as structured data (JSON/CSV), not just prose.
-- Stop-and-ask before: dropping and recreating pgvector tables
+  - Record sweep results as structured data (JSON/CSV), not prose.
+  - `truncate_prompt_tokens: 512` is set in `_remote_embed()` — don't
+    reduce chunk size to work around BERT tokenizer expansion. The
+    truncation is intentional and documented in CLAUDE.md.
+- Stop-and-ask before: dropping and recreating `idx_aircraft_maintenance_v1`
+  (the `write_chunks(replace=True)` default deletes all rows first)
 - Close ritual: session summary, update eval register, update this file
 
-**Loop design (per sweep):**
-- **Exit predicate:** All configs in the sweep grid have been ingested,
-  evaluated, and recorded. Results table complete with no blank cells.
-- **Max iterations:** ~8-10 configs per sweep.
+**Loop design:**
+- **Exit predicate:** All 6 configs have been ingested, evaluated, and
+  recorded. Results table complete with no blank cells.
+- **Max iterations:** 6 configs.
 - **Per-item verifier:** Each config produces a row in the results table
-  with hit_rate@5 and MRR@5 values.
-- **Premise to re-validate each pass:** The pgvector table exists and
-  the previous config's data was successfully replaced.
-- **Maker != checker:** Ingestion script produces chunks; eval script
-  independently scores retrieval quality.
-- **If stuck:** Record the failure and move to the next config.
+  with hit_rate@5 and MRR@5 values. Ingestion log confirms chunk count
+  is in expected range for the config.
+- **Premise to re-validate each pass:** The pgvector table exists, the
+  previous config's data was successfully replaced, and the vLLM endpoint
+  is still responding (check between configs if ingestion was slow).
+- **Maker != checker:** Ingestion script produces chunks via remote
+  embedding; eval script independently scores retrieval quality against
+  the QA dataset. Different code paths.
+- **If stuck:** If a config fails embedding (vLLM timeout, pod crash),
+  record the failure and move on. If the vLLM endpoint goes down
+  mid-sweep, check the pod and restart if needed before continuing.
 
 ## Remaining epic phases
 
@@ -111,23 +134,17 @@ API integrates cleanly with the existing embedder interface. The same
 sentence-transformers and remote endpoints via a single `endpoint`
 parameter.
 
-### Phase 3: Chunking refinement sweeps + lab notes
+### Phase 3: Chunking refinement sweeps + lab notes [IN PROGRESS]
 
-Run the 8-step methodology from `docs/chunking-refinement-methodology.md`
-against both the pubmed-hypertension and aircraft-maintenance corpora.
-Two sweeps across different domains -- a paper contribution showing
-whether chunking defaults transfer.
+PubMed sweep DONE (parallel session 2026-08-21): SA-256-0 won at 0.950
+hit_rate@5, Ragas confirmed. Results in `eval/pubmed_hypertension/`.
+Pubmed ingestion updated to winner config.
 
-**Work:**
-1. PubMed sweep: section-aware vs token-fixed, 256/512/1024 tokens,
-   0/64 overlap, section boundaries respected vs ignored (~8-10 configs)
-2. Aircraft sweep: token-fixed only, same size/overlap grid (~6 configs)
-3. Ragas answer-quality on winners vs runners-up
-4. Lab notes: domain comparison, methodology portability, what surprised us
+Remaining: aircraft sweep + cross-domain comparison lab notes.
 
-**Definition of done:** Sweep results tables in `eval/pubmed_hypertension/`
-and `eval/aircraft_maintenance/`, winners re-ingested as production
-configs, lab notes document the full decision chain.
+**Definition of done:** Sweep results tables in both `eval/` dirs,
+winners re-ingested as production configs, cross-domain comparison
+lab notes document whether chunking defaults transfer.
 
 **Dependencies:** Phases 1 + 2 (both baselines done)
 
@@ -279,71 +296,38 @@ findable. A reader could follow the lab notes and replicate our findings.
 
 ## What landed last session (2026-08-21)
 
+See `session-summaries/2026-08-21-data-products-aircraft-ingestion.md`.
+
 Phase 2 completed: aircraft maintenance baseline ingestion with remote
-embedding.
+embedding. 263 docs, 2330 chunks, snowflake-arctic-embed-m-v1.5 via vLLM.
+Commits: `182e2e3`..`b7b7a65`.
 
-**New files:**
-- `deploy/openshift/retrieval-hub/embedding/vllm-snowflake.yaml` -- vLLM
-  Deployment + Service + Route for Snowflake Arctic Embed M v1.5 (GPU,
-  OpenAI-compatible `/v1/embeddings` API)
-- `scripts/ingest_aircraft_maintenance.py` -- 7-stage ingestion script
-  for 269 Piper Aircraft service bulletins (Cherokee + Saratoga families)
-- `eval/aircraft_maintenance/qa_dataset.json` -- 25 Q/A pairs (20
-  single-source + 5 cross-dataset spanning aircraft + clinical domains)
-
-**Modifications:**
-- `src/retrieval_hub/ingestion/embed.py` -- added remote embedding
-  backend: `ChunkEmbedder` and `QueryEmbedder` now accept an `endpoint`
-  parameter to call an OpenAI-compatible `/v1/embeddings` API. Includes
-  batching, exponential backoff retry, and dimension discovery. 15 new
-  tests. Local backend unchanged when endpoint is None.
-- `src/retrieval_hub/adapters/document.py` -- added `_embedding_endpoint()`
-  to read endpoint from recipe, updated all 3 `QueryEmbedder` call sites
-  (retrieve, cross_reference, entity_arc)
-
-**Infrastructure:**
-- Scaled GPU machineset on agent-security-dev-3 from 2 to 3 replicas
-  (new L40S node). gpt-oss-120b was fully allocated (4/4 GPUs in use).
-- Created `retrieval-hub` namespace on agent-security-dev-3.
-- Deployed vLLM with `--task embed` flag for embedding model serving.
-
-**Key finding:** Remote embedding via vLLM's OpenAI-compatible API
-integrates cleanly with the existing embedder interface. No changes
-needed to calling code -- the `endpoint` parameter routes to HTTP
-automatically. The recipe stores the endpoint URL so the MCP server's
-QueryEmbedder picks it up at retrieval time.
-
-## What landed session before (2026-08-20)
-
-Phase 1 completed: pubmed-hypertension baseline ingestion.
-
-**New files:**
-- `src/retrieval_hub/ingestion/chunking/bioc_section.py` -- BioC
-  section-aware chunker
-- `scripts/ingest_pubmed_hypertension.py` -- 7-stage ingestion script
-- `eval/pubmed_hypertension/qa_dataset.json` -- 25 Q/A pairs
-- `docs/chunking-refinement-methodology.md` -- 8-step repeatable
-  methodology
-
-**Ingestion results:** 10 articles, 233 chunks, PubMedBERT 768-dim.
+Parallel session also completed PubMed chunking sweep (Phase 3 first half):
+SA-256-0 won at 0.950 hit_rate@5. Commits: `5355ef4`..`f0edac2`.
 
 ## Watch out for
 
-- The eval-convergence epic's E3 (chunk sweep) overlaps with Phase 2.
-  Decision: one sweep per session so each gets paper-quality lab notes.
-  PubMed sweep runs first (this session); VA CPG E3 sweep runs in a
-  follow-up session with the same eval harness for comparability.
-- Embedding model deployment (Phase 4) depends on cluster access and GPU
-  availability. Check cluster state before starting.
+- The vLLM pod on agent-security-dev-3 and the L40S GPU node may be
+  scaled down between sessions. Check both at session start. The GPU
+  machineset is `gpu-cluster-khsm8-7cbl6-worker-us-east-2c` (currently
+  3 replicas; was 2 before this session).
+- Each sweep config re-embeds all 263 docs via the remote endpoint. At
+  ~2 min per config (132s baseline), the full 6-config sweep should take
+  ~12-15 min of embedding time. Budget accordingly.
+- The `truncate_prompt_tokens: 512` in `_remote_embed()` means some
+  chunks lose their tail tokens when BERT tokenization exceeds 512.
+  This is expected for 512/64 configs but should not happen for 256/0.
+  If it does, that's a data point worth noting in the lab notes.
 
 ## If blocked
 
-- **Cluster unavailable for Phase 4:** Do the aircraft ingestion locally
-  with CPU-based embedding (slower but functional). Deploy the model when
-  the cluster is back.
-- **Cross-dataset reasoning fails (Phase 3):** Iterate on the system
+- **vLLM endpoint down:** Check the pod on agent-security-dev-3. If the
+  GPU node was scaled down, bump the machineset back to 3:
+  `oc scale machineset gpu-cluster-khsm8-7cbl6-worker-us-east-2c --replicas=3 --context=agent-security-dev-3 -n openshift-machine-api`
+  Then wait ~10 min for GPU driver installation.
+- **Sweep script broken:** Fall back to manual re-ingestion per config
+  by modifying constants in `ingest_aircraft_maintenance.py` and running
+  the eval script by hand.
+- **Cross-dataset reasoning fails (Phase 4):** Iterate on the system
   prompt. If the pattern fundamentally doesn't work with current MCP tool
-  design, document why and consider whether a lightweight source-discovery
-  tool (not multi-source retrieve) would help.
-- **Chunking sweep infrastructure broken:** Fall back to manual
-  re-ingestion per config rather than automated sweep.
+  design, document why.
