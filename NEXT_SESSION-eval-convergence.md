@@ -1,44 +1,42 @@
 # Next Session — eval-convergence
 
-## Next: Make the Nomic switch official + chunk sweep (Phase 3, step 4)
+## Next: Phase 3 wrap-up and Phase 4 prep
 
-The embedding comparison (Run 7) and reranking test (Run 8) are done.
-Nomic v1.5 raw is Pareto-optimal. Two things remain to close out Phase 3:
+Phase 3 is nearly complete. The chunk sweep and faithfulness scoring
+landed this session. What remains:
 
-1. **Update `ingest_va_cpg.py` to use Nomic v1.5**
-   Change `EMBEDDING_MODEL`, `DOCUMENT_PREFIX`, `QUERY_PREFIX`, and
-   `DESCRIPTION_LONG` in the base ingestion script. Re-ingest to create a
-   clean `idx_va_cpg_v2` table as the production index. This makes the
-   switch permanent and reproducible.
+1. **Decide on chunk config based on sweep results**
+   The sweep showed all configs achieve 100% hit_rate@5 with Nomic v1.5.
+   MRR favors 512/64 and 1024/0 (both 0.967 vs 0.911 for 256/0 and
+   512/0). 512/64 gets the best MRR with moderate chunk count (7,420).
+   1024/0 matches MRR with fewest chunks (3,263) but lower cosine sim.
+   The current production config (512/0) is acceptable. Consider running
+   full Ragas answer-quality evals on the top 2 configs (512/64, 1024/0)
+   to measure faithfulness and answer_relevancy differences before
+   deciding whether to switch.
 
-2. **Run chunk sweep with Nomic embeddings**
-   The VA CPG chunk sweep (E3) was planned in the data-products epic but
-   hasn't landed yet. Now that the embedding model is decided, run the
-   sweep with Nomic: 256/0, 512/0 (current), 512/64, 1024/0. Use the
-   `ingest_va_cpg_alt_embedding.py` script with different chunking params
-   (needs `--chunk-tokens` and `--overlap-tokens` flags added).
+2. **Record sweep results in the eval register**
+   Import the chunk sweep results into the catalog's eval_run/eval_result
+   tables using `scripts/import_eval_results.py`.
 
-3. **Score faithfulness for Nomic raw**
-   Run 7 scored context_precision and answer_relevancy but not
-   faithfulness. Fill this gap so the eval register has complete metrics
-   for the winning configuration.
-
-4. **Update docs**
-   Add a note to `docs/onboarding-journey-va-cpg.md` step 3 that the
-   embedding comparison (Run 7) superseded the PubMedBERT choice. Update
-   the onboarding guides if needed after review.
+3. **Begin Phase 4 research (leaderboards)**
+   Survey MTEB, BEIR, and clinical NLP benchmarks. Can run concurrently
+   with any remaining Phase 3 work.
 
 **Session start protocol:**
 - Premise checks (~5 min):
-  - Databases up (`pg_isready -h localhost -p 5433` and `-p 5434`)
+  - Databases up (`pg_isready -h 127.0.0.1 -p 5433` and `-p 5434`)
   - gpt-oss-120b reachable
   - Verify `idx_va_cpg_nomic_v1` table exists and is populated
 - Rules with history:
   - gpt-oss-120b reasoning off via `enable_thinking=False` in `extra_body`
   - Ragas max_tokens=8192 to avoid faithfulness NaN
   - Per-condition checkpointing in scoring stage
-  - Nomic v1.5 with batch_size=8 on MPS to avoid OOM
+  - Nomic v1.5 with batch_size=8 on MPS to avoid OOM (batch_size=2 for
+    1024-token chunks)
   - Nomic requires `search_query: ` / `search_document: ` prefixes
+  - **Use 127.0.0.1 not localhost** for Postgres connections (see CLAUDE.md
+    lesson about IPv4/IPv6 ambiguity with oc port-forward)
 - Stop-and-ask before: modifying the eval register (append only);
   dropping existing index tables
 
@@ -99,8 +97,10 @@ Run the Tier 2 experiments from `EVAL_PLAN.md` systematically.
 configs and 2 embedding models. Best configuration identified and recorded
 on the VA CPG data card.
 
-**Status:** 2/2 embedding models tested (BioLORD-2023, Nomic v1.5). Chunk
-sweep pending from data-products epic.
+**Status:** 2/2 embedding models tested (BioLORD-2023, Nomic v1.5). 4/4
+chunk configs swept (256/0, 512/0, 512/64, 1024/0). Faithfulness scored.
+Remaining: decide on best chunk config (may need full Ragas comparison on
+top 2), record results in eval register.
 
 ### Phase 4: Industry leaderboards and publication
 
@@ -168,7 +168,28 @@ concurrently with Phase 3's config sweep.
 - New source onboarding (future epic)
 - Fine-tuning / model training (future work, referenced in refine epic)
 
-## What landed last session (2026-08-21)
+## What landed last session (2026-08-21, afternoon)
+
+Made the Nomic switch official and ran the chunk sweep:
+
+- Updated `ingest_va_cpg.py` to use Nomic v1.5 as the production
+  embedding model (was PubMedBERT). Production active index is
+  `idx_va_cpg_nomic_v1` (512/0, 6,500 chunks).
+- Added `--chunk-tokens` and `--overlap-tokens` flags to the
+  alt-embedding script for sweep flexibility.
+- Ran 4-config chunk sweep with Nomic: 256/0, 512/0, 512/64, 1024/0.
+  All achieve 100% hit_rate@5. MRR: 512/64 and 1024/0 tie at 0.967,
+  256/0 and 512/0 at 0.911. Results in
+  `eval/va_cpg_chunking_sweep/sweep_results.json`.
+- Scored faithfulness for Nomic raw: 0.854 (raw), 0.813 (rewrite).
+  Results in `eval/rewrite_lift/runs/embed-nomic-faithful/`.
+- Fixed all Postgres connection strings across the project from
+  `localhost` to `127.0.0.1` to avoid IPv4/IPv6 ambiguity when
+  `oc port-forward` runs alongside Podman containers.
+- Updated docs: table references in onboarding journey.
+- Added `Faithfulness` metric permanently to `eval_answer_quality.py`.
+
+## What landed earlier (2026-08-21, morning)
 
 Embedding model comparison (Runs 7-8) completed. Nomic v1.5 dominates
 PubMedBERT on all metrics. Nomic raw (no reranking) is Pareto-optimal:
@@ -190,8 +211,9 @@ eval pipeline built. Five eval runs (Runs 1-5). Cross-encoder reranking
 ## Watch out for
 
 - **Nomic batch_size on MPS:** nomic-embed-text-v1.5 OOM'd at batch_size=32
-  on Apple Silicon. Use batch_size=8 for ingestion. At query time the
-  adapter only embeds one query at a time so this doesn't affect retrieval.
+  on Apple Silicon. Use batch_size=8 for 256- and 512-token chunks. For
+  1024-token chunks, use batch_size=2. At query time the adapter only
+  embeds one query at a time so this doesn't affect retrieval.
 - **jina-embeddings-v3:** failed to load with current transformers version
   (`AttributeError: 'XLMRobertaLoRA' has no attribute
   'all_tied_weights_keys'`). Would need a transformers upgrade or pinned

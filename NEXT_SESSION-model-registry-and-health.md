@@ -1,0 +1,269 @@
+# Next Session — model-registry-and-health
+
+## Next: Model registry data model + internal API (Phase 1)
+
+Build the `model_endpoint` table and the internal resolution API that
+all later phases depend on. Pure data-model-and-API work — no changes
+to the MCP server or ingestion scripts yet.
+
+1. **Alembic migration for `model_endpoint` table**
+   Fields: `id` (varchar PK, same convention as other catalog tables),
+   `model_name` (varchar, unique — one endpoint per model name),
+   `endpoint_url` (varchar, the base URL for the `/v1/embeddings` API),
+   `status` (varchar: healthy/unhealthy/unknown), `last_probed`
+   (timestamptz, nullable — null until first probe), `registered_at`
+   (timestamptz), `updated_at` (timestamptz). Add the migration to the
+   existing Alembic chain in `src/retrieval_hub/db/migrations/`.
+
+2. **SQLAlchemy model**
+   Add `ModelEndpoint` to `src/retrieval_hub/models/`. Follow the
+   existing pattern (see `Source`, `PhysicalIndex`, `RecipeVersion`).
+
+3. **Internal API module**
+   New module `src/retrieval_hub/model_registry.py` (or similar) with:
+   - `resolve_model(session, model_name) → endpoint_url` — raises
+     `ModelNotFoundError` if no row, `ModelUnavailableError` if status
+     is `unhealthy`.
+   - `register_model(session, model_name, endpoint_url)` — upsert.
+   - `update_model_status(session, model_name, status)` — for the
+     health probe (Phase 5) to call later.
+
+4. **Tests**
+   Unit tests for all three API functions. Test the error cases
+   (not found, unhealthy). Use the existing test fixtures/patterns.
+
+5. **Register Nomic v1.5**
+   Add a seed script or CLI command that registers
+   `nomic-ai/nomic-embed-text-v1.5` with its current vLLM endpoint
+   (or a placeholder URL if no vLLM instance is running yet). This
+   makes Phase 2 (deploy vLLM) a matter of updating the URL, not
+   creating the record.
+
+**Sequencing.** Migration first, then model, then API, then tests.
+The seed registration is last.
+
+**Session start protocol:**
+- Premise checks (~5 min):
+  - Catalog DB up (`pg_isready -h 127.0.0.1 -p 5434`)
+  - `make migrate` runs clean (existing migrations apply)
+  - Review existing Alembic migration chain to find the head revision
+- Rules with history:
+  - Use `127.0.0.1` not `localhost` for all Postgres connections
+  - Follow existing model/migration patterns in `src/retrieval_hub/`
+- Stop-and-ask before: running `alembic downgrade` or modifying
+  existing migration files
+
+## Remaining epic phases
+
+Decouple embedding model hosting from the MCP server pod and introduce a
+platform-level model registry for endpoint resolution, health probing,
+and ops observability. Data sources name the model they need; the
+platform resolves where it runs. All embedding is always-remote — no
+models loaded in the MCP pod. Model pods scale independently of the MCP
+server.
+
+### Phase 1: Model registry data model + API
+
+New `model_endpoint` table in the catalog DB mapping model names to
+serving endpoints. Internal API for resolution, registration, and status
+updates.
+
+**Work:**
+1. Alembic migration adding `model_endpoint` table (model_name,
+   endpoint_url, status, last_probed, registered_at, updated_at).
+2. Internal API: `resolve_model(name) → endpoint_url` (raises if not
+   found or unhealthy), `register_model(name, url)`,
+   `update_model_status(name, status)`.
+3. Register Nomic v1.5 pointing at an initial vLLM endpoint.
+
+**Definition of done:** `resolve_model("nomic-ai/nomic-embed-text-v1.5")`
+returns the correct endpoint URL from the catalog DB. Alembic migration
+applies cleanly.
+
+**Dependencies:** None — this is the foundation.
+
+**Parallel-ok:** Yes — independent of all other epics.
+
+### Phase 2: Deploy embedding model as a standalone service
+
+Nomic v1.5 running on its own vLLM pod in OpenShift, serving
+`/v1/embeddings`, registered in the model registry.
+
+**Work:**
+1. vLLM deployment manifest for Nomic v1.5 (StatefulSet, Service,
+   GPU toleration, `enableServiceLinks: false`, `--task embed`).
+2. Register the endpoint in the model registry from Phase 1.
+3. Verify: curl the endpoint with a test string, confirm 768-dim vector
+   response.
+
+**Definition of done:** The vLLM pod is serving, registered in the
+catalog, and responds to embedding requests. A `resolve_model` call
+returns this endpoint.
+
+**Dependencies:** Phase 1 (needs registry table to register into). The
+vLLM deployment itself can start before Phase 1 merges.
+
+**Parallel-ok:** Phases 1 and 2 can run in parallel for the deployment
+work; registration is sequential after Phase 1.
+
+### Phase 3: Registry-aware retrieve + refine
+
+The MCP server's retrieve and refine tools resolve embedding endpoints
+through the registry at query time instead of reading from the recipe.
+The local sentence-transformers load path is removed from the MCP
+server's query path.
+
+**Work:**
+1. Change `DocumentAdapter._embedding_endpoint()` to call
+   `resolve_model()` with the model name from the recipe.
+2. Remove sentence-transformers from MCP server dependencies
+   (`requirements-deploy.txt`).
+3. Drop MCP pod memory limit from 4Gi to ~512Mi-1Gi.
+4. Measure retrieve latency with remote embedding vs. old local path.
+
+**Definition of done:** `retrieve` and `refine` calls succeed against
+the registry-resolved endpoint. MCP pod runs without sentence-transformers
+installed. Pod memory stays under 1Gi. Latency delta measured and
+documented.
+
+**Dependencies:** Phase 1 + Phase 2 (needs both the registry and a
+running model endpoint).
+
+**Parallel-ok:** Yes — parallel with Phase 4 (different code paths).
+
+### Phase 4: Registry-aware ingestion
+
+Ingestion scripts resolve embedding endpoints through the registry
+instead of hardcoding URLs.
+
+**Work:**
+1. `ChunkEmbedder` calls `resolve_model()` when no explicit endpoint
+   is passed.
+2. Remove hardcoded endpoint URLs from ingestion scripts. Scripts name
+   the model; the registry resolves.
+3. Recipe content records the model name (already does) but not the
+   endpoint URL.
+4. Verify: `ingest_va_cpg.py` runs with model resolved from registry.
+
+**Definition of done:** `ingest_va_cpg.py` runs successfully with no
+endpoint URL in the script, model resolved from registry. Same for
+aircraft and PubMed ingestion scripts.
+
+**Dependencies:** Phase 1 + Phase 2.
+
+**Parallel-ok:** Yes — parallel with Phase 3 (query vs. ingestion are
+independent code paths).
+
+### Phase 5: Health probing + error propagation
+
+Active background probe that periodically checks registered model
+endpoints, updates status in the registry, and emits structured events
+on failure.
+
+**Work:**
+1. Background probe (cron job or lightweight loop in a sidecar) that
+   hits each registered model's `/v1/models` or `/health` endpoint on
+   a configurable interval.
+2. Probe updates `model_endpoint.status` and `last_probed` in the
+   registry.
+3. `resolve_model()` raises a specific `ModelUnavailableError` when the
+   model is marked unhealthy. The retrieve tool catches this and returns
+   a structured error to the agent:
+   `{"error": "embedding_model_unavailable", "model": "...", "source": "..."}`.
+4. Probe failures emit a structured JSON log event (parseable by ops
+   tooling / alerting).
+
+**Definition of done:** Killing the vLLM pod causes the probe to mark
+the model unhealthy within one probe interval. A subsequent retrieve
+call returns the structured error. The log event appears in pod logs
+with the model name and failure reason.
+
+**Dependencies:** Phases 1-3 (registry exists, model deployed, retrieve
+uses registry).
+
+**Parallel-ok:** No — needs the full stack in place to test.
+
+### Phase 6: Health on describe_source
+
+`describe_source` surfaces a health field reflecting the status of each
+source's embedding model dependency.
+
+**Work:**
+1. Add a `health` field to the `describe_source` response:
+   `{"status": "healthy|degraded|unavailable", "embedding_model": "...", "last_checked": "..."}`.
+2. Read from the registry's `model_endpoint` table — a join from
+   source → recipe → model name → model_endpoint status. No new probe.
+3. Update MCP server schema and tests.
+
+**Definition of done:** `describe_source` for VA CPG shows health
+status. Killing the model pod changes the health field after the next
+probe cycle. Agent developers see health in `describe_source` output.
+
+**Dependencies:** Phase 5 (needs probing in place to have meaningful
+status).
+
+**Parallel-ok:** No — sequential after Phase 5.
+
+---
+
+## What this covers (and what it doesn't)
+
+**In scope:**
+- Model registry data model and internal API (catalog DB)
+- vLLM deployment for Nomic v1.5 as a standalone service
+- Always-remote embedding for both retrieve/refine and ingestion
+- Active health probing of model endpoints
+- Structured error propagation to agents
+- Structured log events for ops alerting
+- Health status on describe_source
+
+**Out of scope (separate concerns):**
+- Ops dashboard / alerting UI (consumes the events this epic emits)
+- Model fine-tuning or training pipelines
+- Multi-model routing / fallback (e.g., "if model A is down, try
+  model B") — future work after the registry proves out
+- Reranking model hosting (same pattern, different epic)
+- Local dev convenience (e.g., an embedded model for offline dev) —
+  could be a follow-up if always-remote makes local dev painful
+
+**Cross-epic dependencies:**
+- eval-convergence: the embedding model comparison infrastructure
+  assumes local model loading. Phase 4 here would change the ingestion
+  path those scripts use.
+- refine-tool: Phase 5 A/B eval depends on retrieve working. If this
+  epic's Phase 3 is in flight, coordinate timing.
+- data-products: ingestion scripts for PubMed and aircraft would be
+  updated in Phase 4 here.
+
+## What landed last session (2026-08-21)
+
+Epic bootstrapped. Design decisions made during eval-convergence session:
+- Always-remote embedding (no models in MCP pod)
+- Model registry in catalog DB, `model_name` unique (one endpoint per model)
+- Active health probing, not passive
+- API + events for ops, not a dashboard (dashboard is a separate concern)
+- Data card names the model (static); tool resolves the endpoint (runtime)
+
+See `design_model_registry_and_health.md` in project memory for the full
+design rationale.
+
+## Watch out for
+
+- **Latency.** Remote embedding adds a network hop. Measure in Phase 3
+  before committing. If latency is unacceptable, consider co-locating
+  the vLLM pod in the same namespace or using a sidecar pattern.
+- **Local dev story.** Always-remote means local dev needs a running
+  embedding endpoint. Options: a local vLLM instance, Ollama with
+  nomic-embed-text, or a lightweight mock for tests. Decide in Phase 3.
+- **vLLM version pinning.** Per CLAUDE.md lesson, vLLM `latest` doesn't
+  support `--task embed`. Pin to v0.8.5 or a known-good version.
+- **GPU scheduling.** The vLLM embedding pod needs a GPU. Cluster GPU
+  capacity may constrain when this can deploy.
+
+## If blocked
+
+- If GPU capacity is unavailable for the vLLM pod, Phase 2 stalls.
+  Fallback: use a CPU-only embedding service (slower but unblocked).
+- If latency is unacceptable in Phase 3, revisit the always-remote
+  decision — could keep local loading as a fallback with the registry
+  as the preferred path.
