@@ -102,3 +102,19 @@ use `127.0.0.1` (IPv4 literal) instead of `localhost`. This forces the
 connection to the Podman container regardless of what `oc port-forward`
 sessions are running. Check `lsof -i :<port>` if row counts or query
 results look wrong — a dual IPv4/IPv6 listener is the tell.
+
+### Metadata-only changes don't need re-ingestion
+
+When a pipeline change only affects metadata columns (doc_title,
+doc_url, doc_section) and not chunk text or embeddings, apply the fix
+with SQL UPDATEs rather than re-running the full ingestion pipeline.
+Re-ingestion re-embeds all chunks, which is expensive in compute time
+and API usage. The embeddings are identical when only metadata changes.
+
+This applies to both local and cluster databases. For cluster fixes,
+port-forward the cluster PostgreSQL and run the UPDATEs directly.
+
+**How to apply:** Before triggering re-ingestion, ask: did the chunk
+text or embedding model change? If only metadata columns changed, write
+SQL UPDATEs. Reserve re-ingestion for changes to chunking boundaries,
+chunk text, or the embedding model.

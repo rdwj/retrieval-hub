@@ -1,61 +1,41 @@
 # Next Session — refine-tool
 
-## Next: doc_title normalization + deploy chunk_id to production
+## Next: Phase 5 planning or #34 multi-source retrieve
 
-Ship the chunk_id changes (`62f46e4`) to the deployed MCP server and
-clean up the doc_title inconsistencies in the VA CPG source. Small
-session that closes out the #33 work completely.
+All refine-tool implementation (Phases 1-4) and data normalization are
+complete and deployed. The epic's remaining work is Phase 5 (A/B eval)
+and #34 (multi-source retrieve).
 
-1. **Normalize doc_title values during ingestion**
-   The VA CPG titles have four classes of inconsistency:
-   - Mixed case: `VA/DOD` vs `VA/DoD` (should pick one canonical form)
-   - Fragment title: `for the treatment of nightmares associated with PTSD`
-     (should be the full guideline title)
-   - HTML entities: `&amp;` in the hip/knee osteoarthritis title
-   - Duplicate generic titles: two rows differ only in `VA/DOD` vs `VA/DoD`
+1. **Assess Phase 5 readiness**
+   Phase 5 (A/B eval for refine lift) depends on the eval-convergence
+   epic having baseline metrics. Check current eval-convergence status.
+   If blocked, pull #34 forward.
 
-   Add a title-normalization step to the VA CPG ingestion script. This
-   requires re-ingestion of the VA CPG data (the normalization happens at
-   write time, not query time). Approach options: normalize in the
-   ingestion script itself, or add a reusable normalizer in the chunking
-   pipeline. Decide during the session based on whether other sources
-   (pubmed, tale-of-two-cities) also need normalization.
-
-2. **Deploy the updated MCP server**
-   The deployed server is running pre-chunk_id code. Build and deploy
-   with the chunk_id changes + any normalization updates. Follow the
-   deployment checklist from CLAUDE.md lessons learned:
-   - Verify `requirements-deploy.txt` has all deps
-   - Confirm memory limit (currently 4Gi, should be fine)
-   - Route path has no trailing slash
-   - Test with a retrieve query after deploy to confirm chunk_id appears
-
-**Sequencing.** Normalization first (requires re-ingestion of VA CPG),
-then deploy (ships both chunk_id and normalized titles together).
+2. **#34 Multi-source retrieve** (if Phase 5 blocked)
+   Search across sources in one call. The 4 existing sources (VA CPG,
+   aircraft maintenance, code repo, tale-of-two-cities) are enough to
+   build and test. See the tool ergonomics backlog below.
 
 **Session start protocol:**
 - Premise checks:
-  - `git pull` and confirm clean merge.
+  - `git pull` and confirm clean merge
   - `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` — green
-    baseline (should be 245 + 43).
-  - Local databases up: `pg_isready -h localhost -p 5433` (vectors)
-    and `pg_isready -h localhost -p 5434` (catalog).
-  - Verify current doc_title state:
-    `psql ... -c "SELECT DISTINCT doc_title FROM idx_va_cpg_v1"` —
-    should show the 28 titles with inconsistencies listed above.
-  - Check cluster access for deploy: `oc whoami --context=mcp-rhoai`
-- Rules with history:
-  - Embedding model comes from the recipe version — use
-    `_embedding_model_name()` and `_query_prefix()`, never hardcode.
-  - Container deps must be explicit in `requirements-deploy.txt` —
-    local venv masks transitive deps (see CLAUDE.md lessons learned).
-  - Route path in `openshift.yaml` must not have trailing slash for
-    FastMCP (see CLAUDE.md lessons learned).
-- Stop-and-ask before: Re-ingesting VA CPG data (replaces all rows
-  in `idx_va_cpg_v1`). Confirm the table name and that no other
-  session is using it. Also stop-and-ask before any deploy to
-  production.
+  - Cluster access: `oc whoami --context=gpt-oss-120b`
 - Close ritual: session summary, commit, update this file.
+
+## What landed this session (2026-08-21, ninth session)
+
+doc_title normalization + MCP server deploy. See
+`session-summaries/2026-08-21-refine-tool-title-normalization-and-deploy.md`.
+
+- `3d1cae7` — `_normalize_title()` in VA CPG ingestion: HTML entities,
+  VA/DOD casing, DIAGNOSI S typo, fragment/generic title fallback to
+  section headings, ALL CAPS normalization. 26 canonical titles.
+- MCP server deployed to `gpt-oss-120b` cluster (build #6), shipping
+  chunk_id + all prior code updates. Verified retrieve/refine work.
+- Cluster `idx_va_cpg_nomic_v1` titles normalized via SQL UPDATEs
+  (no re-embedding needed — metadata-only change). Verified end-to-end
+  via deployed MCP server retrieve.
 
 ## What landed last session (2026-08-20, eighth session)
 
@@ -66,9 +46,6 @@ Stable chunk identifiers (#33). See
   responses; refine accepts optional chunk_id for UUID-based lookup
 - `6629200` — lint fix for import ordering
 - `54ba54f` — session summary
-
-Deferred: doc_title normalization (step 4 of #33) — requires ingestion
-pipeline changes and data re-ingestion.
 
 ## What landed earlier (2026-08-20, sessions 1-7)
 
