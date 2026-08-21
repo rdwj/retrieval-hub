@@ -44,3 +44,42 @@ requests with the trailing slash, and the redirect target (`/mcp`) returns
 **How to apply:** Route paths in `openshift.yaml` for FastMCP servers must
 not have a trailing slash. The current manifest is correct (`path: /mcp`);
 don't reintroduce the trailing slash.
+
+### Chunking tokenizer differs from embedding model tokenizer
+
+The ingestion pipeline chunks text using cl100k_base (tiktoken), but BERT-
+based embedding models (e.g., snowflake-arctic-embed) use WordPiece
+tokenization which produces 1.3-1.5x more tokens for the same text.
+A chunk of 512 cl100k_base tokens can be 650-750+ BERT tokens, exceeding
+the model's 512 max_position_embeddings.
+
+When serving embeddings via vLLM, the server rejects inputs that exceed
+max_model_len with a 400 error. The fix is to include
+`"truncate_prompt_tokens": 512` in the `/v1/embeddings` API request
+payload, which tells vLLM to truncate rather than reject.
+
+**How to apply:** When using a BERT-based embedding model with a remote
+vLLM endpoint, always set `truncate_prompt_tokens` in the API request.
+The `_remote_embed()` function in `embed.py` does this by default. The
+token loss from truncation is minimal (affects only the longest chunks)
+and the alternative — reducing cl100k_base chunk size to 256 — wastes
+significant context window on all chunks just to accommodate a few
+outliers.
+
+### vLLM version and embedding model compatibility
+
+vLLM `latest` tag (v0.27.1 as of August 2026) does not support the
+`--task embed` flag needed for BERT-based embedding models. vLLM v0.8.5
+supports it. When deploying embedding models on vLLM, pin the image to
+`vllm/vllm-openai:v0.8.5` (or a version known to support `--task embed`).
+
+Also: OpenShift GPU nodes typically have a `nvidia.com/gpu` NoSchedule
+taint. Add a toleration in the pod spec. And the Kubernetes Service
+auto-generated env vars (e.g., `VLLM_SNOWFLAKE_EMBEDDING_PORT`) collide
+with vLLM's config parsing — set `enableServiceLinks: false` in the pod
+spec to prevent this.
+
+**How to apply:** For vLLM embedding deployments, always include in the
+pod spec: (1) GPU toleration, (2) `enableServiceLinks: false`,
+(3) `HF_HOME` env var pointing to the PVC mount (not `/root/` since
+OpenShift runs non-root), (4) `--task embed` in the serve args.

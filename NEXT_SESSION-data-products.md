@@ -1,87 +1,68 @@
 # Next Session -- data-products
 
-## Next: PubMed-hypertension chunking parameter sweep
+## Next: Chunking refinement sweeps (PubMed + aircraft)
 
 Run the chunking refinement methodology (`docs/chunking-refinement-methodology.md`)
-against the pubmed-hypertension corpus. First real test of the methodology
-document. The BioC section-aware chunker adds a dimension the VA CPG sweep
-didn't have: `respect_section_boundaries` (True/False). This is also the
-first sweep using section-tagged chunks from structured source JSON.
+against both the pubmed-hypertension and aircraft-maintenance corpora. Two
+sweeps, same methodology, different domains -- the comparison is a paper
+contribution showing whether chunking defaults transfer across domains.
 
 Paper-quality lab notes are a first-class deliverable, not an afterthought.
-The VA CPG E3 sweep runs in a separate session so each sweep gets the full
-attention and documentation it deserves.
+Run one sweep per session so each gets the full attention and documentation
+it deserves.
+
+### PubMed sweep (first session)
+
+The BioC section-aware chunker adds a dimension the VA CPG sweep didn't
+have: `respect_section_boundaries` (True/False).
 
 1. **Define sweep grid and hypothesis**
-   Follow Steps 1-2 of the methodology doc. The grid adds a section-aware
-   dimension that the VA CPG sweep doesn't have:
+   Follow Steps 1-2 of the methodology doc. Grid:
    - Chunker: section-aware (BioC) vs token-fixed
    - Token sizes: 256 / 512 / 1024
    - Overlap: 0 / 64
    - Section boundaries: respected vs ignored (section-aware only)
-   - Record the hypothesis before running: which config do we expect to
-     win, and why?
+   - Record hypothesis before running
 
 2. **Sweep: re-ingest + eval per config (~8-10 configs)**
    Re-ingest the 10 PMC articles per config into
    `idx_pubmed_hypertension_v1`, run retrieval eval against the
-   25-question QA dataset (`eval/pubmed_hypertension/qa_dataset.json`)
-   using hit_rate@5 and MRR@5.
-   - Each config: ingest, verify chunk count, run eval, record row
-   - If a config fails ingestion, record the failure and move on
+   25-question QA dataset using hit_rate@5 and MRR@5.
 
 3. **Ragas answer-quality on winner vs runner-up**
-   Run answer-quality metrics (faithfulness, answer relevancy) on the
-   top two configs to confirm the retrieval metrics tell the full story.
 
 4. **Lab notes (paper-quality)**
-   Write the full decision chain: hypothesis, results table, analysis,
-   why the winner won, what surprised us, how to replicate. These notes
-   feed the arXiv paper. Format: structured enough to cite, informal
-   enough to show the thinking process.
 
-**Constraints for the session:**
-- Record all results in structured format under `eval/pubmed_hypertension/`
-  (one results file per config, plus summary table)
-- The pubmed sweep needs re-ingestion per config (~10 articles, fast)
-- Commit the Phase 1 deliverables from the prior session before starting
-  (uncommitted files from the pubmed-hypertension baseline work)
-- The eval register format from `eval/rewrite_lift/EVAL_REGISTER.md`
-  is the model for structured results
+### Aircraft sweep (second session)
 
-**Session start protocol:**
-- Premise checks (before item 1, ~5 min):
+Same methodology applied to a technical maintenance domain with
+token-fixed chunker only (no BioC structure available). This tests
+whether the methodology doc is domain-portable.
+
+**Session start protocol (PubMed sweep):**
+- Premise checks (~5 min):
   - Verify local Postgres (ports 5434/5433) is running
   - Verify `idx_pubmed_hypertension_v1` table exists with 233 rows
   - Verify PubMedBERT model is cached in `.model_cache/`
-  - `git status` -- commit the uncommitted Phase 1 files first
+  - Commit any uncommitted files first
   - Read `docs/chunking-refinement-methodology.md` and follow its steps
-    rather than improvising
 - Rules with history:
-  - TECHNICAL_DOCUMENT enum: resolved (a619ff3). Was never a linter
-    issue -- the value was added but never committed during Phase 1.
-    Now committed and passing all checks.
+  - TECHNICAL_DOCUMENT enum: resolved (a619ff3).
   - Record sweep results as structured data (JSON/CSV), not just prose.
-- Stop-and-ask before: dropping and recreating pgvector tables (the
-  `write_chunks(replace=True)` default deletes all rows first -- this is
-  expected for sweep re-ingestion but confirm the table name is correct)
-- Close ritual: session summary, update eval register with sweep results,
-  update `NEXT_SESSION-data-products.md` with what landed
+- Stop-and-ask before: dropping and recreating pgvector tables
+- Close ritual: session summary, update eval register, update this file
 
-**Loop design:**
+**Loop design (per sweep):**
 - **Exit predicate:** All configs in the sweep grid have been ingested,
-  evaluated, and recorded. Results table is complete with no blank cells.
-- **Max iterations:** ~8-10 configs (PubMed only).
+  evaluated, and recorded. Results table complete with no blank cells.
+- **Max iterations:** ~8-10 configs per sweep.
 - **Per-item verifier:** Each config produces a row in the results table
-  with hit_rate@5 and MRR@5 values. Ingestion log confirms chunk count
-  matches expected range for the config.
+  with hit_rate@5 and MRR@5 values.
 - **Premise to re-validate each pass:** The pgvector table exists and
   the previous config's data was successfully replaced.
 - **Maker != checker:** Ingestion script produces chunks; eval script
-  independently scores retrieval quality. Different code paths.
-- **If stuck:** If a config fails ingestion (e.g., OOM on large chunks),
-  record the failure in the results table and move to the next config.
-  Don't block the sweep on one broken config.
+  independently scores retrieval quality.
+- **If stuck:** Record the failure and move to the next config.
 
 ## Remaining epic phases
 
@@ -109,42 +90,56 @@ quality before chunking parameters enter the picture. BioC JSON preserves
 section types, references, and passage boundaries that markdown extraction
 loses.
 
-### Phase 2: Chunking refinement sweep + lab notes
+### Phase 2: Aircraft maintenance baseline ingestion [DONE -- 2026-08-21]
+
+Deployed snowflake-arctic-embed-m-v1.5 on vLLM (agent-security-dev-3,
+L40S GPU). Added remote embedding support to ChunkEmbedder/QueryEmbedder
+(OpenAI-compatible `/v1/embeddings` endpoint). Ingested 269 Piper Aircraft
+service bulletins (Cherokee PA-28 + Saratoga PA-32) using token-fixed
+chunking (512/64) and remote embedding.
+
+Key deliverables:
+- `src/retrieval_hub/ingestion/embed.py` -- remote embedding backend
+- `deploy/openshift/retrieval-hub/embedding/vllm-snowflake.yaml` -- vLLM manifest
+- `scripts/ingest_aircraft_maintenance.py` -- 7-stage ingestion script
+- `eval/aircraft_maintenance/qa_dataset.json` -- eval QA dataset
+- Source registered as `aircraft-maintenance` (TECHNICAL_DOCUMENT)
+
+Key finding (paper-worthy): remote embedding via vLLM's OpenAI-compatible
+API integrates cleanly with the existing embedder interface. The same
+`ChunkEmbedder`/`QueryEmbedder` classes work with both local
+sentence-transformers and remote endpoints via a single `endpoint`
+parameter.
+
+### Phase 3: Chunking refinement sweeps + lab notes
 
 Run the 8-step methodology from `docs/chunking-refinement-methodology.md`
-against the pubmed-hypertension corpus. This is the first test of whether
-the methodology document is actually followable, and produces the
-quantitative evidence for the paper.
+against both the pubmed-hypertension and aircraft-maintenance corpora.
+Two sweeps across different domains -- a paper contribution showing
+whether chunking defaults transfer.
 
 **Work:**
-1. Define the sweep grid (section-aware vs token-fixed, 256/512/1024
-   tokens, 0/64 overlap, section boundaries respected vs ignored)
-2. Re-ingest per config, run retrieval eval against the 25-question QA
-   dataset (hit_rate@5, MRR@5)
-3. Run Ragas answer-quality metrics on the winner vs runner-up
-4. Write lab notes: hypothesis, results table, analysis, why the winner
-   won, what surprised us, how to replicate
-5. Optionally run the VA CPG E3 sweep (eval-convergence epic overlap) in
-   the same session to compare domain effects on chunking
+1. PubMed sweep: section-aware vs token-fixed, 256/512/1024 tokens,
+   0/64 overlap, section boundaries respected vs ignored (~8-10 configs)
+2. Aircraft sweep: token-fixed only, same size/overlap grid (~6 configs)
+3. Ragas answer-quality on winners vs runners-up
+4. Lab notes: domain comparison, methodology portability, what surprised us
 
-**Definition of done:** Sweep results table recorded in
-`eval/pubmed_hypertension/`, winner re-ingested as the production config,
-eval baseline established, lab notes document the full decision chain from
-hypothesis to outcome.
+**Definition of done:** Sweep results tables in `eval/pubmed_hypertension/`
+and `eval/aircraft_maintenance/`, winners re-ingested as production
+configs, lab notes document the full decision chain.
 
-**Dependencies:** None (Phase 1 is done)
+**Dependencies:** Phases 1 + 2 (both baselines done)
 
-**Parallel-ok:** Yes, independent of other epics. The VA CPG E3 sweep
-from eval-convergence can run alongside.
+**Parallel-ok:** Yes, independent of other epics.
 
-### Phase 3: Cross-dataset reasoning agent test + lab notes
+### Phase 4: Cross-dataset reasoning agent test + lab notes
 
-Test whether a well-prompted agent naturally discovers and combines VA CPG
-and pubmed-hypertension sources without being told which datasets to use
-or how to combine them. The agent's discipline should be source
-discovery/retrieve/refine loops: "What does VA CPG say about treating this
-patient?" followed by "I have a dataset of scientific articles on
-hypertension -- maybe there is something in there that adds value."
+Test whether a well-prompted agent naturally discovers and combines VA CPG,
+pubmed-hypertension, and aircraft-maintenance sources without being told
+which datasets to use. Now with 3 sources across 2 domains (clinical +
+aviation), the agent must also distinguish domains, not just combine
+similar datasets.
 
 The CDC project (`MCP/CDC/data-acceptance-testing`) tested cross-dataset
 reasoning as one of five question types. Their cross-dataset scores
@@ -155,7 +150,7 @@ we test agent behavior patterns and prompting strategies.
 **Work:**
 1. Build a system prompt that encourages cross-dataset reasoning without
    spelling out specific datasets or solutions
-2. Run the 5 cross-dataset questions from the eval QA dataset through
+2. Run cross-dataset questions from both eval QA datasets through
    the agent with the MCP server
 3. Test additional ad-hoc queries to probe agent behavior
 4. Iterate on the system prompt based on what fails
@@ -163,44 +158,13 @@ we test agent behavior patterns and prompting strategies.
    reasoning, what fails, how the agent discovers complementary sources,
    comparison with the CDC project's approach
 
-**Definition of done:** Agent successfully discovers both sources, queries
-each independently, and synthesizes across results for at least 3 of 5
-cross-dataset eval questions. Documented system prompt patterns that work
-and patterns that fail.
+**Definition of done:** Agent successfully discovers relevant sources,
+queries each independently, and synthesizes across results. Documented
+system prompt patterns that work and patterns that fail.
 
-**Dependencies:** Phase 2 (need optimized chunking, not baseline)
+**Dependencies:** Phase 3 (need optimized chunking, not baseline)
 
-**Parallel-ok:** No, sequential after Phase 2
-
-### Phase 4: Aircraft-maintenance ingestion + stress test + lab notes
-
-269 Piper Aircraft service bulletins (Cherokee PA-28 + Saratoga PA-32),
-a different domain from clinical text. Tests three things: pipeline
-throughput at 10-40x the pubmed volume, whether the chunking refinement
-methodology transfers to a non-clinical domain, and embedding model
-deployment (snowflake-arctic-embed-m-v1.5 on vLLM).
-
-**Work:**
-1. Deploy snowflake-arctic-embed-m-v1.5 on the cluster via vLLM
-2. Write `scripts/ingest_aircraft_maintenance.py` following the ingestion
-   pattern (Docling-extracted markdown, token-fixed chunker)
-3. Run ingestion, document pipeline throughput (chunks/sec, total time,
-   memory usage, where bottlenecks appear)
-4. Build eval QA dataset for aircraft maintenance (20-30 questions
-   covering service bulletins, inspection procedures, parts, ADs)
-5. Run chunking refinement sweep using the methodology doc
-6. Write lab notes: pipeline performance at scale, where it breaks (if
-   anywhere), embedding model deployment process, does the chunking
-   methodology transfer to technical maintenance documents or does the
-   domain require different defaults?
-
-**Definition of done:** Aircraft source registered as TECHNICAL_DOCUMENT,
-chunking sweep completed, pipeline performance documented with throughput
-numbers, lab notes cover domain transfer of the methodology.
-
-**Dependencies:** Phase 2 (validated methodology to apply to new domain)
-
-**Parallel-ok:** Yes, independent of Phase 3 -- can run concurrently
+**Parallel-ok:** No, sequential after Phase 3
 
 ### Phase 5: Data owner onboarding path + lab notes
 
@@ -228,7 +192,7 @@ through RetrievalHub."
 process from data to serving agents, documented with evidence of what
 works and what gaps remain. Lab notes cover the accessibility analysis.
 
-**Dependencies:** Phases 2 + 4 (need two completed onboardings across
+**Dependencies:** Phases 2 + 3 (need two completed onboardings across
 different domains to generalize the process)
 
 **Parallel-ok:** No, needs both prior onboardings as input
@@ -257,7 +221,7 @@ tags, hierarchical discovery) work well enough?
 routing-tool approach, with experimental data at multiple catalog sizes.
 Documented in lab notes with enough detail for the paper.
 
-**Dependencies:** Phase 4 (need 3+ real sources to start testing)
+**Dependencies:** Phase 4 (need 3 real sources with optimized chunking)
 
 **Parallel-ok:** No, sequential after Phase 4
 
@@ -313,38 +277,55 @@ findable. A reader could follow the lab notes and replicate our findings.
 - Issue #27 (production ingestion runners / Tekton) -- may be informed by
   Phase 4 stress test findings but is separate infrastructure work
 
-## What landed last session (2026-08-20)
+## What landed last session (2026-08-21)
+
+Phase 2 completed: aircraft maintenance baseline ingestion with remote
+embedding.
+
+**New files:**
+- `deploy/openshift/retrieval-hub/embedding/vllm-snowflake.yaml` -- vLLM
+  Deployment + Service + Route for Snowflake Arctic Embed M v1.5 (GPU,
+  OpenAI-compatible `/v1/embeddings` API)
+- `scripts/ingest_aircraft_maintenance.py` -- 7-stage ingestion script
+  for 269 Piper Aircraft service bulletins (Cherokee + Saratoga families)
+- `eval/aircraft_maintenance/qa_dataset.json` -- 25 Q/A pairs (20
+  single-source + 5 cross-dataset spanning aircraft + clinical domains)
+
+**Modifications:**
+- `src/retrieval_hub/ingestion/embed.py` -- added remote embedding
+  backend: `ChunkEmbedder` and `QueryEmbedder` now accept an `endpoint`
+  parameter to call an OpenAI-compatible `/v1/embeddings` API. Includes
+  batching, exponential backoff retry, and dimension discovery. 15 new
+  tests. Local backend unchanged when endpoint is None.
+- `src/retrieval_hub/adapters/document.py` -- added `_embedding_endpoint()`
+  to read endpoint from recipe, updated all 3 `QueryEmbedder` call sites
+  (retrieve, cross_reference, entity_arc)
+
+**Infrastructure:**
+- Scaled GPU machineset on agent-security-dev-3 from 2 to 3 replicas
+  (new L40S node). gpt-oss-120b was fully allocated (4/4 GPUs in use).
+- Created `retrieval-hub` namespace on agent-security-dev-3.
+- Deployed vLLM with `--task embed` flag for embedding model serving.
+
+**Key finding:** Remote embedding via vLLM's OpenAI-compatible API
+integrates cleanly with the existing embedder interface. No changes
+needed to calling code -- the `endpoint` parameter routes to HTTP
+automatically. The recipe stores the endpoint URL so the MCP server's
+QueryEmbedder picks it up at retrieval time.
+
+## What landed session before (2026-08-20)
 
 Phase 1 completed: pubmed-hypertension baseline ingestion.
 
 **New files:**
 - `src/retrieval_hub/ingestion/chunking/bioc_section.py` -- BioC
-  section-aware chunker (23 unit tests in
-  `tests/test_ingestion/test_bioc_chunker.py`)
+  section-aware chunker
 - `scripts/ingest_pubmed_hypertension.py` -- 7-stage ingestion script
-- `eval/pubmed_hypertension/qa_dataset.json` -- 25 Q/A pairs (20
-  single-source + 5 cross-dataset)
+- `eval/pubmed_hypertension/qa_dataset.json` -- 25 Q/A pairs
 - `docs/chunking-refinement-methodology.md` -- 8-step repeatable
-  methodology with BioC-vs-markdown appendix
+  methodology
 
-**Modifications:**
-- `src/retrieval_hub/models/enums.py` -- added TECHNICAL_DOCUMENT to
-  SourceFamily and EvalSuiteFamily
-- `src/retrieval_hub/ingestion/chunking/__init__.py` -- exports for new
-  chunker
-
-**Ingestion results:** 10 articles, 233 chunks, 78K tokens, 23.9s wall
-time. Source registered as `pubmed-hypertension` (CLINICAL_DOCUMENT,
-curated). Section distribution: CONCL 42, METHODS 35, TABLE 33, INTRO
-31, RESULTS 31, DISCUSS 27, FIG 17, ABSTRACT 10.
-
-**Key finding:** Chunking from structured BioC JSON preserves section_type
-labels, passage boundaries, and citation metadata that markdown extraction
-loses. Paper-worthy -- documented in the methodology appendix.
-
-**Parallel session:** refine-tool epic landed entity-arc refinement
-(Phase 4) in a separate session. Eval-convergence deferred to let this
-epic's sweep run next.
+**Ingestion results:** 10 articles, 233 chunks, PubMedBERT 768-dim.
 
 ## Watch out for
 
