@@ -1,0 +1,108 @@
+{
+  "aggregate": {
+    "context_precision": 0.5081249999695052,
+    "answer_relevancy": 0.6863741070561095
+  },
+  "per_query": [
+    {
+      "query_id": "pmh001",
+      "context_precision": 0.4166666666458333,
+      "answer_relevancy": 0.932061199918754
+    },
+    {
+      "query_id": "pmh002",
+      "context_precision": 0.249999999975,
+      "answer_relevancy": 0.6885141889912776
+    },
+    {
+      "query_id": "pmh003",
+      "context_precision": 0.8333333332916666,
+      "answer_relevancy": 0.8471567934026837
+    },
+    {
+      "query_id": "pmh004",
+      "context_precision": 0.8333333332916666,
+      "answer_relevancy": 0.7984189712584744
+    },
+    {
+      "query_id": "pmh005",
+      "context_precision": 0.249999999975,
+      "answer_relevancy": 0.6723973660055835
+    },
+    {
+      "query_id": "pmh006",
+      "context_precision": 0.6791666666496875,
+      "answer_relevancy": 0.504475681725932
+    },
+    {
+      "query_id": "pmh007",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.0
+    },
+    {
+      "query_id": "pmh008",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.0
+    },
+    {
+      "query_id": "pmh009",
+      "context_precision": 0.499999999975,
+      "answer_relevancy": 0.9910301252939618
+    },
+    {
+      "query_id": "pmh010",
+      "context_precision": 0.9999999999,
+      "answer_relevancy": 0.7908108061627906
+    },
+    {
+      "query_id": "pmh011",
+      "context_precision": 0.19999999998,
+      "answer_relevancy": 0.0
+    },
+    {
+      "query_id": "pmh012",
+      "context_precision": 0.49999999995,
+      "answer_relevancy": 0.7569256304771665
+    },
+    {
+      "query_id": "pmh013",
+      "context_precision": 0.94999999997625,
+      "answer_relevancy": 0.8059553170838674
+    },
+    {
+      "query_id": "pmh014",
+      "context_precision": 0.249999999975,
+      "answer_relevancy": 0.9947818677351556
+    },
+    {
+      "query_id": "pmh015",
+      "context_precision": 0.99999999998,
+      "answer_relevancy": 0.8010274257766802
+    },
+    {
+      "query_id": "pmh016",
+      "context_precision": 0.9999999999,
+      "answer_relevancy": 0.9999999999999996
+    },
+    {
+      "query_id": "pmh017",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.7908676557244195
+    },
+    {
+      "query_id": "pmh018",
+      "context_precision": 0.499999999975,
+      "answer_relevancy": 0.9448621699877775
+    },
+    {
+      "query_id": "pmh019",
+      "context_precision": 0.99999999995,
+      "answer_relevancy": 0.81423940112709
+    },
+    {
+      "query_id": "pmh020",
+      "context_precision": 0.0,
+      "answer_relevancy": 0.5939575404505768
+    }
+  ]
+}

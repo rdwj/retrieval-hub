@@ -265,10 +265,61 @@ mixing to hurt. For recall-oriented use cases the difference is zero, but
 for MRR-oriented use cases, not respecting boundaries may produce better
 first-result quality.
 
+## Answer quality validation (Methodology Step 7)
+
+Ragas metrics on SA-256-0 (winner) vs SA-512-0 (baseline), run 2026-08-21.
+Generated answers using gpt-oss:20b (Ollama, local), scored with
+gpt-oss-120b (cluster endpoint). 20 single-source questions.
+
+| Metric | SA-256-0 | SA-512-0 | Delta |
+|---|---|---|---|
+| context_precision | 0.550 | 0.508 | +0.041 |
+| answer_relevancy | 0.764 | 0.686 | +0.078 |
+
+SA-256-0 wins on both answer-quality metrics. The answer_relevancy gap
+(+7.8pp) is larger than the context_precision gap (+4.1pp), suggesting
+that smaller, more focused chunks don't just find better context -- they
+also help the answer model generate more relevant responses. With less
+noise in the retrieved context (256-token chunks isolate individual facts
+rather than bundling them with surrounding paragraph content), the answer
+model can focus on the actual question.
+
+**Per-question patterns:**
+
+Two questions scored 0.0 answer_relevancy for SA-512-0 but not SA-256-0:
+- pmh007 (SGLT2 inhibitors in CKD): SA-512-0 failed retrieval entirely
+  (no hit in top-5), so the answer model hallucinated. SA-256-0 found the
+  relevant chunk and produced a relevant answer (0.664).
+- pmh011 (medication non-adherence outcomes): SA-512-0 retrieved the right
+  document but the answer model produced an irrelevant response (0.0).
+  SA-256-0 scored 0.492 -- better but still weak, suggesting this question
+  is hard regardless of chunking.
+
+One question (pmh008, tirzepatide) scored 0.0 for both conditions --
+consistent with the retrieval miss across all 9 sweep configs.
+
+**Decision rule check (from methodology doc):** The retrieval winner also
+wins on both Ragas metrics. Ship SA-256-0.
+
+## Production re-ingestion
+
+Production table `idx_pubmed_hypertension_v1` re-ingested with SA-256-0
+parameters on 2026-08-21:
+- CHUNK_TOKENS: 512 -> 256
+- OVERLAP_TOKENS: 0 (unchanged)
+- Chunk count: 233 -> 381
+- Recipe version: v1 -> v2
+- Source UUID: 9790d283-81d6-49c9-ba19-6cb1af490791
+
 ## Replication
 
 ```bash
+# Run the chunking parameter sweep
 python scripts/sweep_pubmed_chunking.py \
+  --data-dir ../retrieval-hub-data-sources/pubmed-hypertension
+
+# Run Ragas answer-quality comparison (winner vs baseline)
+python scripts/eval_chunking_answer_quality.py \
   --data-dir ../retrieval-hub-data-sources/pubmed-hypertension
 ```
 
@@ -276,3 +327,6 @@ python scripts/sweep_pubmed_chunking.py \
 
 - Per-config checkpoints: `eval/pubmed_hypertension/sweep_configs/`
 - Aggregate results: `eval/pubmed_hypertension/sweep_results.json`
+- Ragas comparison: `eval/pubmed_hypertension/ragas_chunking_comparison.json`
+- Ragas per-condition scores: `eval/pubmed_hypertension/scores_SA-256-0.json`,
+  `eval/pubmed_hypertension/scores_SA-512-0.json`
