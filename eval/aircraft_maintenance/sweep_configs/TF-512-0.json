@@ -1,0 +1,173 @@
+{
+  "config_id": "TF-512-0",
+  "chunk_tokens": 512,
+  "overlap_tokens": 0,
+  "chunk_count": 2098,
+  "row_count": 2098,
+  "hit_rate_at_5": 0.95,
+  "mrr_at_5": 0.7492,
+  "mean_score": 0.6288,
+  "per_question": [
+    {
+      "id": "am-001",
+      "question": "What is the compliance time for the carburetor heat cable replacement on the PA-28-140 Cherokee?",
+      "expected_doc": "SB_0312 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6625427169749921
+    },
+    {
+      "id": "am-002",
+      "question": "How is the control wheel shaft assembly verified as correctly installed according to SB 1197E?",
+      "expected_doc": "SB_1197E (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5760022429813785
+    },
+    {
+      "id": "am-003",
+      "question": "What is the minimum acceptable edge distance from the end of the control wheel shaft to the taper pin hole centerline?",
+      "expected_doc": "SB_1197E (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 0.2,
+      "top_score": 0.614233589993254
+    },
+    {
+      "id": "am-004",
+      "question": "What cleaning products are specified for preparing wing spar surfaces before corrosion inspection on Cherokee and Cherokee Six aircraft?",
+      "expected_doc": "SB_1304B_w_AMOC (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6260664163600272
+    },
+    {
+      "id": "am-005",
+      "question": "What off-torque value range is used to test 3/8 inch diameter wing aft spar-to-fuselage attachment bolts?",
+      "expected_doc": "SB_1423B (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6509370714125217
+    },
+    {
+      "id": "am-006",
+      "question": "What kit number is required for the carburetor heat cable replacement on the PA-28-140 B Cherokee?",
+      "expected_doc": "SB_0312 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6922133944140642
+    },
+    {
+      "id": "am-007",
+      "question": "What is the part number for the witness hole drill fixture used during the control wheel shaft inspection?",
+      "expected_doc": "SB_1197E (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 0.3333333333333333,
+      "top_score": 0.5878186830821185
+    },
+    {
+      "id": "am-008",
+      "question": "What is the part number for the wing spar inspection access panel kit, and what alternative access kit can be installed?",
+      "expected_doc": "SB_1304B_w_AMOC (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6643833377677695
+    },
+    {
+      "id": "am-009",
+      "question": "What replacement bolt, washer, and nut part numbers are specified for Group B aircraft with 3/8 inch bolt holes in the wing aft spar attachment?",
+      "expected_doc": "SB_1423B (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 0.5,
+      "top_score": 0.6634100895881148
+    },
+    {
+      "id": "am-010",
+      "question": "Which serial numbers of the PA-28-140 B Cherokee are affected by the carburetor heat cable replacement service bulletin?",
+      "expected_doc": "SB_0312 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6927013568038157
+    },
+    {
+      "id": "am-011",
+      "question": "What specific Warrior III and Archer III serial numbers were delivered with defective altimeters according to SB 1297?",
+      "expected_doc": "SB 1297 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 0.2,
+      "top_score": 0.465727887844532
+    },
+    {
+      "id": "am-012",
+      "question": "What Piper models are affected by the main wing spar corrosion inspection service bulletin SB 1304B?",
+      "expected_doc": "SB_1304B_w_AMOC (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.7130021647610528
+    },
+    {
+      "id": "am-013",
+      "question": "How does SB 1423B distinguish between Group A and Group B aircraft for the wing aft spar-to-fuselage bolt inspection?",
+      "expected_doc": "SB_1423B (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6673443776214325
+    },
+    {
+      "id": "am-014",
+      "question": "Does the control wheel shaft inspection SB 1197E apply to both Cherokee and Saratoga aircraft families?",
+      "expected_doc": "SB_1197E (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 0.25,
+      "top_score": 0.6894857303763163
+    },
+    {
+      "id": "am-015",
+      "question": "Which PA-32 Saratoga variants are affected by the control wheel shaft inspection, and what replacement parts do they need?",
+      "expected_doc": "SB_1197E (Saratoga)",
+      "hit": false,
+      "reciprocal_rank": 0.0,
+      "top_score": 0.530364144577208
+    },
+    {
+      "id": "am-016",
+      "question": "Does Piper's position on unapproved aviation gasolines apply to both Cherokee and Saratoga aircraft?",
+      "expected_doc": "CIL_2025-002 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5921594802074766
+    },
+    {
+      "id": "am-017",
+      "question": "What maintenance action is required for Piper aircraft with Slick single point magnetos that have decreased service life?",
+      "expected_doc": "VSP_225 (Saratoga)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6374573930790686
+    },
+    {
+      "id": "am-018",
+      "question": "What vendor service publications exist for Lycoming engine magneto maintenance on Piper aircraft?",
+      "expected_doc": "VSP_225 (Saratoga)",
+      "hit": true,
+      "reciprocal_rank": 0.5,
+      "top_score": 0.6303044889337804
+    },
+    {
+      "id": "am-019",
+      "question": "What service letter addresses firewall hole sealing on Piper aircraft, and what hazard does it warn about?",
+      "expected_doc": "SL_0177 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6331099996919397
+    },
+    {
+      "id": "am-020",
+      "question": "What customer information letter did Piper issue about the use of GAMI G100UL unleaded aviation gasoline?",
+      "expected_doc": "CIL_2025-002 (Cherokee)",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5863569241392221
+    }
+  ],
+  "elapsed_s": 36.2
+}

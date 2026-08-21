@@ -1,0 +1,75 @@
+{
+  "sweep_elapsed_s": 897.7,
+  "embedding_model": "Snowflake/snowflake-arctic-embed-m-v1.5",
+  "embedding_endpoint": "https://vllm-snowflake-embedding-retrieval-hub.apps.cluster-khsm8.khsm8.sandbox780.opentlc.com",
+  "sweep_table": "idx_aircraft_maintenance_sweep",
+  "configs_run": 6,
+  "results": [
+    {
+      "config_id": "TF-512-64",
+      "chunk_tokens": 512,
+      "overlap_tokens": 64,
+      "chunk_count": 2330,
+      "row_count": 2332,
+      "hit_rate_at_5": 0.9,
+      "mrr_at_5": 0.545,
+      "mean_score": 0.6284,
+      "elapsed_s": 132.3
+    },
+    {
+      "config_id": "TF-512-0",
+      "chunk_tokens": 512,
+      "overlap_tokens": 0,
+      "chunk_count": 2098,
+      "row_count": 2098,
+      "hit_rate_at_5": 0.95,
+      "mrr_at_5": 0.72,
+      "mean_score": 0.6288,
+      "elapsed_s": 118.0
+    },
+    {
+      "config_id": "TF-256-0",
+      "chunk_tokens": 256,
+      "overlap_tokens": 0,
+      "chunk_count": 4064,
+      "row_count": 4064,
+      "hit_rate_at_5": 0.85,
+      "mrr_at_5": 0.6667,
+      "mean_score": 0.6405,
+      "elapsed_s": 215.9
+    },
+    {
+      "config_id": "TF-256-64",
+      "chunk_tokens": 256,
+      "overlap_tokens": 64,
+      "chunk_count": 5279,
+      "row_count": 5279,
+      "hit_rate_at_5": 0.9,
+      "mrr_at_5": 0.6767,
+      "mean_score": 0.6385,
+      "elapsed_s": 288.2
+    },
+    {
+      "config_id": "TF-1024-0",
+      "chunk_tokens": 1024,
+      "overlap_tokens": 0,
+      "chunk_count": 1113,
+      "row_count": 1113,
+      "hit_rate_at_5": 0.95,
+      "mrr_at_5": 0.635,
+      "mean_score": 0.6198,
+      "elapsed_s": 67.9
+    },
+    {
+      "config_id": "TF-1024-128",
+      "chunk_tokens": 1024,
+      "overlap_tokens": 128,
+      "chunk_count": 1219,
+      "row_count": 1219,
+      "hit_rate_at_5": 0.95,
+      "mrr_at_5": 0.5975,
+      "mean_score": 0.6277,
+      "elapsed_s": 74.5
+    }
+  ]
+}

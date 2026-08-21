@@ -76,7 +76,7 @@ PGVECTOR_TABLE = "idx_aircraft_maintenance_v1"
 EMBEDDING_MODEL = "Snowflake/snowflake-arctic-embed-m-v1.5"
 EMBEDDING_DIMENSION = 768
 CHUNK_TOKENS = 512
-OVERLAP_TOKENS = 64
+OVERLAP_TOKENS = 0
 DOCUMENT_PREFIX = ""  # snowflake-arctic-embed uses no document prefix
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
@@ -86,9 +86,9 @@ DEFAULT_DATA_SOURCE_DIR = (
     / "aircraft-maintenance"
 )
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 
 # Aircraft families to ingest, keyed by subdirectory name.
