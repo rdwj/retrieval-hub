@@ -36,7 +36,7 @@ from retrieval_hub.models.source import PhysicalIndex, Source
 
 logger = logging.getLogger("import_eval_results")
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 
 SOURCE_SLUG = "va-cpg-clinical-guidelines"
 SUITE_SLUG = "autorag-chunking-eval"

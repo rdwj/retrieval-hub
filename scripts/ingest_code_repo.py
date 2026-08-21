@@ -64,9 +64,9 @@ CHUNK_TOKENS = 512
 SOURCE_OWNER_TEAM = "ai-americas"
 SOURCE_OWNER_CONTACTS = ["ai-americas@example.com"]
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 
 IGNORE_DIRS = {

@@ -48,7 +48,7 @@ DEFAULT_DATA_DIR = (
     / "pubmed-hypertension"
 )
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 QA_DATASET_PATH = (
     Path(__file__).resolve().parent.parent / "eval" / "pubmed_hypertension" / "qa_dataset.json"

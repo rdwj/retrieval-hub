@@ -49,7 +49,7 @@ logger = logging.getLogger("seed_va_cpg_semantic_context")
 SOURCE_SLUG = "va-cpg-clinical-guidelines"
 SOURCE_NAME = "VA/DoD Clinical Practice Guidelines"
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 
 
 # ---------------------------------------------------------------------------

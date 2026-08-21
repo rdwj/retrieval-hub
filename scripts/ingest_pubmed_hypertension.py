@@ -87,9 +87,9 @@ DEFAULT_DATA_SOURCE_DIR = (
     / "pubmed-hypertension"
 )
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 
 SAMPLE_PROMPTS: list[tuple[str, str]] = [

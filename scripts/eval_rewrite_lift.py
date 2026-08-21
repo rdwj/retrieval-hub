@@ -43,9 +43,9 @@ SOURCE_SLUG = "va-cpg-clinical-guidelines"
 QA_DATASET_PATH = Path("eval/autorag/qa_dataset_draft.json")
 OUTPUT_DIR = Path("eval/rewrite_lift")
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 DEFAULT_LLM_URL = (
     "https://gpt-oss-120b-direct-gpt-oss-120b-model"

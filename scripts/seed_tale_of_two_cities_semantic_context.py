@@ -46,7 +46,7 @@ logger = logging.getLogger("seed_tale_semantic_context")
 SOURCE_SLUG = "tale-of-two-cities"
 SOURCE_NAME = "A Tale of Two Cities"
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 DB_URL_ENV_VAR = "RETRIEVAL_HUB_DB_URL"
 DEFAULT_DEV_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5432/retrievalhub"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5432/retrievalhub"
 )
 
 

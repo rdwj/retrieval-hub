@@ -47,8 +47,8 @@ DESCRIPTION_SHORT = (
 SOURCE_OWNER_TEAM = "ai-americas"
 SOURCE_OWNER_CONTACTS = ["ai-americas@example.com"]
 
-CHUNK_TOKENS = 512
-OVERLAP_TOKENS = 0
+DEFAULT_CHUNK_TOKENS = 512
+DEFAULT_OVERLAP_TOKENS = 0
 
 DEFAULT_DATA_SOURCE_DIR = (
     Path(__file__).resolve().parent.parent.parent
@@ -58,9 +58,9 @@ DEFAULT_DATA_SOURCE_DIR = (
 DEFAULT_CORPUS_DIR = DEFAULT_DATA_SOURCE_DIR / "extracted"
 DEFAULT_PDF_URLS = DEFAULT_DATA_SOURCE_DIR / "pdf-urls.json"
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 
 SAMPLE_PROMPTS: list[tuple[str, str]] = [
@@ -139,13 +139,15 @@ def _recipe_content(
     document_prefix: str,
     query_prefix: str,
     pgvector_table: str,
+    chunk_tokens: int = DEFAULT_CHUNK_TOKENS,
+    overlap_tokens: int = DEFAULT_OVERLAP_TOKENS,
 ) -> dict:
     return {
         "parser": {"kind": "markdown_passthrough"},
         "chunker": {
             "kind": "token_fixed",
-            "chunk_size_tokens": CHUNK_TOKENS,
-            "overlap_tokens": OVERLAP_TOKENS,
+            "chunk_size_tokens": chunk_tokens,
+            "overlap_tokens": overlap_tokens,
             "encoding": "cl100k_base",
         },
         "embedding": {
@@ -177,12 +179,14 @@ def _run_ingestion(args: argparse.Namespace) -> int:
     document_prefix = args.document_prefix
     query_prefix = args.query_prefix
     corpus_dir = args.corpus_dir
+    chunk_tokens = args.chunk_tokens
+    overlap_tokens = args.overlap_tokens
 
     description_long = (
         f"A curated ingestion of the VA/DoD Clinical Practice Guidelines corpus "
         f"covering five clinical categories. This variant uses {embedding_model} "
-        f"for embeddings (eval comparison). Chunked at {CHUNK_TOKENS} tokens, "
-        f"0 overlap, stored in pgvector table {pgvector_table}."
+        f"for embeddings (eval comparison). Chunked at {chunk_tokens} tokens, "
+        f"{overlap_tokens} overlap, stored in pgvector table {pgvector_table}."
     )
 
     pdf_urls_path = corpus_dir.parent / "pdf-urls.json"
@@ -218,8 +222,8 @@ def _run_ingestion(args: argparse.Namespace) -> int:
     for norm in normalized:
         chunks = chunk_document(
             norm,
-            chunk_tokens=CHUNK_TOKENS,
-            overlap_tokens=OVERLAP_TOKENS,
+            chunk_tokens=chunk_tokens,
+            overlap_tokens=overlap_tokens,
         )
         all_chunks.extend(chunks)
     logger.info("produced %d chunks total", len(all_chunks))
@@ -264,6 +268,7 @@ def _run_ingestion(args: argparse.Namespace) -> int:
 
     recipe = _recipe_content(
         embedding_model, actual_dim, document_prefix, query_prefix, pgvector_table,
+        chunk_tokens, overlap_tokens,
     )
 
     session_factory = make_session_factory(create_db_engine(args.db_url))
@@ -296,6 +301,8 @@ def _run_ingestion(args: argparse.Namespace) -> int:
     print(f"  Embedding dimension  : {actual_dim}")
     print(f"  Document prefix      : {document_prefix!r}")
     print(f"  Query prefix         : {query_prefix!r}")
+    print(f"  Chunk tokens         : {chunk_tokens}")
+    print(f"  Overlap tokens       : {overlap_tokens}")
     print(f"  pgvector table       : {pgvector_table}")
     print(f"  Documents            : {len(normalized)}")
     print(f"  Chunks               : {len(all_chunks)}")
@@ -330,6 +337,14 @@ def main() -> int:
     parser.add_argument(
         "--query-prefix", default="",
         help='Prefix for queries at retrieval time (default: "" = none)',
+    )
+    parser.add_argument(
+        "--chunk-tokens", type=int, default=DEFAULT_CHUNK_TOKENS,
+        help=f"Chunk size in tokens (default: {DEFAULT_CHUNK_TOKENS})",
+    )
+    parser.add_argument(
+        "--overlap-tokens", type=int, default=DEFAULT_OVERLAP_TOKENS,
+        help=f"Overlap between chunks in tokens (default: {DEFAULT_OVERLAP_TOKENS})",
     )
     parser.add_argument(
         "--batch-size", type=int, default=32,

@@ -48,9 +48,9 @@ SOURCE_SLUG = "va-cpg-clinical-guidelines"
 QA_DATASET_PATH = Path("eval/autorag/qa_dataset_draft.json")
 DEFAULT_RUN_DIR = Path("eval/rewrite_lift/runs")
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 DEFAULT_REWRITER_LLM_URL = (
     "https://gpt-oss-120b-direct-gpt-oss-120b-model"
@@ -310,6 +310,7 @@ def _stage_score(
     from ragas.llms import llm_factory
     from ragas.metrics._answer_relevance import AnswerRelevancy
     from ragas.metrics._context_precision import ContextPrecision
+    from ragas.metrics._faithfulness import Faithfulness
     from ragas.run_config import RunConfig
 
     client = OpenAI(api_key="local", base_url=scoring_llm_url)
@@ -343,7 +344,7 @@ def _stage_score(
             for item in answer_data
         ]
 
-    metrics = [ContextPrecision(), AnswerRelevancy()]
+    metrics = [ContextPrecision(), AnswerRelevancy(), Faithfulness()]
     results = {}
 
     for condition in ("raw", "rewrite"):

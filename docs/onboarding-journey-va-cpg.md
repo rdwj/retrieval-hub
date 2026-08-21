@@ -175,7 +175,7 @@ The ingestion script (`scripts/ingest_va_cpg.py`) runs a 7-stage pipeline:
    took roughly 50 seconds locally (132 chunks/s with batch size 32).
 
 6. **Write** stores the chunks and their embeddings in a pgvector table
-   (`idx_va_cpg_v1`).
+   (`idx_va_cpg_nomic_v1`).
 
 7. **Register** creates the source, recipe version, and physical index
    records in the catalog database. This is what makes the source
@@ -217,7 +217,7 @@ verify that `doc_title` is consistent within each document after ingestion.
 A quick check:
 
 ```sql
-SELECT doc_title, COUNT(*) FROM idx_va_cpg_v1 GROUP BY doc_title ORDER BY doc_title;
+SELECT doc_title, COUNT(*) FROM idx_va_cpg_nomic_v1 GROUP BY doc_title ORDER BY doc_title;
 ```
 
 Each document should appear as exactly one `doc_title` value. If you see
@@ -242,7 +242,7 @@ Data owners should check the section distribution after ingestion:
 
 ```sql
 SELECT doc_section, COUNT(*) as chunks
-FROM idx_va_cpg_v1
+FROM idx_va_cpg_nomic_v1
 GROUP BY doc_section
 ORDER BY chunks DESC
 LIMIT 20;

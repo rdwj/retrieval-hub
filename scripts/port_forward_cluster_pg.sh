@@ -16,8 +16,8 @@ echo "  Catalog DB: localhost:5434 -> retrievalhub"
 echo "  Vectors DB: localhost:5433 -> retrievalhub_vectors"
 echo ""
 echo "Connection strings:"
-echo "  RETRIEVAL_HUB_DB_URL=postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
-echo "  RETRIEVAL_HUB_VECTORS_DB_URL=postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+echo "  RETRIEVAL_HUB_DB_URL=postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
+echo "  RETRIEVAL_HUB_VECTORS_DB_URL=postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 echo ""
 
 # Forward two local ports to the same cluster service port

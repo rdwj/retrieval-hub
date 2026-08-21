@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 VECTORS_DB_URL_ENV_VAR = "RETRIEVAL_HUB_VECTORS_DB_URL"
 

@@ -37,10 +37,10 @@ DEFAULT_PRIOR_RETRIEVAL_PATH = Path(
 )
 
 DEFAULT_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 )
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 DEFAULT_ANSWER_LLM_URL = "http://localhost:11434/v1/chat/completions"
 DEFAULT_ANSWER_LLM_MODEL = "gpt-oss:20b"

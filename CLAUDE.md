@@ -83,3 +83,22 @@ spec to prevent this.
 pod spec: (1) GPU toleration, (2) `enableServiceLinks: false`,
 (3) `HF_HOME` env var pointing to the PVC mount (not `/root/` since
 OpenShift runs non-root), (4) `--task embed` in the serve args.
+
+### Use 127.0.0.1 not localhost for local Postgres connections
+
+When `oc port-forward` runs concurrently with a local Podman Postgres
+container on the same port, `localhost` resolves non-deterministically
+to IPv4 (Podman via gvproxy) or IPv6 (oc port-forward). Different
+connections within the same script may hit different backends, causing
+phantom data and incorrect row counts.
+
+This happened during the aircraft chunking sweep: `write_chunks` wrote
+to one backend and `count_rows` read from another, reporting 2x the
+expected rows. The evaluation was unreliable because queries hit a table
+with stale or wrong data.
+
+**How to apply:** All local Postgres connection strings in scripts must
+use `127.0.0.1` (IPv4 literal) instead of `localhost`. This forces the
+connection to the Podman container regardless of what `oc port-forward`
+sessions are running. Check `lsof -i :<port>` if row counts or query
+results look wrong — a dual IPv4/IPv6 listener is the tell.

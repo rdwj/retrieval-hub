@@ -65,20 +65,22 @@ DESCRIPTION_LONG = (
     "are jointly developed by the Department of Veterans Affairs and the "
     "Department of Defense to standardize clinical decision-making across "
     "military and veteran healthcare settings. The ingestion uses a markdown "
-    "passthrough parser, a token-fixed chunker at 512/64 tokens, and "
-    "PubMedBERT (NeuML/pubmedbert-base-embeddings) for domain-specific "
-    "biomedical embeddings stored in pgvector."
+    "passthrough parser, a token-fixed chunker at 512/0 tokens, and "
+    "Nomic Embed v1.5 (nomic-ai/nomic-embed-text-v1.5) for embeddings "
+    "stored in pgvector. Nomic v1.5 was selected after a systematic "
+    "comparison (eval Run 7) showing it outperforms PubMedBERT and "
+    "BioLORD-2023 on context precision and answer relevancy."
 )
 SOURCE_OWNER_TEAM = "ai-americas"
 SOURCE_OWNER_CONTACTS = ["ai-americas@example.com"]
 
-PGVECTOR_TABLE = "idx_va_cpg_v1"
-EMBEDDING_MODEL = "NeuML/pubmedbert-base-embeddings"
+PGVECTOR_TABLE = "idx_va_cpg_nomic_v1"
+EMBEDDING_MODEL = "nomic-ai/nomic-embed-text-v1.5"
 EMBEDDING_DIMENSION = 768
 CHUNK_TOKENS = 512
-OVERLAP_TOKENS = 0  # AutoRAG eval showed overlap adds chunks without improving retrieval
-DOCUMENT_PREFIX = ""  # PubMedBERT uses no prefix
-QUERY_PREFIX = ""  # PubMedBERT uses no prefix
+OVERLAP_TOKENS = 0
+DOCUMENT_PREFIX = "search_document: "
+QUERY_PREFIX = "search_query: "
 
 DEFAULT_DATA_SOURCE_DIR = (
     Path(__file__).resolve().parent.parent.parent
@@ -88,9 +90,9 @@ DEFAULT_DATA_SOURCE_DIR = (
 DEFAULT_CORPUS_DIR = DEFAULT_DATA_SOURCE_DIR / "extracted"
 DEFAULT_PDF_URLS = DEFAULT_DATA_SOURCE_DIR / "pdf-urls.json"
 
-DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5434/retrievalhub"
+DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
 DEFAULT_VECTORS_DB_URL = (
-    "postgresql+psycopg://retrievalhub:retrievalhub@localhost:5433/retrievalhub_vectors"
+    "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5433/retrievalhub_vectors"
 )
 
 SAMPLE_PROMPTS: list[tuple[str, str]] = [
