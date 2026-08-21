@@ -74,7 +74,11 @@ SLUG_TO_KEYWORDS: dict[str, list[str]] = {
     "tobacco": ["tobacco"],
 }
 
-STRATEGIES = ["cosine_dedup", "rrf", "cross_encoder", "cosine_original", "llm_rerank"]
+STRATEGIES = [
+    "cosine_dedup", "rrf", "cross_encoder", "cosine_original", "llm_rerank",
+    "cross_encoder_register_aware",
+    "hybrid_alpha_03", "hybrid_alpha_05", "hybrid_alpha_07",
+]
 
 ANSWER_SYSTEM_PROMPT = (
     "You are a clinical reference assistant with access to VA/DoD Clinical "
@@ -93,6 +97,17 @@ def _chunk_matches_source(doc_title: str, cpg_slug: str) -> bool:
         return False
     title_lower = doc_title.lower()
     return any(kw in title_lower for kw in keywords)
+
+
+def _minmax_normalize(scores):
+    """Min-max normalize a list of scores to [0, 1]."""
+    import numpy as np
+
+    arr = np.array(scores, dtype=float)
+    lo, hi = arr.min(), arr.max()
+    if hi - lo < 1e-9:
+        return np.ones_like(arr) * 0.5
+    return (arr - lo) / (hi - lo)
 
 
 def _compute_hit_mrr(hits: list[dict], cpg_slug: str) -> tuple[bool, float]:
@@ -202,6 +217,58 @@ def _rerank_cross_encoder(item: dict, model) -> list[dict]:
     return [c for c, _s in scored[:TOP_K]]
 
 
+def _rerank_cross_encoder_register_aware(item: dict, model) -> list[dict]:
+    """Cross-encoder reranking, but skip rewrite pool for clinical queries."""
+    seen: dict[str, dict] = {}
+    for h in item["original_hits"]:
+        if h["text"] not in seen:
+            seen[h["text"]] = h
+    if item["language_register"] != "clinical":
+        for _idx, hits in item["rewrite_hits"].items():
+            for h in hits:
+                if h["text"] not in seen:
+                    seen[h["text"]] = h
+
+    candidates = list(seen.values())
+    if not candidates:
+        return []
+
+    pairs = [(item["question"], c["text"]) for c in candidates]
+    scores = model.predict(pairs)
+
+    scored = list(zip(candidates, scores, strict=True))
+    scored.sort(key=lambda x: float(x[1]), reverse=True)
+    return [c for c, _s in scored[:TOP_K]]
+
+
+def _rerank_hybrid(item: dict, model, alpha: float) -> list[dict]:
+    """Blend cross-encoder and cosine scores with tunable alpha."""
+    seen: dict[str, tuple[dict, float]] = {}
+    for h in item["original_hits"]:
+        if h["text"] not in seen or h["score"] > seen[h["text"]][1]:
+            seen[h["text"]] = (h, h["score"])
+    for _idx, hits in item["rewrite_hits"].items():
+        for h in hits:
+            if h["text"] not in seen or h["score"] > seen[h["text"]][1]:
+                seen[h["text"]] = (h, h["score"])
+
+    candidates = [v[0] for v in seen.values()]
+    cosine_scores = [v[1] for v in seen.values()]
+    if not candidates:
+        return []
+
+    pairs = [(item["question"], c["text"]) for c in candidates]
+    ce_scores = model.predict(pairs)
+
+    ce_norm = _minmax_normalize(ce_scores)
+    cos_norm = _minmax_normalize(cosine_scores)
+
+    final = alpha * ce_norm + (1 - alpha) * cos_norm
+    scored = list(zip(candidates, final, strict=True))
+    scored.sort(key=lambda x: float(x[1]), reverse=True)
+    return [c for c, _s in scored[:TOP_K]]
+
+
 def _rerank_cosine_original(item: dict, embedder) -> list[dict]:
     """Return top-5 hits rescored by cosine similarity to the original query."""
     seen: dict[str, dict] = {}
@@ -298,6 +365,15 @@ async def _apply_strategy(
             results[item["query_id"]] = _rerank_cross_encoder(item, cross_encoder_model)
         elif strategy == "cosine_original":
             results[item["query_id"]] = _rerank_cosine_original(item, embedder)
+        elif strategy == "cross_encoder_register_aware":
+            results[item["query_id"]] = _rerank_cross_encoder_register_aware(
+                item, cross_encoder_model,
+            )
+        elif strategy.startswith("hybrid_alpha_"):
+            alpha = int(strategy.split("_")[-1]) / 10.0
+            results[item["query_id"]] = _rerank_hybrid(
+                item, cross_encoder_model, alpha,
+            )
         elif strategy == "llm_rerank":
             results[item["query_id"]] = await _rerank_llm(item, llm)
         else:
@@ -545,7 +621,12 @@ async def _run(args: argparse.Namespace) -> int:
     # Stage 2: Apply reranking strategies
     logger.info("stage 2 (rerank): applying strategies...")
     cross_encoder_model = None
-    if "cross_encoder" in strategies:
+    _needs_cross_encoder = any(
+        s == "cross_encoder" or s == "cross_encoder_register_aware"
+        or s.startswith("hybrid_alpha_")
+        for s in strategies
+    )
+    if _needs_cross_encoder:
         from sentence_transformers import CrossEncoder
         logger.info("loading cross-encoder model...")
         cross_encoder_model = CrossEncoder(

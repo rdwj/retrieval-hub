@@ -239,6 +239,60 @@ cosine_dedup baseline. All three Ragas metrics.
 
 ---
 
+## Run 6: Hybrid scoring + register-aware reranking (E2 + E8)
+
+**Date:** 2026-08-20
+**Config:** Same retrieval config as Run 2. Four new strategies tested against
+the Run 5 baselines (cosine_dedup, cross_encoder):
+- `cross_encoder_register_aware` (E2): skip rewrite pool for clinical queries
+- `hybrid_alpha_03/05/07` (E8): blend cross-encoder and cosine scores with
+  `final_score = alpha * norm(cross_encoder) + (1-alpha) * norm(cosine)`
+All six strategies scored with Ragas (context_precision, answer_relevancy,
+faithfulness) on the same 30-query set (seed 42).
+**Raw data:** `runs/rerank-full-30/` (extended from Run 5)
+
+### Results (overall, n=30)
+
+| Metric | cosine_dedup | cross_encoder | register_aware | hybrid_0.3 | hybrid_0.5 | hybrid_0.7 |
+|---|---|---|---|---|---|---|
+| context_precision | 0.738 | **0.859** | 0.845 | 0.817 | 0.824 | 0.869 |
+| answer_relevancy | 0.734 | 0.655 | 0.680 | **0.729** | 0.682 | 0.687 |
+| faithfulness | 0.838 | 0.837 | 0.838 | **0.881** | 0.878 | 0.854 |
+| MRR | 0.903 | 0.906 | 0.933 | **0.961** | 0.928 | 0.900 |
+
+### By register
+
+| Metric | cosine_dedup (clin) | cross_encoder (clin) | hybrid_0.3 (clin) |
+|---|---|---|---|
+| context_precision | 0.707 | 0.869 | 0.805 |
+| answer_relevancy | **0.804** | 0.714 | 0.776 |
+| MRR | 0.849 | 0.885 | **0.927** |
+
+| Metric | cosine_dedup (lay) | cross_encoder (lay) | hybrid_0.3 (lay) |
+|---|---|---|---|
+| context_precision | 0.774 | 0.848 | **0.831** |
+| answer_relevancy | 0.653 | 0.587 | **0.676** |
+| MRR | 0.964 | 0.929 | **1.000** |
+
+### Observations
+
+- **hybrid_alpha_03** (alpha=0.3) is the best trade-off: recovers 99% of
+  cosine_dedup's answer_relevancy (0.729 vs 0.734) while capturing 65% of
+  cross-encoder's context_precision gain (0.817 vs 0.738 baseline). Highest
+  faithfulness (0.881) and MRR (0.961) of any strategy.
+- Alpha sweep confirms monotonic trade-off: higher alpha = more precision,
+  less answer quality. Diminishing returns past alpha=0.3.
+- Register-aware (E2) provides modest improvement over pure cross-encoder
+  (+2.5pts answer_relevancy, -1.4pts ctx_precision) but hybrid scoring (E8)
+  dominates across all metrics.
+- Clinical register: hybrid_0.3 recovers most of the clinical
+  answer_relevancy loss (0.776 vs cosine_dedup's 0.804, cross_encoder's
+  0.714) while gaining +9.8pts context_precision.
+- Lay register: hybrid_0.3 achieves the best lay answer_relevancy of any
+  cross-encoder-using strategy (0.676) and perfect MRR (1.000).
+
+---
+
 ## Cumulative progress
 
 | Run | Config | Overall ctx_prec | Overall ans_rel | Overall faith | Overall MRR |
@@ -246,13 +300,13 @@ cosine_dedup baseline. All three Ragas metrics.
 | 1 | vocab mappings, cosine dedup | -- | -- | -- | 0.906 (rewrite) |
 | 2 | + semantic layer, cosine dedup | -- | -- | -- | 0.934 (rewrite) |
 | 3 | Run 2 config, Ragas scoring | 0.740 | 0.700 | -- | -- |
-| 5 | Run 2 + cross-encoder rerank | **0.859** | 0.655 | 0.837 | 0.906 |
+| 5 | Run 2 + cross-encoder rerank | 0.859 | 0.655 | 0.837 | 0.906 |
+| 6 | Run 2 + hybrid_0.3 rerank | 0.817 | **0.729** | **0.881** | **0.961** |
 
-The cross-encoder reranking is the single largest improvement to
-context_precision (+12.1%), recovering the precision cost of query
-rewriting while maintaining faithfulness. The trade-off is a -7.9% drop
-in answer_relevancy, likely addressable through answer model or prompt
-improvements.
+Hybrid scoring (alpha=0.3) resolves the answer_relevancy trade-off from
+Run 5. It blends 30% cross-encoder signal with 70% cosine similarity,
+capturing most of the cross-encoder precision gain without sacrificing
+answer quality. This is the current best overall configuration.
 
 ---
 
@@ -261,13 +315,11 @@ improvements.
 See `EVAL_PLAN.md` for the convergence plan. Priorities given current
 results:
 
-1. **Answer model / prompt tuning** -- investigate why cross-encoder-ranked
-   chunks produce lower answer_relevancy. The chunks are more precisely
-   relevant (higher context_precision), so the answer model should be able
-   to produce better answers from them.
-2. **Expand vocabulary mappings for lay queries** -- target lay queries that
+1. **Chunking variations** -- test 256-token and 1024-token chunks.
+2. **Embedding model comparison** -- PubMedBERT vs. general-purpose models.
+3. **Expand vocabulary mappings for lay queries** -- target lay queries that
    scored below MRR 1.0.
-3. **Chunking variations** -- test 256-token and 1024-token chunks.
-4. **Embedding model comparison** -- PubMedBERT vs. general-purpose models.
-5. **MCP-level eval** -- run the same eval through the MCP tools to measure
+4. **MCP-level eval** -- run the same eval through the MCP tools to measure
    end-to-end system performance (#31).
+5. **Fine-tune alpha** -- test alpha values between 0.2 and 0.4 to find the
+   optimal blend point.

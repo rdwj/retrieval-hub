@@ -1,5 +1,5 @@
 {
-  "date": "2026-08-20T18:28:31Z",
+  "date": "2026-08-21T03:22:34Z",
   "strategies": {
     "cosine_dedup": {
       "context_precision": 0.7381018518168977,
@@ -14,6 +14,34 @@
       "faithfulness": 0.8365229677729679,
       "hit_rate": 1.0,
       "mrr": 0.9056
+    },
+    "cross_encoder_register_aware": {
+      "context_precision": 0.8448611110807859,
+      "answer_relevancy": 0.6799097540606759,
+      "faithfulness": 0.8375520313020313,
+      "hit_rate": 1.0,
+      "mrr": 0.9333
+    },
+    "hybrid_alpha_03": {
+      "context_precision": 0.8172685184875481,
+      "answer_relevancy": 0.7294397807416588,
+      "faithfulness": 0.8811664578111947,
+      "hit_rate": 1.0,
+      "mrr": 0.9611
+    },
+    "hybrid_alpha_05": {
+      "context_precision": 0.8238888888627917,
+      "answer_relevancy": 0.6815396420778334,
+      "faithfulness": 0.8779305365097291,
+      "hit_rate": 1.0,
+      "mrr": 0.9278
+    },
+    "hybrid_alpha_07": {
+      "context_precision": 0.8693981481214379,
+      "answer_relevancy": 0.6868209620818839,
+      "faithfulness": 0.8536324786324787,
+      "hit_rate": 1.0,
+      "mrr": 0.9
     }
   },
   "by_register": {
@@ -31,6 +59,34 @@
         "faithfulness": NaN,
         "hit_rate": 1.0,
         "mrr": 0.9286
+      },
+      "cross_encoder_register_aware": {
+        "context_precision": 0.7902,
+        "answer_relevancy": 0.6517,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9286
+      },
+      "hybrid_alpha_03": {
+        "context_precision": 0.8313,
+        "answer_relevancy": 0.6762,
+        "faithfulness": 0.9194,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "hybrid_alpha_05": {
+        "context_precision": 0.8404,
+        "answer_relevancy": 0.6443,
+        "faithfulness": 0.8426,
+        "hit_rate": 1.0,
+        "mrr": 1.0
+      },
+      "hybrid_alpha_07": {
+        "context_precision": 0.8627,
+        "answer_relevancy": 0.6165,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9643
       }
     },
     "clinical": {
@@ -47,6 +103,34 @@
         "faithfulness": NaN,
         "hit_rate": 1.0,
         "mrr": 0.8854
+      },
+      "cross_encoder_register_aware": {
+        "context_precision": 0.8927,
+        "answer_relevancy": 0.7046,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9375
+      },
+      "hybrid_alpha_03": {
+        "context_precision": 0.8049,
+        "answer_relevancy": 0.776,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.9271
+      },
+      "hybrid_alpha_05": {
+        "context_precision": 0.8095,
+        "answer_relevancy": 0.7142,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.8646
+      },
+      "hybrid_alpha_07": {
+        "context_precision": 0.8753,
+        "answer_relevancy": 0.7483,
+        "faithfulness": NaN,
+        "hit_rate": 1.0,
+        "mrr": 0.8438
       }
     }
   }

@@ -122,6 +122,11 @@ Run the Tier 2 experiments from `EVAL_PLAN.md` systematically via EvalHub.
 
 **Work:**
 1. Chunk size and overlap sweep (256/0, 256/64, 512/64, 1024/128).
+   **Note:** The VA CPG chunk sweep (E3) will be run as part of the
+   data-products epic's next session (dual sweep: pubmed-hypertension +
+   VA CPG). Results will be recorded here in the eval register and count
+   toward this phase's definition of done. See
+   `NEXT_SESSION-data-products.md` Phase 2 for the session plan.
 2. Embedding model comparison (PubMedBERT vs. jina-embeddings-v3 vs.
    BioLORD or similar).
 3. Record all results in the eval register with the full configuration
@@ -132,9 +137,12 @@ Run the Tier 2 experiments from `EVAL_PLAN.md` systematically via EvalHub.
 configs and 2 embedding models. Best configuration identified and recorded
 on the VA CPG data card.
 
-**Dependencies:** Phase 2 (EvalHub infrastructure).
+**Dependencies:** Phase 2 (EvalHub infrastructure) for embedding model
+comparison. The chunk sweep (E3) can run without EvalHub -- the
+data-products session will run it locally.
 
-**Parallel-ok:** Yes -- can run concurrently with refine-tool epic phases.
+**Parallel-ok:** Yes -- chunk sweep runs via data-products epic. Embedding
+comparison can run concurrently with refine-tool epic phases.
 
 ### Phase 4: Industry leaderboards and publication
 
@@ -225,6 +233,11 @@ See `session-summaries/2026-08-20-eval-convergence-reranking.md`.
 
 ## Watch out for
 
+- **Cross-epic coordination:** The VA CPG chunk sweep (E3) is being run
+  in the data-products epic's next session alongside the pubmed-hypertension
+  sweep. Results should be recorded in both `eval/rewrite_lift/` (this
+  epic's eval register) and `eval/pubmed_hypertension/` (data-products).
+  When this epic resumes, check whether E3 has landed before re-planning.
 - Ragas API instability across versions. Pin the version and verify the
   API before building on it.
 - gpt-oss-120b sandbox cluster may be reprovisioned. If the endpoint
