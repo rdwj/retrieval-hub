@@ -1,0 +1,174 @@
+{
+  "config_id": "TF-512-0",
+  "chunker": "token_fixed",
+  "chunk_tokens": 512,
+  "overlap_tokens": 0,
+  "chunk_count": 160,
+  "row_count": 160,
+  "hit_rate_at_5": 0.85,
+  "mrr_at_5": 0.7017,
+  "mean_score": 0.6085,
+  "per_question": [
+    {
+      "id": "pmh001",
+      "question": "What blood pressure reduction do standardized treatment protocols achieve compared to usual care?",
+      "expected_doc": "Effectiveness and Safety of Using Standardized Treatment Protocols for Hypertens",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6029055477920512
+    },
+    {
+      "id": "pmh002",
+      "question": "Are standardized hypertension treatment protocols safe? What about side effects?",
+      "expected_doc": "Effectiveness and Safety of Using Standardized Treatment Protocols for Hypertens",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5164312720298804
+    },
+    {
+      "id": "pmh003",
+      "question": "What is the recommended initial blood pressure reduction target for a hypertensive emergency?",
+      "expected_doc": "Current guidelines in hypertension management with special focus on management o",
+      "hit": true,
+      "reciprocal_rank": 0.5,
+      "top_score": 0.6365728351389919
+    },
+    {
+      "id": "pmh004",
+      "question": "What blood pressure target is recommended for ischemic stroke patients?",
+      "expected_doc": "Current guidelines in hypertension management with special focus on management o",
+      "hit": true,
+      "reciprocal_rank": 0.5,
+      "top_score": 0.6040513099447286
+    },
+    {
+      "id": "pmh005",
+      "question": "When should treatment be started for patients with both hypertension and diabetes according to the Saudi guidelines?",
+      "expected_doc": "National Heart Center/Saudi Heart Association 2023 Guidelines on the Management ",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.559171199798584
+    },
+    {
+      "id": "pmh006",
+      "question": "What role does renal denervation play in treating resistant hypertension?",
+      "expected_doc": "Updates in the management of hypertension",
+      "hit": true,
+      "reciprocal_rank": 0.3333333333333333,
+      "top_score": 0.6488652229309082
+    },
+    {
+      "id": "pmh007",
+      "question": "Should SGLT2 inhibitors be used in CKD patients who don't have diabetes?",
+      "expected_doc": "Updates in the management of hypertension",
+      "hit": true,
+      "reciprocal_rank": 0.2,
+      "top_score": 0.43981242538616583
+    },
+    {
+      "id": "pmh008",
+      "question": "How effective is tirzepatide at lowering blood pressure?",
+      "expected_doc": "GLP-1-based therapies for the treatment of resistant hypertension in individuals",
+      "hit": false,
+      "reciprocal_rank": 0.0,
+      "top_score": 0.5305085936340272
+    },
+    {
+      "id": "pmh009",
+      "question": "What percentage of patients with resistant hypertension are overweight or obese?",
+      "expected_doc": "GLP-1-based therapies for the treatment of resistant hypertension in individuals",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6459263178154052
+    },
+    {
+      "id": "pmh010",
+      "question": "Does semaglutide reduce cardiovascular risk in addition to lowering blood pressure?",
+      "expected_doc": "GLP-1-based therapies for the treatment of resistant hypertension in individuals",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5887311627326458
+    },
+    {
+      "id": "pmh011",
+      "question": "What happens to people who don't take their blood pressure medicine regularly?",
+      "expected_doc": "The link between adherence to antihypertensive medications and mortality rates i",
+      "hit": false,
+      "reciprocal_rank": 0.0,
+      "top_score": 0.6761099100112915
+    },
+    {
+      "id": "pmh012",
+      "question": "Does the mortality risk from medication non-adherence differ between new and long-term hypertension patients?",
+      "expected_doc": "The link between adherence to antihypertensive medications and mortality rates i",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6464793296766692
+    },
+    {
+      "id": "pmh013",
+      "question": "How much salt should someone with high blood pressure eat per day?",
+      "expected_doc": "Lifestyle management of hypertension: International Society of Hypertension posi",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6259163618087769
+    },
+    {
+      "id": "pmh014",
+      "question": "How much can exercise lower blood pressure in people with hypertension?",
+      "expected_doc": "Lifestyle management of hypertension: International Society of Hypertension posi",
+      "hit": true,
+      "reciprocal_rank": 0.5,
+      "top_score": 0.6037610116983367
+    },
+    {
+      "id": "pmh015",
+      "question": "What are the main reasons patients don't take their blood pressure medication?",
+      "expected_doc": "Barriers and Facilitators of Medication Adherence in Hypertension Patients: A Me",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6199512851209226
+    },
+    {
+      "id": "pmh016",
+      "question": "What percentage of people with diabetes also have hypertension?",
+      "expected_doc": "The connection between hypertension and diabetes and their role in heart and kid",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6094643240847791
+    },
+    {
+      "id": "pmh017",
+      "question": "How much does lowering blood pressure reduce complications in patients with type 2 diabetes?",
+      "expected_doc": "The connection between hypertension and diabetes and their role in heart and kid",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.5839102790275468
+    },
+    {
+      "id": "pmh018",
+      "question": "How common is resistant hypertension in patients with chronic kidney disease?",
+      "expected_doc": "Revisiting resistant hypertension in kidney disease",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.7485765964641229
+    },
+    {
+      "id": "pmh019",
+      "question": "How much does reducing dietary sodium help with resistant hypertension in CKD?",
+      "expected_doc": "Revisiting resistant hypertension in kidney disease",
+      "hit": true,
+      "reciprocal_rank": 1.0,
+      "top_score": 0.6900145596257127
+    },
+    {
+      "id": "pmh020",
+      "question": "What is the global burden of uncontrolled hypertension?",
+      "expected_doc": "Barriers and Facilitators of Medication Adherence in Hypertension Patients: A Me",
+      "hit": false,
+      "reciprocal_rank": 0.0,
+      "top_score": 0.5923242922022527
+    }
+  ],
+  "elapsed_s": 13.4
+}
