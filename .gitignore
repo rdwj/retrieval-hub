@@ -107,4 +107,5 @@ temp/
 .claude/*
 !.claude/commands/
 !.claude/rules/
+!.claude/skills/
 .memoryhub.yaml
