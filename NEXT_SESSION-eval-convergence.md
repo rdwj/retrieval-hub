@@ -1,27 +1,13 @@
 # Next Session — eval-convergence
 
-## Next: Phase 3 wrap-up and Phase 4 prep
+## Next: Phase 4 (leaderboards and publication)
 
-Phase 3 is nearly complete. The chunk sweep and faithfulness scoring
-landed this session. What remains:
+Phase 3 is DONE. The chunk config decision is settled: 512/0 wins.
 
-1. **Decide on chunk config based on sweep results**
-   The sweep showed all configs achieve 100% hit_rate@5 with Nomic v1.5.
-   MRR favors 512/64 and 1024/0 (both 0.967 vs 0.911 for 256/0 and
-   512/0). 512/64 gets the best MRR with moderate chunk count (7,420).
-   1024/0 matches MRR with fewest chunks (3,263) but lower cosine sim.
-   The current production config (512/0) is acceptable. Consider running
-   full Ragas answer-quality evals on the top 2 configs (512/64, 1024/0)
-   to measure faithfulness and answer_relevancy differences before
-   deciding whether to switch.
-
-2. **Record sweep results in the eval register**
-   Import the chunk sweep results into the catalog's eval_run/eval_result
-   tables using `scripts/import_eval_results.py`.
-
-3. **Begin Phase 4 research (leaderboards)**
-   Survey MTEB, BEIR, and clinical NLP benchmarks. Can run concurrently
-   with any remaining Phase 3 work.
+Begin Phase 4:
+1. Survey MTEB, BEIR, and clinical NLP benchmarks.
+2. Map retrieval-hub's eval metrics to leaderboard protocols.
+3. Draft arXiv paper abstract and methods section.
 
 **Session start protocol:**
 - Premise checks (~5 min):
@@ -75,32 +61,24 @@ intervention.
 
 **Parallel-ok:** No -- sequential after Phase 1.
 
-### Phase 3: Retrieval configuration sweep — IN PROGRESS
+### Phase 3: Retrieval configuration sweep — DONE
 
-Run the Tier 2 experiments from `EVAL_PLAN.md` systematically.
+Completed 2026-08-22. Full Ragas answer-quality evals on 3 chunk configs
+(512/0, 512/64, 1024/0), 2 embedding models (PubMedBERT, Nomic v1.5).
 
-**Work:**
-1. Chunk size and overlap sweep (256/0, 256/64, 512/64, 1024/128).
-   **Note:** The VA CPG chunk sweep (E3) will be run as part of the
-   data-products epic's next session (dual sweep: pubmed-hypertension +
-   VA CPG). Results will be recorded here in the eval register and count
-   toward this phase's definition of done. See
-   `NEXT_SESSION-data-products.md` Phase 2 for the session plan.
-2. ~~Embedding model comparison~~ — **DONE** (Runs 7-8, 2026-08-21). Nomic
-   v1.5 dominates PubMedBERT and BioLORD-2023. Nomic raw (no reranking)
-   is Pareto-optimal.
-3. Record all results in the eval register with the full configuration
-   fingerprint.
-4. Identify the Pareto-optimal configuration.
+**Winner:** 512/0 with Nomic v1.5 (no reranking). Pareto-optimal on
+answer_relevancy (0.735) with competitive faithfulness (0.854). 1024/0
+has higher faithfulness (0.882) but lower answer_relevancy (0.719).
+512/64 is dominated on all Ragas metrics despite higher MRR.
 
-**Definition of done:** Eval register has results for at least 4 chunk
-configs and 2 embedding models. Best configuration identified and recorded
-on the VA CPG data card.
+**Results recorded:** eval register suite `va-cpg-nomic-chunking-sweep` v1
+with 4 runs (256/0 retrieval-only, 512/0 + 512/64 + 1024/0 with full Ragas).
+Report at `eval/reports/va-cpg-chunk-sweep-final.png`.
 
-**Status:** 2/2 embedding models tested (BioLORD-2023, Nomic v1.5). 4/4
-chunk configs swept (256/0, 512/0, 512/64, 1024/0). Faithfulness scored.
-Remaining: decide on best chunk config (may need full Ragas comparison on
-top 2), record results in eval register.
+**Baseline metrics for refine-tool epic (Phase 5):**
+- context_precision: 0.815
+- answer_relevancy: 0.735
+- faithfulness: 0.854
 
 ### Phase 4: Industry leaderboards and publication
 
@@ -168,7 +146,22 @@ concurrently with Phase 3's config sweep.
 - New source onboarding (future epic)
 - Fine-tuning / model training (future work, referenced in refine epic)
 
-## What landed last session (2026-08-21, afternoon)
+## What landed last session (2026-08-22)
+
+Phase 3 wrap-up: full Ragas answer-quality evals on chunk configs.
+
+- Ran full Ragas evals (context_precision, answer_relevancy, faithfulness)
+  on 512/64 and 1024/0 chunk configs to break the MRR tie with 512/0.
+- 512/0 confirmed as winner: best answer_relevancy (0.735), competitive
+  faithfulness (0.854), Pareto-optimal on the two-axis scatter.
+- Created `scripts/import_nomic_sweep_results.py` and imported all sweep
+  results into the eval register (suite: `va-cpg-nomic-chunking-sweep`).
+- Created `/eval-report` skill at `.claude/skills/eval-report/` for
+  standardized Pareto front comparison reports.
+- Final report at `eval/reports/va-cpg-chunk-sweep-final.png`.
+- Baseline metrics now available for refine-tool epic Phase 5.
+
+## What landed earlier (2026-08-21, afternoon)
 
 Made the Nomic switch official and ran the chunk sweep:
 
