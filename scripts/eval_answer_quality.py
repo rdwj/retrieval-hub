@@ -36,7 +36,7 @@ from pathlib import Path
 
 from retrieval_hub.db.engine import create_db_engine, make_session_factory
 from retrieval_hub.models import Source
-from retrieval_hub.retrieval.api import query
+from retrieval_hub.retrieval.api import query, refine
 from retrieval_hub.rewriter.llm import LlmClient
 from retrieval_hub.rewriter.service import RewriterService
 from retrieval_hub.schemas.rewriter import RewriterMetadata
@@ -124,6 +124,8 @@ def _config_fingerprint(
     semantic_context: dict | None,
     rewriter_llm_model: str,
     answer_llm_model: str,
+    refine_strategy: str | None = None,
+    refine_window: int | None = None,
 ) -> str:
     blob = json.dumps(
         {
@@ -138,6 +140,8 @@ def _config_fingerprint(
             "top_k": TOP_K,
             "eval_seed": EVAL_SEED,
             "query_count": TARGET_QUERY_COUNT,
+            "refine_strategy": refine_strategy,
+            "refine_window": refine_window,
         },
         sort_keys=True,
     )
@@ -197,6 +201,8 @@ async def _stage_retrieve(
                     "doc_title": h.doc_title,
                     "doc_url": h.doc_url,
                     "doc_section": h.doc_section,
+                    "chunk_index": h.chunk_index,
+                    "chunk_id": h.chunk_id,
                 }
                 for h in hits
             ]
@@ -224,6 +230,109 @@ async def _stage_retrieve(
     return results
 
 
+# ── Stage 1.5: Refine (optional) ────────────────────────────────────────
+
+
+def _refine_hits(
+    hits: list[dict],
+    question: str,
+    *,
+    refine_strategy: str,
+    refine_window: int,
+    session,
+    vectors_db_url: str,
+) -> list[dict]:
+    """Call refine for each hit, deduplicate, and return expanded chunks."""
+    seen: set[tuple[str, int]] = set()
+    expanded: list[dict] = []
+
+    for hit in hits:
+        chunk_index = hit.get("chunk_index")
+        doc_title = hit.get("doc_title", "")
+        if chunk_index is None or not doc_title:
+            continue
+
+        try:
+            refine_output = refine(
+                SOURCE_SLUG,
+                doc_title=doc_title,
+                chunk_index=chunk_index,
+                query_text=question,
+                window=refine_window,
+                session=session,
+                vectors_db_url=vectors_db_url,
+                strategy=refine_strategy,
+            )
+        except Exception:
+            logger.warning(
+                "refine failed for %s chunk %d, skipping",
+                doc_title, chunk_index, exc_info=True,
+            )
+            continue
+
+        for r in refine_output.results:
+            if r.chunk_index is None:
+                continue
+            key = (r.doc_title, r.chunk_index)
+            if key not in seen:
+                seen.add(key)
+                expanded.append({
+                    "text": r.text,
+                    "score": r.score,
+                    "doc_title": r.doc_title,
+                    "doc_url": r.doc_url,
+                    "doc_section": r.doc_section,
+                    "chunk_index": r.chunk_index,
+                    "chunk_id": r.chunk_id,
+                })
+
+    # Sort by (doc_title, chunk_index) for document order
+    expanded.sort(key=lambda c: (c["doc_title"], c.get("chunk_index", 0)))
+
+    if not expanded:
+        logger.warning("refine produced no chunks for query (all hits skipped or failed)")
+
+    return expanded
+
+
+def _stage_refine(
+    retrieval_data: list[dict],
+    *,
+    refine_strategy: str,
+    refine_window: int,
+    session_factory,
+    vectors_db_url: str,
+) -> list[dict]:
+    """Expand retrieval hits using the refine API."""
+    results = []
+    for i, item in enumerate(retrieval_data):
+        logger.info("[%d/%d] refine %s", i + 1, len(retrieval_data), item["query_id"])
+
+        with session_factory() as session:
+            raw_refined = _refine_hits(
+                item["raw_hits"], item["question"],
+                refine_strategy=refine_strategy,
+                refine_window=refine_window,
+                session=session,
+                vectors_db_url=vectors_db_url,
+            )
+            rewrite_refined = _refine_hits(
+                item["rewrite_hits"], item["question"],
+                refine_strategy=refine_strategy,
+                refine_window=refine_window,
+                session=session,
+                vectors_db_url=vectors_db_url,
+            )
+
+        results.append({
+            **item,
+            "raw_refined_hits": raw_refined,
+            "rewrite_refined_hits": rewrite_refined,
+        })
+
+    return results
+
+
 # ── Stage 2: Generate answers ────────────────────────────────────────────
 
 
@@ -236,7 +345,8 @@ async def _stage_generate(
     for i, item in enumerate(retrieval_data):
         logger.info("[%d/%d] generate %s", i + 1, len(retrieval_data), item["query_id"])
 
-        raw_context = "\n\n".join(h["text"] for h in item["raw_hits"])
+        raw_hits_key = "raw_refined_hits" if "raw_refined_hits" in item else "raw_hits"
+        raw_context = "\n\n".join(h["text"] for h in item[raw_hits_key])
         raw_answer = await answer_llm.chat(
             [
                 {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
@@ -249,7 +359,8 @@ async def _stage_generate(
             max_tokens=1024,
         )
 
-        rewrite_context = "\n\n".join(h["text"] for h in item["rewrite_hits"])
+        rewrite_hits_key = "rewrite_refined_hits" if "rewrite_refined_hits" in item else "rewrite_hits"
+        rewrite_context = "\n\n".join(h["text"] for h in item[rewrite_hits_key])
         rewrite_answer = await answer_llm.chat(
             [
                 {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
@@ -332,7 +443,8 @@ def _stage_score(
     ragas_run_config = RunConfig(max_workers=max_workers, timeout=600)
 
     def _build_samples(condition: str) -> list[SingleTurnSample]:
-        hits_key = f"{condition}_hits"
+        refined_key = f"{condition}_refined_hits"
+        hits_key = refined_key if refined_key in answer_data[0] else f"{condition}_hits"
         answer_key = f"{condition}_answer"
         return [
             SingleTurnSample(
@@ -464,6 +576,8 @@ async def _run(args: argparse.Namespace) -> int:
 
     fingerprint = _config_fingerprint(
         raw_rw, raw_sc, args.rewriter_llm_model, args.answer_llm_model,
+        refine_strategy=args.refine_strategy,
+        refine_window=args.refine_window if args.refine_strategy else None,
     )
 
     run_dir = Path(args.run_dir) if args.run_dir else DEFAULT_RUN_DIR / fingerprint
@@ -484,6 +598,8 @@ async def _run(args: argparse.Namespace) -> int:
         "top_k": TOP_K,
         "eval_seed": EVAL_SEED,
         "query_count": len(eval_queries),
+        "refine_strategy": args.refine_strategy,
+        "refine_window": args.refine_window if args.refine_strategy else None,
     }
     config_path.write_text(json.dumps(run_config, indent=2) + "\n")
 
@@ -507,6 +623,27 @@ async def _run(args: argparse.Namespace) -> int:
             )
         retrieval_path.write_text(json.dumps(retrieval_data, indent=2) + "\n")
         logger.info("stage 1 complete, wrote %s", retrieval_path)
+
+    # Stage 1.5: Refine (optional)
+    refined_path = run_dir / "refined.json"
+    if args.refine_strategy:
+        if refined_path.exists() and not args.force:
+            logger.info("stage 1.5 (refine): using cached %s", refined_path)
+            retrieval_data = json.loads(refined_path.read_text())
+        else:
+            logger.info(
+                "stage 1.5 (refine): running with strategy=%s window=%d...",
+                args.refine_strategy, args.refine_window,
+            )
+            retrieval_data = _stage_refine(
+                retrieval_data,
+                refine_strategy=args.refine_strategy,
+                refine_window=args.refine_window,
+                session_factory=session_factory,
+                vectors_db_url=args.vectors_db_url,
+            )
+            refined_path.write_text(json.dumps(retrieval_data, indent=2) + "\n")
+            logger.info("stage 1.5 complete, wrote %s", refined_path)
 
     # Stage 2: Generate answers
     if answers_path.exists() and not args.force:
@@ -575,6 +712,12 @@ def main() -> int:
                         help=f"Ragas scoring LLM URL. Default: {DEFAULT_SCORING_LLM_URL}")
     parser.add_argument("--scoring-llm-model", default=DEFAULT_SCORING_LLM_MODEL,
                         help=f"Ragas scoring model. Default: {DEFAULT_SCORING_LLM_MODEL}")
+    parser.add_argument("--refine-strategy", default=None,
+                        choices=["adjacent", "section"],
+                        help="Refine strategy to apply between retrieve and generate. "
+                        "When set, inserts a refine stage. Default: disabled.")
+    parser.add_argument("--refine-window", type=int, default=2,
+                        help="Window size for the adjacent refine strategy. Default: 2")
     parser.add_argument("--run-dir", default=None,
                         help="Explicit run directory. Default: auto-generated from config hash.")
     parser.add_argument("--max-workers", type=int, default=2,
