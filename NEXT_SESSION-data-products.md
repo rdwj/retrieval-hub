@@ -1,78 +1,45 @@
 # Next Session -- data-products
 
-## Next: Cross-dataset reasoning agent test (Phase 4)
+## Next: Data owner onboarding path (Phase 5)
 
-Build an agent using `fips-agents create agent` that connects to the
-RetrievalHub MCP server and test whether it naturally discovers and
-combines the right sources across 2 domains (clinical + aviation) without
-being told which datasets to use. The agent uses the Anthropic API with
-Sonnet. The deliverable is lab notes documenting what prompting patterns
-work, what fails, and how the findings compare with the CDC project's
-structured scope signals approach.
+Distill the data-to-serving pipeline into a process a domain expert
+(non-AI engineer) could follow. Document what works, what requires
+engineering help, and what gaps remain. Phase 4 findings inform what
+metadata descriptions need to contain for effective agent-driven
+source selection.
 
-1. **Scaffold the agent with fips-agents**
-   `fips-agents create agent` in a sibling directory (e.g.,
-   `retrieval-hub-agent/`). Configure it to connect to the RetrievalHub
-   MCP server as its tool source. Use the Anthropic API with Sonnet
-   (`claude-sonnet-5` or latest Sonnet) as the LLM backend.
+1. **Audit the current onboarding steps**
+   Walk through what it takes to go from raw data to a serving source:
+   data preparation, ingestion script, chunking sweep, Ragas validation,
+   source registration, cluster deployment. Identify which steps require
+   engineering skills vs domain expertise.
 
-2. **Build a cross-dataset reasoning system prompt**
-   Write a system prompt that encourages the agent to use `list_sources`
-   to discover available data, then `retrieve` from the appropriate
-   source(s). The prompt should NOT name specific datasets or solutions.
-   The goal is to see if the agent can figure out the right sources from
-   their descriptions alone. Store the prompt in YAML format under
-   `prompts/` per project conventions.
+2. **Draft onboarding documentation**
+   Write a guide that a domain expert could follow, noting where they
+   need engineering help. Use the three existing sources (VA CPG, PubMed
+   hypertension, aircraft maintenance) as worked examples.
 
-3. **Run the 10 cross-dataset eval questions**
-   Both QA datasets include cross-dataset questions: 5 from
-   `eval/pubmed_hypertension/qa_dataset.json` and 5 from
-   `eval/aircraft_maintenance/qa_dataset.json`. Run each through the
-   agent and record: which sources it queried, whether it synthesized
-   across them, and answer quality (manual scoring on a 1-5 scale).
+3. **Identify gaps in the pipeline**
+   What tooling is missing? Does the data owner need CLI tools, a web UI,
+   templates? What metadata do they need to write (descriptions, usage
+   rules) and what guidance do they need for effective agent-driven
+   source selection (from Phase 4 findings)?
 
-4. **Ad-hoc probes for edge cases**
-   Test queries that should NOT cross domains ("What is SB 1197E?" is
-   aviation-only), queries that span both clinical sources (VA CPG +
-   PubMed hypertension), and ambiguous queries where domain selection
-   matters. Record the agent's source selection behavior.
-
-5. **Iterate on the system prompt**
-   Based on failures from steps 3-4, refine the prompt. Track each
-   iteration: what changed, what improved, what regressed. The iteration
-   log is part of the lab notes.
-
-6. **Lab notes: cross-dataset reasoning patterns**
-   Write `eval/cross_dataset_reasoning/LAB_NOTES.md` covering:
-   - System prompt patterns that work vs fail
-   - How the agent discovers complementary sources
-   - Source selection accuracy (correct domain, correct source within domain)
-   - Comparison with the CDC project's approach (structured scope signals
-     in source descriptions vs system prompt engineering)
-   - Whether #34 (multi-source search tool) is actually needed, or if
-     agent discipline suffices at the 3-source scale
+4. **Lab notes: onboarding path assessment**
+   Document what works, what requires engineering intervention, and
+   recommendations for making onboarding self-service.
 
 **Session start protocol:**
-- Premise checks (~10 min):
-  - Verify the MCP server is running and all 3 sources are visible:
-    connect via `mcp-test-mcp` or `curl` and call `list_sources`.
-    Expected: `va-cpg-clinical-guidelines`, `pubmed-hypertension`,
-    `aircraft-maintenance`.
-  - Verify Anthropic API key is set (`echo $ANTHROPIC_API_KEY | head -c 10`)
-  - Verify `fips-agents` is installed and has the `agent` template
-  - Read the CDC cross-dataset evaluation notes if available
-    (`MCP/CDC/data-acceptance-testing`) for comparison context
+- Premise checks (~5 min):
   - `git status` — commit any uncommitted files first
+  - Review Phase 4 lab notes for source description findings
+  - Review the three ingestion scripts to catalog the steps
 - Rules with history:
-  - The MCP server endpoint may differ between local dev and cluster.
-    Check the route/port before configuring the agent.
   - Use `127.0.0.1` not `localhost` for any local Postgres connections
     (IPv4/IPv6 race condition — see CLAUDE.md).
-  - Store prompts in YAML under `prompts/`, not hardcoded in Python.
 - Stop-and-ask before: modifying the MCP server code or any production
-  data source registrations. This session is testing agent behavior, not
-  changing the platform.
-- Close ritual: session summary, update this file, update eval register
+  data source registrations.
+- Close ritual: session summary, update this file
 
 ## Remaining epic phases
 
@@ -106,16 +73,23 @@ written. Key finding: optimal chunk size does NOT transfer across domains
 MRR. Full results in `eval/pubmed_hypertension/CHUNKING_SWEEP.md` and
 `eval/aircraft_maintenance/CHUNKING_SWEEP.md`.
 
-### Phase 4: Cross-dataset reasoning agent test + lab notes [NEXT]
+### Phase 4: Cross-dataset reasoning agent test + lab notes [DONE -- 2026-08-22]
 
-Test whether a well-prompted agent naturally discovers and combines VA CPG,
-pubmed-hypertension, and aircraft-maintenance sources without being told
-which datasets to use. Agent built with `fips-agents`, using Anthropic API
-with Sonnet.
+Scaffolded agent with `fips-agents create agent --provider anthropic`.
+Built 20-question eval harness (10 cross-dataset, 5 single-source
+controls, 5 ad-hoc probes) with automated source selection scoring.
+Ran 2 prompt iterations (v0 baseline, v1 disambiguation).
 
-**Definition of done:** Agent successfully discovers relevant sources,
-queries each independently, and synthesizes across results. Documented
-system prompt patterns that work and patterns that fail.
+Key findings: cross-domain source selection works well at 3-source scale
+(0.95 recall). Within-domain discrimination (two clinical sources) is
+unreliable from descriptions alone. Making the prompt more selective
+(v1) hurt recall without improving exact match. The "over-query" behavior
+(query both clinical sources) is the safer default.
+
+Assessed #34 (multi-source search): not needed at current scale. Defer
+until catalog grows beyond 5-10 sources with domain overlap.
+
+Full results in `eval/cross_dataset_reasoning/LAB_NOTES.md`.
 
 **Dependencies:** Phase 3 (done)
 
@@ -130,7 +104,7 @@ works and what gaps remain.
 
 **Dependencies:** Phases 2 + 3 (done)
 
-**Parallel-ok:** Yes, could run in parallel with Phase 4.
+**Parallel-ok:** Yes, dependencies met. Can start immediately.
 
 ### Phase 6: Dataset selection at scale + lab notes
 
@@ -163,16 +137,15 @@ Pull findings from all phases into structured lab notes and paper outline.
   suffices before building tool-level multi-source
 - Issue #30 (MCP server authentication) -- separate infrastructure concern
 
-## What landed last session (2026-08-21)
+## What landed last session (2026-08-22)
 
-See `session-summaries/2026-08-21-data-products-ragas-aircraft.md`.
-
-Phase 3 completed: aircraft chunking sweep (TF-512-0 wins, 0.950 hit_rate,
-0.749 MRR), Ragas answer-quality confirmed, production re-ingested on
-cluster, cross-domain comparison lab notes written. Commits: 0495a7e..63e6985.
-
-Parallel session completed sweep and production re-ingestion (d3d948a),
-IPv4/IPv6 fix (8d9209f). Closed #36 (Ragas validation).
+Phase 4 completed: cross-dataset reasoning agent test. Scaffolded agent
+with fips-agents 0.17.1 (Anthropic provider, Sonnet 5). Built 20-question
+eval harness with automated source selection scoring. Ran 2 prompt
+iterations. Key finding: cross-domain source selection works at 3-source
+scale (0.95 recall), within-domain discrimination unreliable.
+Assessed #34: defer until catalog grows. Full results in
+`eval/cross_dataset_reasoning/LAB_NOTES.md`.
 
 ## Watch out for
 

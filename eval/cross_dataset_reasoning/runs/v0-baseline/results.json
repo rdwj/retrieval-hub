@@ -1,0 +1,1161 @@
+[
+  {
+    "question_id": "xds001",
+    "question": "What blood pressure targets do VA CPG guidelines recommend for patients with diabetes, and does recent peer-reviewed literature support those targets?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target for patients with diabetes",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"ba4e34f5-8f5f-4300-b9a3-04eedbbcb5c0\",\"hits\":[{\"text\":\" clinical practice guidelines; LVH: left ventricular hypertrophy; MI: myocardial infarction; OSA: obstructive sleep apnea\\n\\n## Sidebar 4: Goals for Blood Pressure\\n\\n## Systolic Goal (see Recommendations 6 - 8 in the full HTN CPG)\\n\\n&lt;130 mm Hg\\n\\n- If less stringent goal is desired per clinical judgment and/or patient preferences, aim for at least:\\n- &lt;150 mm Hg for patients age 60 and over\\n- &lt;140 mm Hg for patient"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target goal in diabetic patients hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"2cfd60e8-d72b-41de-84ef-e9ddcb3ffde0\",\"hits\":[{\"text\":\"Angiotensin-converting enzyme (ACE) inhibitors, angiotensin receptor blockers (ARBs), thiazide-like diuretics, and dihydropyridine calcium channel blockers (CCBs) are among the first-line medications for hypertension. In most cases, multiple medication treatment is needed to reach BP goals. In one of the first studies to investigate whether patients with diabetes (with average BPs above 160/100 mmHg) would be more likely to ac"
+      },
+      {
+        "tool_name": "refine",
+        "arguments": {
+          "source": "va-cpg-clinical-guidelines",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "chunk_index": 42,
+          "query": "recommendation 8 systolic blood pressure goal diabetes strength of evidence ACCORD SPRINT",
+          "window": 2
+        },
+        "result_summary": "{\"source\":\"va-cpg-clinical-guidelines\",\"doc_title\":\"VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING\",\"doc_url\":\"https://www.healthquality.va.gov/HEALTHQUALITY/guidelines/CD/htn/VADODHypertensionCPG508Corrected792020.pdf\",\"origin_chunk_index\":42,\"strategy\":\"section\",\"chunks\":[{\"text\":\" they want to avoid or limit use of medications, when possible. Patients, however, may be more likely to accept medications with SDM and careful titrat"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "ACCORD SPRINT trial intensive blood pressure control diabetes cardiovascular outcomes",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"a2423225-de42-457f-8d95-c57ec9b7f55b\",\"hits\":[{\"text\":\"Angiotensin-converting enzyme (ACE) inhibitors, angiotensin receptor blockers (ARBs), thiazide-like diuretics, and dihydropyridine calcium channel blockers (CCBs) are among the first-line medications for hypertension. In most cases, multiple medication treatment is needed to reach BP goals. In one of the first studies to investigate whether patients with diabetes (with average BPs above 160/100 mmHg) would be more likely to ac"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "## VA/DoD CPG Blood Pressure Targets for Patients with Diabetes\n\nAccording to the **VA/DoD Clinical Practice Guideline for the Diagnosis and Management of Hypertension in the Primary Care Setting** (source: va-cpg-clinical-guidelines):\n\n**General systolic goal:** <130 mm Hg for the overall hypertensive population.\n\n**For patients with diabetes specifically**, the guideline sets an age-stratified, less-stringent alternative:\n- **Recommendation 8**: For patients **60 years and over with type 2 diabetes**, the CPG recommends treating to a **systolic BP goal of <140 mm Hg**, with added benefit noted for further lowering to the **130\u2013140 mm Hg range**. *(Strong for | Reviewed, Amended)*\n- **Diastolic goal (Recommendation 9)**: <90 mm Hg for patients 30 years and older (applies to diabetic patients as well). *(Strong for | Reviewed, Amended)*\n- The guideline's summary sidebar frames this as: general target <130 mm Hg, but \"if a less stringent goal is desired per clinical judgment/patient preference,\" aim for **<150 mm Hg (age \u226560)** or **<140 mm Hg (age \u226560 with type 2 diabetes)**.\n\nNotably, the CPG explicitly evolved from a 2014 version that recommended <150 mm Hg (with a *weak* suggestion for <140 mm Hg) to the current *strong* recommendation for <140 mm Hg, reflecting increased confidence in the evidence base \u2014 largely due to a systematic review of reviews by Brunstr\u00f6m et al. (2017).\n\n**Evidence basis cited by the CPG itself:**\n- Ettehad et al. (2016) meta-analysis: 12% relative risk reduction in major adverse cardiovascular events (MACE) per 10 mm Hg SBP reduction in diabetics, with benefit seen down to SBP <130 mm Hg.\n- Brunstr\u00f6m et al. (2017) systematic review of 11 SRs: supports SBP 130\u2013140 mm Hg as associated with reduced CV events in diabetic populations (mean age ~60); found *no* statistically significant additional benefit from targets <130 mm Hg, and even a non-significant trend toward increased cardiovascular mortality with more aggressive lowering.\n- The CPG authors note the evidence is strongest for middle-aged/elderly type 2 diabetics already on antihypertensive treatment, with little evidence for type 1 diabetes, younger adults, or those over 80.\n- Two ongoing Chinese trials (BPROAD and IPAD) were flagged as expected to provide more definitive future evidence on diabetic BP targets.\n\n## Does Recent Peer-Reviewed Literature Support This?\n\nFrom **PubMed Hypertension Literature** (source: pubmed-hypertension, articles dated 2023\u20132025), the picture is more aggressive than the VA/DoD target:\n\n- The **National Heart Center/Saudi Heart Association 2023 Guidelines** (cited within this PubMed corpus) recommend initiating drug therapy at BP \u2265130/80 mm Hg and targeting **<130/80 mm Hg** for patients with diabetes \u2014 a notably lower/tighter target than the VA/DoD's <140 mm Hg for older diabetics. This reflects the rationale that tighter control offers both macrovascular and microvascular (renal) protection, and recommends ACE inhibitors/ARBs as first-line, especially with albuminuria or kidney disease.\n- The same literature references **SPRINT** (9,361 patients, SBP \u2265130 mm Hg with elevated CV risk) as strong evidence that intensive treatment (target SBP \u2264120 mm Hg) reduced cardiovascular mortality/morbidity compared to standard treatment (\u2264140 mm Hg) \u2014 though SPRINT notably excluded diabetics, limiting direct applicability.\n- The literature discusses combination pharmacotherapy (ACE inhibitor + CCB or + thiazide-like diuretic) as more effective than monotherapy for diabetic hypertensive patients in reaching a **140/90 mm Hg** goal \u2014 a more traditional/conservative target used in some trial designs.\n\n## Synthesis: Agreement and Divergence\n\n- **Both sources agree** intensive/lower BP control provides cardiovascular benefit in diabetic hypertensive patients, and both point to combination pharmacotherapy (ACEi/ARB plus CCB or diuretic) as effective strategy.\n- **They diverge on the specific numeric target.** The VA/DoD CPG deliberately sets a *less aggressive* strong-recommendation target of <140 mm Hg (with optional further lowering to 130\u2013140 mm Hg) for older (60+) diabetics, citing that evidence for pushing below 130 mm Hg is inconsistent and lacks statistically significant added benefit while potentially trending toward harm. In contrast, the peer-reviewed literature reflected in the PubMed source (e.g., the 2023 Saudi Heart Association guideline) recommends a **stricter target of <130/80 mm Hg** for diabetic patients, aligning more with guidance from other bodies like ACC/AHA.\n- The VA/DoD CPG itself acknowledges this divergence, explicitly noting that \"other recent HTN guidelines\" recommend lower targets and that its own recommendations may differ from ACC/AHA or ESC guidance \u2014 consistent with what the PubMed literature shows.\n- Notably, key trials like SPRINT (supporting more intensive targets) **excluded diabetics**, so its findings don't directly transfer to this population \u2014 a limitation both the VA/DoD CPG and the broader literature acknowledge.\n\n**Bottom line:** The VA/DoD CPG takes a deliberately more conservative (higher) BP target of <140 mm Hg for diabetic patients aged 60+, based on nuanced reading of the diabetes-specific evidence (particularly Brunstr\u00f6m 2017) showing no clear added benefit and possible harm from tighter (<130) targets. More recent peer-reviewed guideline literature (2023 Saudi Heart Association guidelines) instead endorses a tighter <130/80 mm Hg target, reflecting an ongoing debate in the field rather than settled consensus. Two trials specifically designed to resolve this (BPROAD, IPAD) were still enrolling as of the VA/DoD CPG's most recent review and may clarify this discrepancy.\n\n*Note on scope:* Per source usage rules \u2014 the VA/DoD content represents official clinical practice guidelines and may differ from ACC/AHA/ESC guidance (a caveat the VA CPG itself makes explicit); the PubMed content represents individual peer-reviewed research/guideline articles, not a single authoritative institutional standard. Guideline freshness: VA/DoD CPG last refreshed 2026-08-13; PubMed corpus reflects articles from 2023\u20132025, last refreshed 2026-08-20.",
+    "iterations": 4,
+    "input_tokens": 37374,
+    "output_tokens": 3066,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "xds002",
+    "question": "What does the evidence say about why patients don't take their blood pressure medications, and what do VA guidelines recommend to address this?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "reasons patients do not adhere to antihypertensive medication",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"02a74b6e-1741-4089-8062-e46f9221da9d\",\"hits\":[{\"text\":\"Non-adherence to medication is a significant factor in the failure to manage hypertension effectively within the general population. Identifying and assessing non-adherence in clinical settings poses challenges. Methods used to address this issue typically rely on indirect indicators, such as pill counts, pharmacy records, or blood pressure measurements, rather than concrete outcomes like major adverse cardiovascular events. H"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "medication adherence hypertension recommendations interventions",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"48087bab-0a64-4f43-8b39-fb07abc43f46\",\"hits\":[{\"text\":\" therapy, etc. | Weak for                        | Reviewed, New- replaced | Recommendation 10 Recommendation 11 Recommendation 12 Recommendation 13 |\\n| 3.1             | 8               | p. 31           | We recommend offering lifestyle modification interventions for patients with prehypertension or hypertension based on patient indications and preferences as well as assessment of available local resources. ( Modified from "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "patient beliefs perceptions knowledge about hypertension medication necessity",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"ddcd6bec-6e86-4b4e-af04-a9511d43252c\",\"hits\":[{\"text\":\"# Discussion\\n\\n# Knowledge, Belief, and Action\\n\\nIt is almost universally accepted that knowledge and beliefs have an important role in the tertiary prevention of HTN. A study of patients yielded different results: lack of knowledge was the most common barrier to recognizing HTN.   Previous research has also highlighted that adherence to medication in hypertensive patients with a low level of knowledge about HTN was signific"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "strategies to improve medication adherence simplify regimen self-monitoring reminders",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"f97e2f15-3b31-4333-a9d9-7c93a3eb4503\",\"hits\":[{\"text\":\" adherence\\n- \u00a8 Discussing methods and availability of tools to support day-to-day self-monitoring\\n- \u00a8 Engaging caregivers, family members, and significant others in monitoring, when appropriate\\n- \u00a8 Identifying early warning signs of possible recurrences and reporting them to providers\\n- Agreeing on a medication regimen with effectiveness for preventing mania and depression, including discussing side effects and their manag"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension fixed-dose combination pill burden adherence home blood pressure monitoring team-based care",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"dac38a98-c26d-442b-9d2f-2de62c67aa23\",\"hits\":[{\"text\":\"N in the general population based on blood pressure targets obtained with AOBP that is being increasingly recognized as equivalent to out-of-office blood pressure. Additionally, variation in appropriate management for blood pressure variation by time of day and season should be included in future studies to determine the clinical significance.\\n\\n## B. Self-monitoring of Blood Pressure\\n\\nAreas of research include the developm"
+      },
+      {
+        "tool_name": "refine",
+        "arguments": {
+          "source": "va-cpg-clinical-guidelines",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "chunk_index": 103,
+          "query": "multi-modal approach to adherence interventions recommendation 7 discussion",
+          "strategy": "section",
+          "window": 3
+        },
+        "result_summary": "{\"source\":\"va-cpg-clinical-guidelines\",\"doc_title\":\"VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING\",\"doc_url\":\"https://www.healthquality.va.gov/HEALTHQUALITY/guidelines/CD/htn/VADODHypertensionCPG508Corrected792020.pdf\",\"origin_chunk_index\":103,\"strategy\":\"section\",\"chunks\":[{\"text\":\"2004 VA/DoD HTN CPG without an updated systematic review of the evidence.)                                                                            "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "telemonitoring group medical appointments case management behavioral therapy adherence intervention recommendation discussion",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"f3841090-bb87-476c-bc28-51dcf45c7395\",\"hits\":[{\"text\":\" Work Group's confidence in the quality of the evidence was very low, with few significant differences found between groups for most consumption outcomes, retention, and ED visits. The body of evidence was limited by small sample size in most studies, serious limitations in study quality, and serious imprecision. The benefits (e.g., reduced drinking days) outweighed potential harms (e.g., perceived burden of receiving texts). "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "single pill combination therapy improves adherence reduce pill burden",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"2cecb84c-0117-4067-9983-876f42a549fc\",\"hits\":[{\"text\":\" the CGI.(117) One RCT by Naber et al. (2015) found a greater improvement in symptom severity in patients with aripiprazole once monthly versus paliperidone palmitate once monthly, per the CGI-S from baseline to week 28.(118) This finding indicates that some patients might respond better to one antipsychotic over another, but this response is highly variable, unpredictable, and individualized among patients.(118) Evidence sugg"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "nurse-led case management adherence intervention hypertension recommendation 11 12",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"dba3a150-3cc6-4a22-af81-231745642b08\",\"hits\":[{\"text\":\", improve adherence to medication therapy, and improve quality of life metrics in patients with HTN.[82-88] All studies reviewed by the Work Group contained multiple components of nurse-led intervention, some paired with other co-interventions.\\n\\nOur evidence review found one SR, by Parappilly et al. (2018), that compared nurse-led interventions to usual care.[88] It was based on 16 RCTS and enrolled a total of 3,568 particip"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I now have a solid, well-triangulated picture from two complementary sources. Here's the synthesis:\n\n## Why patients don't take their blood pressure medications: what the research evidence says\n\nDrawing on **PubMed Central hypertension literature** (two review/meta-analysis articles, one a qualitative meta-integration of patient-perspective studies, and one a cohort-study meta-analysis on adherence and mortality), several recurring barrier categories emerge:\n\n1. **Fear and negative treatment experience** \u2014 The single most commonly reported patient reason for nonadherence is fear of medication side effects, sometimes leading patients to underweight their cardiovascular risk from stopping treatment. Regimen complexity can also cause \"treatment burnout,\" prompting intentional omission or a shift toward cheaper/perceived-safer alternative therapies (*Barriers and Facilitators of Medication Adherence in Hypertension Patients*, PMC10976505, CC license).\n\n2. **Access and health-system obstacles** \u2014 Inconvenient transport, long appointment wait times, medication stock-outs at pharmacies, and dissatisfaction with rushed or poor-quality doctor communication (which erodes trust) were frequently cited barriers.\n\n3. **Economic constraints** \u2014 Affordability of medications and follow-up visits leads some patients to ration or skip doses to save money.\n\n4. **Unintentional forgetfulness** \u2014 Simple forgetting (due to work overload, routine disruption on weekends, or age-related memory decline) was a major reported cause, distinct from intentional non-adherence.\n\n5. **Inadequate medication literacy / cognitive misconceptions** \u2014 Patients often believe medication can be stopped once blood pressure normalizes, or judge their blood pressure by how they *feel* rather than by actual readings \u2014 misconceptions rooted in poor understanding of hypertension as a lifelong condition.\n\n6. **Difficulty adapting to a \"patient\" identity** \u2014 Especially soon after diagnosis, patients may experience denial, stigma, or role conflict (e.g., women balancing caregiving duties), which interferes with consistent self-management.\n\n7. **Weak social support** \u2014 Conversely, strong support from family, community, or religious groups was identified as a *facilitator* of adherence, underscoring that the absence of such support is itself a risk factor.\n\nContext on scale: a meta-analysis of ~27 million patients found nonadherence rates of **27\u201340% globally** (2010\u20132020), with some regional surveys (e.g., Chinese cities) reporting nonadherence as high as 58%. Separately, a systematic review/meta-analysis of cohort studies exploring adherence and mortality noted that measuring adherence itself is methodologically difficult \u2014 pill counts are unreliable and often not brought to visits, and pharmacy-record data, while valid, are underused due to organizational barriers \u2014 which limits how confidently adherence can be linked to hard clinical outcomes.\n\n*Note: these are peer-reviewed research findings, not institutional clinical guidance \u2014 per source scope rules, I'm distinguishing observational/qualitative synthesis from clinical recommendations below.*\n\n## What VA/DoD guidelines recommend to address this\n\nThe **VA/DoD Clinical Practice Guideline for the Diagnosis and Management of Hypertension in the Primary Care Setting** (2020) directly addresses adherence with several graded recommendations:\n\n- **Multi-modal adherence interventions (2020 update of 2014 Rec. 7, \"Weak for\"):** The guideline suggests a multi-modal approach combining telemonitoring, multidisciplinary group/shared medical appointments, case management (pharmacists, nurses, or social workers), patient and provider education, and behavioral therapy \u2014 reflecting that no single intervention reliably improves adherence, but combined approaches show more promise.\n\n- **Recommendation 10 \u2014 Pharmacist-led medication management (\"Strong for\"):** Based on two systematic reviews (Greer et al. 2016, 7 RCTs; Santschi et al. 2014, 39 RCTs, >14,000 patients), pharmacist-led care \u2014 covering medication initiation, titration, monitoring, reminder systems, and education \u2014 significantly increased achievement of goal BP (RR 1.45, 95% CI 1.24\u20131.70) and produced meaningful SBP/DBP reductions (-8.5/-4.6 mmHg vs. usual care).\n\n- **Recommendation 11 \u2014 Nurse-led interventions (\"Weak for\"):** Encompassing risk assessment, education, lifestyle counseling, goal-setting, and protocol-driven medication titration. Evidence (a systematic review of 16 RCTs plus additional trials) showed modest but statistically significant BP reductions and, in some trials, improved medication adherence, though quality of evidence was rated very low/variable.\n\n- **Recommendation 13 \u2014 Technology-based interventions (\"Weak for\"):** e-counseling, telemonitoring, mobile apps, and electronic data transmission are suggested to help control hypertension and support adherence, though evidence quality was low.\n\n- **Home blood pressure self-monitoring:** The guideline notes self-monitoring alone doesn't reliably improve adherence, but when paired with a co-intervention (medication titration, education, or lifestyle counseling), it improves BP control (mean SBP reduction ~6.1 mmHg vs. usual care alone).\n\n**Complementarity between sources:** The PubMed literature identifies the *patient-level psychological and social roots* of nonadherence (fear, forgetfulness, cost, health literacy, access), while the VA/DoD guideline responds primarily with *system- and team-based structural interventions* (pharmacist/nurse-led care, technology, multidisciplinary case management) rather than directly prescribing fixes for individual psychological barriers like fear of side effects \u2014 though its emphasis on patient education and provider communication indirectly addresses the literacy and trust gaps the qualitative research highlights.\n\n**A caveat per VA source rules:** these VA/DoD recommendations reflect that specific work group's evidence grading and may differ from other bodies' guidelines (e.g., ACC/AHA); most adherence-specific recommendations were rated \"Weak for,\" reflecting low-to-moderate confidence in the evidence base, except pharmacist-led management, which was rated \"Strong for.\"\n\n**Freshness note:** PubMed source last refreshed 2026-08-20 (articles from 2023\u20132025); VA/DoD CPG source last refreshed 2026-08-13, guideline itself dated 2020 \u2014 check healthquality.va.gov for any newer version.",
+    "iterations": 8,
+    "input_tokens": 195894,
+    "output_tokens": 3850,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "xds003",
+    "question": "For a patient with resistant hypertension and chronic kidney disease, what are the treatment options including newer therapies?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension chronic kidney disease treatment options newer therapies",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"bfc80e0e-2758-4788-a379-01bb98a38471\",\"hits\":[{\"text\":\"# Purpose of review\\n\\nAs compared to controlled or uncontrolled hypertension, resistant hypertension in patients with chronic kidney disease (CKD) poses a significantly increased healthcare burden due to greater target end-organ damage including cardiovascular disease and CKD progression. Patients with CKD have two to three times higher risk of developing resistant hypertension. True resistant hypertension needs to be disting"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension management in chronic kidney disease",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"a0b01d2d-4a6f-46a9-ba5e-8267e3b5e504\",\"hits\":[{\"text\":\" Chronic Kidney Disease: A Meta-Analysis. Article. International Journal of Hypertension . 2023;2023doi:10.1155/2023/6683987\\n174. Parati G, Kjeldsen S, Coca A, Cushman WC, Wang J. Adherence to Single-Pill Versus Free-Equivalent Combination Therapy in Hypertension: A Systematic Review and MetaAnalysis. Hypertension . Feb 2021;77(2):692-705. doi:10.1161/hypertensionaha.120.15781\\n175. Einhorn LM, Zhan M, Hsu VD, et al. The freq"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "novel agents renal denervation aldosterone synthase inhibitor mineralocorticoid receptor antagonist finerenone spironolactone",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"01cb3a1d-3488-474d-ab83-27a6f9aed513\",\"hits\":[{\"text\":\"Blockade of multiple nephron segments to intensify diuresis has been increasingly recognized as a treatment option in excess sodium retention states. In a pilot study, combination of furosemide and hydrochlorothiazide in stage 4 and 5 CKD increased the fractional excretion of sodium and decreased the mean BP more efficiently compared to each agent alone. PATHWAY-2 trial evaluated such strategy in patients with resistant hypert"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "SGLT2 inhibitor finerenone mineralocorticoid receptor antagonist hyperkalemia CKD hypertension",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"e72785de-52c8-4c27-8133-6d3846fc598d\",\"hits\":[{\"text\":\" on the progression of CKD, outweighed the potential harm of hypotension. Patient values and preferences were assessed as being similar. Other considerations included the high cost of ARNIs relative to RAASi monotherapy and limited access to this medication in resourcerestricted settings. Thus, the Work Group decided upon a Weak for recommendation.\\n\\n## Recommendation\\n\\n18. We suggest the addition of a non-steroidal mineralo"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "## Treatment Options for Resistant Hypertension in CKD\n\nThis is a well-covered topic across two sources in the catalog: peer-reviewed literature (**PubMed Hypertension Literature**) and the **VA/DoD Clinical Practice Guidelines** (CKD and Type 2 Diabetes CPGs). They complement each other well \u2014 the VA/DoD guidelines give formal graded recommendations for standard-of-care CKD management, while the PubMed review focuses specifically on resistant hypertension pathophysiology and emerging agents.\n\n### 1. Foundational therapy (both sources agree)\n- **RAAS blockade (ACEi or ARB)** is the backbone of therapy for hypertensive CKD patients with albuminuria (UACR >30 mg/g) \u2014 **VA/DoD: Strong for** (Recommendation 12). It should generally be *continued*, not stopped, even in advanced CKD (eGFR <30) unless there's intolerance (**Weak for**, Recommendation 14).\n- **Add a thiazide diuretic or calcium channel blocker** if BP remains uncontrolled on ACEi/ARB alone (**VA/DoD: Weak for**, Recommendation 13).\n- *Caveat*: The PubMed review (\"Revisiting resistant hypertension in kidney disease,\" PMC11296285) notes thiazide-type diuretics lose efficacy below eGFR 30 mL/min/1.73m\u00b2; at that point, **switching to or adding loop diuretics** (with dose escalation, twice-daily dosing, or once-daily torsemide for adherence) or **combining loop + thiazide-like \u00b1 potassium-sparing diuretics** becomes the key strategy, since excess sodium/volume retention is described as \"the cornerstone cause of resistance to treatment\" in CKD.\n\n### 2. Fourth-line/add-on agents for true resistance\n- **Spironolactone** (steroidal MRA) \u2014 the PATHWAY-2 trial (cited in PubMed source) showed it reduced home SBP by ~8.7 mmHg as a fourth-line agent added to diuretic + ACEi/ARB + CCB, with further benefit titrating 25\u219250 mg. In CKD it requires careful potassium monitoring; the VA/DoD guideline notes spironolactone was poorly tolerated in a CKD trial (BARACK), with two-thirds discontinuing due to declining kidney function or hyperkalemia.\n- **Combined \u03b1- and \u03b2-blockade** and consideration of **renal denervation (RDN)** have \"strong rationale\" given sympathetic overactivation in CKD-related hypertension (PubMed source).\n\n### 3. Newer/cardiorenal-protective therapies (guideline-endorsed)\nFrom the VA/DoD CKD guideline:\n- **SGLT2 inhibitors**: **Strong for** recommendation, added to maximally tolerated ACEi/ARB, for CKD patients with T2DM, albuminuria (UACR >200 mg/g), or heart failure \u2014 reduces MACE, HF, CKD progression, and mortality; continue until dialysis initiation. Renal protective benefit persists even as glucose-lowering effect attenuates at lower eGFR, and evidence supports use down to eGFR \u226520 mL/min/1.73m\u00b2.\n- **GLP-1 receptor agonists**: **Strong for** recommendation, added to ACEi/ARB in patients with T2DM and albuminuric CKD, reducing CKD progression, MACE, and all-cause mortality.\n- **Finerenone (non-steroidal MRA)**: **Weak for** recommendation, added to maximally tolerated ACEi/ARB in patients with T2DM, albuminuria >30 mg/g, eGFR \u226525, and potassium <4.8 mEq/L. Based on FIDELIO-DKD/FIGARO-DKD trials (HR 0.86 for CV composite, HR 0.77 for CKD progression), but hyperkalemia rates were higher than placebo (14.0% vs 6.9%), and the guideline explicitly prioritizes SGLT2i over MRA when both are indicated, due to stronger evidence and cost/monitoring burden.\n- **Sacubitril/valsartan (ARNI)**: suggested as an alternative to ACEi/ARB monotherapy in CKD patients with concurrent heart failure (Weak for), though cost and limited access were noted as tradeoffs.\n\n### 4. Emerging/investigational agents (from PubMed review only \u2014 not yet in VA/DoD guidelines)\nThe review \"Revisiting resistant hypertension in kidney disease\" (PMC11296285, PMC, 2024) highlights agents in the pipeline specifically for resistant hypertension:\n- **Baxdrostat** \u2014 an aldosterone synthase inhibitor, showed significant improvement in 24-hour ambulatory SBP in the early-phase **BrigHTN trial** (though this trial excluded eGFR <45).\n- **Aprocitentan** \u2014 a dual endothelin receptor antagonist, showed benefit in the **Precision trial**, which included 22% CKD stage 3\u20134 patients.\n- **Zilebesiran** \u2014 a small interfering RNA (siRNA) therapy that reduces hepatic angiotensinogen synthesis, allowing dosing every 3\u20136 months (potentially improving adherence).\n- **Renal denervation (RDN)**: FDA-approved (both radiofrequency- and ultrasound-based devices, late 2023). Real-world data show ambulatory SBP reductions (13.9\u00b123.6 mmHg in one study, 9\u00b114/4\u00b17 mmHg in another) even in patients with eGFR <45, with an ongoing sham-controlled trial (RDN-CKD, NCT04264403) evaluating this specifically in CKD stage 3a/3b. The SCAI/NKF position statement recommends RDN after secondary causes are ruled out and lifestyle/medical therapy optimized, prioritizing higher cardiovascular risk patients such as those with CKD.\n\nStudies of these novel agents specifically in resistant hypertension **with** CKD are described as still underway, with results \"awaited.\"\n\n### Bottom line\nStandard care progresses from RAAS blockade \u2192 diuretic optimization (favoring loop diuretics as eGFR falls) \u2192 CCB \u2192 MRA (spironolactone or finerenone, with careful potassium monitoring) \u2014 largely aligned across both sources. Guideline-backed newer therapies with strong evidence are **SGLT2 inhibitors and GLP-1 receptor agonists** (VA/DoD, Strong for in diabetic/albuminuric CKD), with **finerenone** as a weaker recommendation. Beyond guidelines, the research literature points to **renal denervation** (now FDA-approved) and investigational drugs \u2014 **baxdrostat, aprocitentan, and zilebesiran** \u2014 as the next wave specifically targeting resistant hypertension, though CKD-specific outcome data remain limited or pending.\n\n*Note on sourcing*: The VA/DoD guideline content represents institutional recommendations that may differ from other bodies (ACC/AHA, KDIGO, ESC). The PubMed article is peer-reviewed research evidence, not a clinical guideline \u2014 it should inform but not replace guideline-based practice. Both should be weighed against individual patient factors and current specialty guidance.",
+    "iterations": 4,
+    "input_tokens": 37143,
+    "output_tokens": 3184,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "xds004",
+    "question": "What lifestyle changes can help lower blood pressure, and how much can they help?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lifestyle modifications to lower blood pressure effect size",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"07c9b030-a87b-471b-926a-5d9c38214648\",\"hits\":[{\"text\":\"Treatment for diabetes and hypertension includes lifestyle control, diet, and exercise. Lifestyle modification can boost the effectiveness of numerous antihypertensive drugs for people with a systolic BP above 120 mmHg or diastolic BP above 80 mmHg. There are no controlled trials demonstrating the usefulness of food and exercise in lowering BP in diabetic hypertensive individuals. Nonetheless, a few research confirmed the role"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lifestyle modification hypertension diet exercise weight loss sodium reduction recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"9f284720-4846-46af-bce0-2d3b6f106149\",\"hits\":[{\"text\":\"123] or in combination with varying degrees of sodium restriction.[122] Combining the DASH diet with sodium restriction consistently produces larger decreases in blood pressure than either intervention alone across diverse subgroups.[124]\\n\\nAs this is a Not Reviewed, Amended recommendation, the Work Group did not systematically review new evidence related to this recommendation. However, confidence in the quality of the evide"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "DASH diet weight loss physical activity alcohol reduction blood pressure mmHg effect",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"75d0f5c5-817d-4b24-bc1c-6692ead77331\",\"hits\":[{\"text\":\"Weight reducing diets in overweight people with hypertension, leading to a modest weight loss (3\u201310% of baseline body weight), decreased/discontinued dosage requirements of antihypertensive medications and reduced SBP and DBP by \u223c3\u200ammHg resulting in lower BP levels even without reaching ideal weight. Additionally, a meta-analysis of randomized controlled trials (RCTs) reported an average reduction of 1\u200ammHg SBP and DBP per kil"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "weight loss blood pressure reduction mmHg per kilogram exercise aerobic effect size",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"bbbf0124-4570-445d-b101-8b408bafcacb\",\"hits\":[{\"text\":\" a BMI of 30 to 39.9 kg/m 2 were followed for 12 months after surgical intervention and demonstrated a greater reduction in anti-hypertensive medication usage as compared to patients treated with medications (from an average of three medications to zero to one). There were adverse events reported when patients were medically or surgically treated.[104] Schiavon et al. (2018) reported no differences in reduction of SBP and DBP "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "sodium restriction blood pressure reduction mmHg DASH sodium trial",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"16ba3aa0-9e64-476e-9e40-7d82b3c4dbd5\",\"hits\":[{\"text\":\"High sodium consumption (over 2\u200ag of sodium per day, equivalent to 5\u200ag or one teaspoon of salt) resulting in increased BP is the leading dietary risk factor for death. Sodium intake may influence BP by change of sodium\u2013water homeostasis, vascular tone, immune cell homeostasis and tissue remodelling, but exact mechanisms remain subject of study. The global mean sodium intake is estimated to be around 6\u200ag/day, attributing to 1.8"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "Based on evidence from two curated sources \u2014 peer-reviewed literature in **PubMed Hypertension Literature** and the **VA/DoD Clinical Practice Guideline for Hypertension** \u2014 several lifestyle changes have well-documented blood-pressure-lowering effects. Both sources broadly agree that lifestyle modification should be first-line therapy and continued alongside medication, though they emphasize somewhat different evidence.\n\n## 1. Sodium (salt) reduction\n- The **VA/DoD CPG** (Strong recommendation) advises limiting sodium to \u22642,300 mg/day, based on strong evidence from the DASH-Sodium trial showing that cutting intake from the average U.S. level (~3,400 mg) to 2,300 mg improves BP; patients with hypertension/prehypertension may benefit further from cutting to 1,500 mg/day (*VA/DoD Hypertension CPG*, Recommendation 21).\n- The **ISH position paper** (PubMed) reports that reducing sodium intake to as low as 800 mg/day shows a roughly linear dose-response decrease in BP, and that a moderate reduction (~3,646\u21922,690 mg/day) was associated with about a 26% reduction in cardiovascular events. Effects are larger in people of Black African ancestry, older adults, and those with higher baseline BP.\n- A separate review on resistant hypertension in kidney disease noted that limiting sodium to <2.4 g/day produced an average **10/4 mmHg** drop in BP even in resistant/CKD populations.\n\n## 2. DASH diet (and Mediterranean diet)\n- VA/DoD gives a **Strong** recommendation for a dietitian-led DASH diet for treating/preventing hypertension, noting it lowers both SBP and DBP in hypertensive and normotensive adults, with even larger effects when combined with sodium restriction than either alone. A Mediterranean diet is a **Weak-for** alternative, especially for patients with additional cardiovascular risk factors like dyslipidemia.\n\n## 3. Weight loss\n- The ISH paper reports that modest weight loss (3\u201310% of body weight) reduces SBP/DBP by about **3 mmHg**, and meta-analyses of RCTs found an average of **~1 mmHg reduction in both SBP and DBP per kilogram lost**.\n- The TRIUMPH trial (cited in a PubMed review on resistant hypertension) found an intensive 4-month lifestyle program (diet counseling, weight management, exercise) achieving a modest BMI drop of \u22122.3 kg/m\u00b2 produced a **\u221212.5 mmHg SBP / \u22125.9 mmHg DBP** reduction versus a \u22127.1/\u22123.7 mmHg reduction in the minimal-counseling control group \u2014 reductions comparable to adding a fourth-line antihypertensive drug.\n\n## 4. Physical activity/exercise\n- VA/DoD **strongly recommends** at least 120 minutes/week of aerobic exercise (Recommendation 19), citing meta-analyses (moderate-quality evidence for SBP, low for DBP) showing that more exercise minutes correlate with greater BP reductions.\n- Specific effect sizes from trials reviewed in the VA/DoD guideline:\n - Combined aerobic + resistance training: **\u22125.9/\u22123.5 mmHg** vs. control\n - Aerobic exercise alone: **\u22125.1/\u22122.2 mmHg**\n - Resistance exercise alone: **\u22125.5/\u22122.0 mmHg**\n - Isometric exercise: **\u22129.1/\u22123.0 mmHg** (based on only 2 small studies)\n - Recreational group sports (e.g., soccer): **\u22125.7/\u22123.4 mmHg**\n - Aquatic exercise: benefit reached significance only in people with existing hypertension or prehypertension (DBP only)\n - Note: yoga, Tai Chi, and digital sedentary-time interventions showed low/very-low-quality or inconsistent evidence of benefit.\n- The PubMed ISH review also notes ~**1 mmHg BP reduction per kilogram of body weight lost through exercise**, mediated partly by post-exercise hypotension.\n\n## 5. Alcohol reduction\n- A meta-analysis of 36 RCTs (cited in the ISH paper) found that reducing alcohol intake in people who drank \u22653 drinks/day lowered BP in a dose-dependent way, with the largest effect in those drinking \u22656 drinks/day: **SBP \u22125.5 mmHg (95% CI \u22126.7 to \u22124.3)** and **DBP \u22124.0 mmHg (95% CI \u22124.7 to \u22123.3)**.\n\n## 6. Other measures mentioned (less quantified in these sources)\n- Smoking cessation, reducing sedentary time, and treating obstructive sleep apnea are all recommended as adjuncts (Saudi Heart Association guideline; PubMed diabetes/hypertension review), though specific mmHg reductions were not reported.\n- Bariatric surgery for BMI \u226535 (or \u226530 with type 2 diabetes) is a **Weak-for** VA/DoD recommendation for durable weight loss and secondary BP benefit, but evidence quality was rated very low, and one systematic review found no significant SBP/DBP difference between surgical and medical weight-loss groups.\n\n### Bottom line\nCombining several of these changes appears to have an additive effect: in the TRIUMPH trial, a structured multi-component lifestyle program (diet + weight loss + exercise) achieved BP reductions (~12.5/5.9 mmHg) comparable to adding another antihypertensive drug class. Individually, sodium reduction and DASH diet tend to show the largest, most consistent effects (up to ~10/4 mmHg with combined salt restriction), exercise programs typically yield ~5\u20139 mmHg systolic / 2\u20134 mmHg diastolic reductions, weight loss contributes roughly 1 mmHg per kg lost, and cutting heavy alcohol use can lower SBP ~5.5 mmHg.\n\n**Caveats on sourcing:** The PubMed articles are peer-reviewed research evidence (2023\u20132025), not clinical guidelines, so treat their figures as findings from the cited studies rather than institutional policy. The VA/DoD CPG is a specific clinical guideline that may differ somewhat from other bodies (e.g., ACC/AHA, ESC), and some of its recommendations (e.g., on exercise, DASH diet) were carried forward from 2014 evidence without a full new systematic review. Neither source is a substitute for individualized medical advice \u2014 a clinician can help tailor which changes make sense given a person's baseline BP, comorbidities (e.g., CKD, diabetes), and current medications.",
+    "iterations": 5,
+    "input_tokens": 62402,
+    "output_tokens": 3232,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "xds005",
+    "question": "What are the latest treatment advances for hypertension that go beyond the current VA CPG recommendations?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "latest advances in hypertension treatment pharmacotherapy beyond current guidelines",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"533ce49b-667f-4da1-b029-b5800215cc11\",\"hits\":[{\"text\":\"Hypertension is the leading cause of cardiovascular diseases and nephropathies. Its treatment and management require long-term follow-up which can be facilitated by the emergence of device-based therapies. Novel recommendations have been well described in the latest ESH guidelines as well as new risk factors have been identified. The authors summarized the published evidence on hypertension management. The authors also cited i"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension treatment recommendations pharmacologic therapy",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"15095291-a45c-4b46-a33a-1486dd805adf\",\"hits\":[{\"text\":\" Non-Pharmacological Treatment                                             | a. Weight Reduction                     | 17. | For the treatment of hypertension, there is insufficient evidence to suggest for or against bariatric surgery for patients with obesity and hypertension.                                                               | Neither for nor against | Reviewed, New-added       |\\n| Non-Pharmacological Treatment "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation device-based therapy resistant hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"d05ad3ba-8bdd-4fa0-a191-84cf88b8700c\",\"hits\":[{\"text\":\"Most CKD patients with resistant hypertension require other pharmacological agents in addition to diuretics. Due to the well proven efficacy on the hard outcomes, ACEi/ARB should be the integral part of antihypertensive regimen in patients with CKD and proteinuria. Given the sustained activation of sympathetic nervous system in pathogenesis and maintenance of hypertension in CKD, combined \u03b1 and \u03b2-blockers and renal denervation"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "novel antihypertensive drug classes aldosterone synthase inhibitor endothelin receptor antagonist",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"840281d9-53fa-45b6-866b-18d5e2b69a97\",\"hits\":[{\"text\":\"# Investigational agents\\n\\nMany novel agents are under investigation for the treatment of resistant hypertension. These include aldosterone synthase inhibitor \u2013 baxdrostat and dual endothelin receptor antagonist \u2013 aprocitentan. In early phase clinical trials- BrigHTN and Precision, respectively, these have been shown to improve 24-h ambulatory SBP significantly. The BrigHTN trial excluded patients with eGFR less than 45\u200aml/mi"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "single-pill combination therapy as first-line initial treatment hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"10fb6e81-2f77-4277-937b-c9d54c701db9\",\"hits\":[{\"text\":\"Antihypertensive medications that can be considered for initial treatment include diuretics (thiazide and thiazide-like agents), angiotensin-converting enzyme inhibitors (ACEis), angiotens-inreceptor blockers (ARBs) and long-acting dihydropyridine calcium channel blockers (CCBs). Beta blockers might also be considered in the first line setting for specific indications, such as in younger people with hypertension with sympathet"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "digital health cuffless wearable blood pressure monitoring adherence",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"87d588b6-203b-4962-be90-74e8a6d497ec\",\"hits\":[{\"text\":\"Medicine is on the way of applying \u201chigh benefit approach\u201d rather than \u201chigh risk approach\u201d since the machine-learning-based high-benefit approach is able to identify individuals who will gain the most from the intervention, thereby lowering cardiovascular outcomes at the population level. ABPM and HBPM are out-of-office settings that assist in evaluating hypertension burden, and their limitations are overcome by continuous BP"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "Here's a synthesis comparing the VA/DoD CPG baseline with more recent research advances reported in the peer-reviewed literature.\n\n## Current VA/DoD CPG Baseline (2020)\nPer the **VA/DoD Clinical Practice Guideline for the Diagnosis and Management of Hypertension** (healthquality.va.gov):\n- **Recommendation 23 (Strong for)**: Thiazide-type diuretic, CCB, or ACEI/ARB as primary pharmacologic therapy.\n- **Recommendation 27 (Neither for nor against)**: Insufficient evidence to recommend combination therapy over monotherapy with sequential add-on \u2014 i.e., the VA CPG does **not** endorse single-pill combinations as a starting strategy.\n- **Recommendation 26**: Strong recommendation against combining ACEI+ARB+direct renin inhibitor.\n- **Recommendation 28 (Weak for)**: For resistant hypertension (uncontrolled on maximal triple therapy), add spironolactone.\n- Non-pharmacologic measures: DASH diet, sodium \u22642,300 mg/day, \u2265120 min/week aerobic exercise, weight loss counseling \u2014 with explicit \"insufficient evidence\" stances on bariatric surgery and weight-loss medications for BP control.\n\nThis CPG (last major revision 2020) predates several developments now appearing in the 2023\u20132025 literature indexed in **PubMed Hypertension Literature** (PMC open-access reviews). Key advances that go *beyond* the VA CPG:\n\n## 1. Device-Based Therapy: Renal Denervation (RDN)\nUnlike the VA CPG, which contains no RDN recommendation, recent literature documents that the **US FDA approved both radiofrequency- and ultrasound-based renal denervation devices in late 2023** (\"Revisiting resistant hypertension in kidney disease,\" PMC11296285). The SCAI/NKF position statement now recommends RDN for patients with confirmed resistant hypertension after ruling out secondary causes and optimizing lifestyle/medical therapy, or for patients intolerant of additional medications. Trials report ambulatory SBP reductions of roughly 5\u201314 mmHg, including in patients with reduced eGFR (a population the VA CPG's spironolactone-based approach doesn't specifically address). An ongoing sham-controlled trial (RDN-CKD, NCT04264403) is further evaluating this in CKD stage 3.\n\n## 2. Novel Pharmacologic Agents Beyond the Four VA-Endorsed Classes\nThe VA CPG's pharmacologic recommendations are limited to thiazides, CCBs, ACEIs/ARBs, and (for resistant disease) spironolactone. Investigational/emerging agents reported in the literature (\"Revisiting resistant hypertension in kidney disease\") include:\n- **Baxdrostat** \u2014 an aldosterone synthase inhibitor, shown in the early-phase **BrigHTN trial** to significantly reduce 24-hour ambulatory SBP in resistant hypertension.\n- **Aprocitentan** \u2014 a dual endothelin receptor antagonist, evaluated in the **PRECISION trial** (which included ~22% CKD stage 3\u20134 patients), also with significant SBP reduction.\n- **Zilebesiran** \u2014 a small interfering RNA (siRNA) therapy that reduces hepatic angiotensinogen synthesis, allowing dosing only every 3\u20136 months, a mechanism aimed at improving long-term adherence \u2014 something the VA CPG's daily-pill regimens don't address.\n\n*Note: these remain investigational/early-phase per the source; they are not yet standard of care.*\n\n## 3. Single-Pill Combination as First-Line Therapy\nWhereas the VA CPG explicitly states there is **insufficient evidence** to prefer combination over monotherapy as an initial strategy, more recent guidance summarized in the literature (e.g., the National Heart Center/Saudi Heart Association 2023 guidelines, and echoing 2023 ESH guidance) has moved toward **recommending single-pill combination treatment as initial therapy for most hypertensive patients** (excluding frail/elderly or low-risk individuals), typically pairing a RAS blocker with a CCB or diuretic \u2014 citing improved adherence and superior BP reduction versus multi-pill regimens or monotherapy.\n\n## 4. Digital Health and Cuff-less/Wearable BP Monitoring\nThe VA CPG's monitoring guidance centers on periodic office screening and standard ABPM/HBPM. Newer literature (\"Updates in the management of hypertension,\" PMC11152838) discusses:\n- **Cuff-less wearable BP devices** enabling continuous, out-of-office monitoring, though the article notes these still require standardized validation protocols (calibration, positional, exercise, and recalibration testing) before broad clinical adoption.\n- **Machine-learning-based \"high-benefit\" risk stratification** to target interventions at patients most likely to benefit, shifting from a population-wide \"high-risk\" approach.\n- Technology-enabled adherence tools (e-counseling, telemonitoring, mobile apps) \u2014 interestingly, the VA CPG itself already gives a \"Weak for\" recommendation on technology-based interventions, so this is an area of partial overlap rather than a clean advance beyond it.\n\n## Where Sources Agree vs. Diverge\n- **Agreement**: Both the VA CPG and newer literature endorse spironolactone as an add-on for resistant hypertension, and both support lifestyle/dietary interventions (DASH diet, sodium restriction, exercise) as foundational.\n- **Divergence**: The VA CPG is notably more conservative \u2014 declining to endorse combination-first therapy, bariatric surgery, or weight-loss medications, whereas newer guideline literature (Saudi Heart Association 2023, reflecting ESH-aligned thinking) has moved to recommend single-pill combinations as default initial therapy. The VA CPG also predates FDA approval of RDN devices (late 2023) and the emergence of baxdrostat, aprocitentan, and zilebesiran in clinical trials.\n\n**Caveat on sourcing**: The PubMed findings come from peer-reviewed review articles (2023\u20132025), not from an official updated VA/DoD guideline \u2014 per the PubMed source's usage rules, these represent published research evidence, not institutional treatment recommendations. The VA CPG document itself is dated 2020 (with some recommendations noted as \"Reviewed\" vs. \"Not Reviewed\" in different years); I did not find evidence in this catalog of a newer VA/DoD hypertension CPG revision incorporating RDN or the novel agents above. If you need the certified current VA/DoD position on any of these specific advances, that would require checking healthquality.va.gov directly for a more recent guideline update.",
+    "iterations": 5,
+    "input_tokens": 57706,
+    "output_tokens": 3351,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "am-021",
+    "question": "What are the risks to pilot health from repeated exposure to aircraft exhaust gases, and what blood pressure management guidelines exist for pilots?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "va-cpg-clinical-guidelines"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "exhaust gas exposure pilot health risks carbon monoxide",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure management guidelines",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"f15fa859-e2a4-4c21-bf68-62dca704fe7e\",\"hits\":[{\"text\":\"# Purpose\\n\\nHypertension (HTN) represents a significant global health issue and markedly elevates the risk of cardiovascular diseases, stroke, and chronic kidney disease. This study examined various hypertension management guidelines, including the management of hypertensive crises, hypertension in adults and the elderly, and hypertension-related complications. Additionally, it examined blood pressure (BP) objectives.\\n# Mate"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension management guideline blood pressure targets",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"4c6b1b83-7eb3-421a-be45-f7698d489315\",\"hits\":[{\"text\":\" and Monitoring                              | c. Monitoring           |  5. | Among patients treated for hypertension, we suggest offering home blood pressure self-monitoring with co-interventions for lowering systolic and diastolic blood pressure.                                                           | Weak for     | Reviewed, New-added    |\\n| Treatment Goals and General Approaches to Hypertension Management | a. Blood "
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I searched the available sources and found a significant gap for part of your question, plus solid material for the other part.\n\n## Aircraft exhaust gas exposure and pilot health risks\n\n**No relevant source is available for this.** The catalog's only aviation-related source, *Piper Aircraft Service Bulletins* (aircraft-maintenance), covers technical service bulletins for Piper Cherokee/Saratoga aircraft (e.g., mechanical, structural, and systems maintenance) \u2014 and it is currently in a document family not supported for retrieval in this system. Even if it were queryable, its scope is aircraft maintenance procedures, not occupational/aviation medicine or toxicology of exhaust gas exposure (e.g., carbon monoxide, engine exhaust constituents, cumulative cardiopulmonary effects). None of the other sources (hypertension literature, VA/DoD clinical guidelines, RetrievalHub codebase, or the Dickens novel) address occupational exhaust-gas exposure or aviation health hazards either.\n\nSo I cannot provide a sourced answer on health risks from repeated aircraft exhaust exposure \u2014 this would need a dedicated aviation/occupational medicine or toxicology source that isn't in this catalog. I'd caution against relying on general assumptions (e.g., about carbon monoxide poisoning risk) without a proper clinical/toxicological reference.\n\n## Blood pressure management guidelines (general clinical guidance)\n\nI found strong, complementary material in two clinical sources. Note: neither source addresses pilots specifically \u2014 these are general adult hypertension guidelines, not aviation-medicine or aeromedical fitness standards (e.g., FAA/CAA certification thresholds for pilots), which would be a different, specialized guideline set not present in this catalog.\n\n**From the VA/DoD Clinical Practice Guideline for Hypertension in Primary Care** (VA/DoD CPG, Recommendations 6\u20139; source: healthquality.va.gov):\n- **Systolic BP goal:** <130 mmHg for most adults (Weak for; Reviewed, New-added).\n- **Age 60+:** Systolic goal of <150 mmHg (Strong for), with added benefit from further lowering toward 130 mmHg if tolerated.\n- **Age 60+ with type 2 diabetes:** Systolic goal <140 mmHg (Strong for), with added benefit from further lowering between 130\u2013140 mmHg.\n- **Diastolic BP goal:** <90 mmHg for patients 30 years and older (Strong for; Reviewed, Amended), based on landmark trials (VA Cooperative Study, HDFP, MRC trial).\n- **General management approaches:** home BP self-monitoring with co-interventions (Weak for), pharmacist-led medication management (Strong for), nurse-led interventions, dietitian-led nutrition support, and technology-based interventions (e.g., telemonitoring) are all recommended as options.\n- **Non-pharmacologic treatment:** weight loss counseling and weight-loss-directed diets for overweight/obese patients with hypertension (Weak for).\n- **First-line drug classes** for the general population: thiazide-type diuretics, ACE inhibitors/ARBs, or long-acting calcium channel blockers \u2014 with specific notes such as avoiding ACEI/ARB monotherapy in African American patients and using thiazides preferentially for patients 65+.\n- The VA/DoD guideline explicitly notes its recommendations may differ from other bodies like ACC/AHA or ESC.\n\n**From the PubMed Hypertension Literature** (systematic review, \"Current guidelines in hypertension management with special focus on management of extremely high blood pressure,\" PMC12817854, 2025, reviewing 17 guidelines from 2010\u20132025):\n- Definitions of \"elevated BP\" vary across 13 guidelines, ranging from \u2265130/80 mmHg to \u2265140/90 mmHg; most guidelines recommend starting treatment at \u2265140/90 mmHg, though the 2025 ACC/AHA guideline recommends starting at >130/80 mmHg if lifestyle modification over 3\u20136 months fails.\n- **Hypertensive emergency/crisis:** BP \u2265180/120 mmHg with end-organ damage is an emergency requiring a 20\u201325% reduction within the first hour, followed by gradual control. First-line IV agents cited include labetalol, nicardipine, clevidipine, fenoldopam, nitroglycerin, nitroprusside, esmolol, and hydralazine (per AHA 2024 statement).\n- **Hypertensive urgency** (\u2265180/120 mmHg without end-organ damage): guidelines vary (e.g., NICE 2019 and SBC 2020 use this threshold, with oral agents like captopril or clonidine suggested).\n- **Ischemic stroke** (most commonly discussed end-organ damage scenario, n=8 guidelines): target BP range of 130\u2013180/90\u2013105 mmHg.\n- Follow-up intervals for elevated BP vary widely (3 months to 1 year) depending on the guideline body (e.g., JSH, WHO, ESC, BISH).\n- The review's conclusion notes a research gap: robust guidance exists for outpatient hypertension control, but less evidence addresses inpatient/hospitalized management of markedly elevated BP.\n\n**Where the two sources agree:** both point to ~130/80\u2013140/90 mmHg as the general threshold for treatment initiation and long-term goals, with more lenient targets for older adults, and both emphasize multi-disciplinary/lifestyle approaches alongside pharmacotherapy.\n\n**Caveat on scope:** Per the PubMed source's usage rules, these are peer-reviewed research articles synthesizing guidelines, not an institutional guideline themselves \u2014 treat as evidence synthesis. The VA/DoD document is an actual clinical practice guideline but is a U.S. veteran/military-focused primary care guideline, not an aeromedical certification standard.\n\nIf you're specifically interested in **FAA/aeromedical BP certification standards for pilots** or **occupational exposure limits for aircraft exhaust/engine fumes**, none of the currently available sources cover that \u2014 you'd need a dedicated aviation medicine (e.g., FAA Aeromedical guidance) or occupational toxicology source, which isn't part of this catalog.",
+    "iterations": 3,
+    "input_tokens": 16632,
+    "output_tokens": 2962,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-022",
+    "question": "What structural inspections are required for aging Piper Cherokee wing spars, and what occupational health precautions should mechanics observe when using solvents like MEK and acetone during these inspections?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing spar inspection aging aircraft cracks corrosion",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "solvent MEK acetone safety precautions cleaning",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "This source is properly cataloged, but the retrieval tool itself reports that its underlying document family (\"technical_document\") isn't yet supported for retrieval in this environment \u2014 so I'm unable to actually pull passages from the Piper Aircraft Service Bulletins collection right now.\n\nI also checked whether any other cataloged source could speak to occupational health precautions for solvents like MEK and acetone. The available sources are:\n\n- **RetrievalHub Codebase** \u2014 software source code, not relevant.\n- **PubMed Hypertension Literature** \u2014 clinical hypertension reviews, not relevant.\n- **A Tale of Two Cities** \u2014 literary fiction, not relevant.\n- **Piper Aircraft Service Bulletins** \u2014 the right domain for wing spar inspections, but currently unretrievable due to a platform limitation.\n- **VA/DoD Clinical Practice Guidelines** \u2014 covers chronic disease, mental health, pain, rehab, and women's health; it does not address occupational/industrial hygiene topics like solvent exposure limits (that's OSHA/NIOSH territory, not represented in this catalog).\n\n**Bottom line:** I cannot currently retrieve the specific Piper Cherokee wing spar inspection requirements because the aircraft-maintenance source's document family is not yet enabled for retrieval on this platform, even though it's listed in the catalog. None of the other available sources cover occupational health/solvent-safety guidance (MEK, acetone exposure precautions) either \u2014 that falls under OSHA/NIOSH industrial hygiene material, which isn't represented in this catalog.\n\nIf you'd like, I can:\n1. Try again once the aircraft-maintenance source's retrieval support is enabled, or\n2. Answer from general aviation-maintenance and industrial-hygiene knowledge (not sourced from your curated catalog, so it would carry no citation/provenance backing) if that's acceptable for your purposes.\n\nLet me know how you'd like to proceed.",
+    "iterations": 4,
+    "input_tokens": 11222,
+    "output_tokens": 1177,
+    "source_precision": 1.0,
+    "source_recall": 0.5,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-023",
+    "question": "How do defective altimeters affect flight safety, and what medical conditions can impair a pilot's ability to recognize altitude-related symptoms?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "defective altimeter flight safety",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"slug\":\"va-cpg-clinical-guidelines\",\"name\":\"VA/DoD Clinical Practice Guidelines\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"52 clinical practice guidelines from the VA/DoD covering chronic disease, mental health, pain management, rehabilitation, and women's health.\",\"description_long\":\"A curated ingestion of the VA/DoD Clinical Practice Guidelines corpus covering five clinical categories. This variant uses nomic-ai/nomic-embed-text-v1.5 for embeddings (eval comparison)"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypoxia altitude symptom recognition impairment",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"544f8af1-87de-4279-b11f-3ae967264781\",\"hits\":[{\"text\":\"ia \uf0a1 Hypoxemia | \uf0a1 D-dimer: elevated \uf0a1 Arterial blood gas: hypoxemia                                                       | \uf0a1 CT: Chest pulmonary embolus protocol \uf0a1 Ventilation/ perfusion mismatch \uf0a1 Chest X-ray normal | \uf0a1 N/A                      |\\n| Recurrent upper respiratory infection          | \uf0a1 Common cold symptoms                                                                                                          "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "altitude sickness hypoxia cognitive impairment blood pressure",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"2996d249-74dd-4fbd-9c63-71edbb317f4c\",\"hits\":[{\"text\":\"Obese people are at risk of hypertension. Decreasing weight can be targeted either by fibre consumption or exercising. Physical activity is followed by postexercise hypotension, a condition in which the parasympathetic mechanisms are activated after the deactivation of sympathetic patterns lead to blood pressure lowering through decreasing reflex sensitivity. It may also affect cerebral blood flow. Specifically, guidelines and"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [
+      "va-cpg-clinical-guidelines"
+    ],
+    "used_list_sources": true,
+    "final_answer": "Based on my research across the available catalog, I need to be transparent about a significant coverage gap for this question.\n\n## What I found\n\n**On defective altimeters and flight safety:** I checked the **Piper Aircraft Service Bulletins** source, which is the only aviation-related source in the catalog. However, this source's underlying document family (\"technical_document\") is not currently supported by the retrieval tool, so I was unable to query it at all. I cannot report on altimeter defects, their failure modes, or their flight-safety implications from this catalog.\n\n**On medical conditions impairing recognition of altitude-related symptoms (e.g., hypoxia):** I searched both clinical sources available \u2014 the **VA/DoD Clinical Practice Guidelines** and the **PubMed Hypertension Literature**. Neither returned genuinely relevant material:\n- The VA/DoD guidelines hits were about asthma differential diagnosis, obesity comorbidities, and traumatic brain injury symptom classification \u2014 none of which address altitude physiology, hypoxia recognition, or aviation/aerospace medicine specifically.\n- The PubMed hypertension hits were about blood pressure management, lifestyle interventions, and sleep \u2014 not altitude-related symptom perception.\n\n## Bottom line\n\nNone of the sources in this catalog are actually built for aviation safety/altimeter engineering or aerospace/aeromedical physiology (e.g., FAA aeromedical guidance, hypoxia training material, or pilot fitness-for-duty standards). The closest candidate source (Piper Service Bulletins) exists but isn't retrievable in its current state, and the clinical guideline/literature sources are oriented toward general primary care and hypertension management rather than aviation medicine.\n\nI'd recommend consulting FAA/EASA aeromedical guidance, NTSB/ASRS incident reports on altimeter malfunctions, or aerospace physiology literature directly, as this catalog does not have a source purpose-built to answer this question well. If you have access to a dedicated aviation-medicine or avionics-maintenance source, I'm happy to query it if it gets added to the catalog.",
+    "iterations": 4,
+    "input_tokens": 21514,
+    "output_tokens": 1773,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-024",
+    "question": "What is Piper's position on unleaded aviation gasolines, and are there clinical studies on health effects of lead exposure from leaded aviation fuel?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "unleaded aviation gasoline fuel approval",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lead exposure health effects clinical study",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"86baef51-1ce2-4b9c-802d-005b73de9788\",\"hits\":[{\"text\":\"Although the link between vitamin intake and hypertension is indicated, evidence-based research studies are scarce. Studies suggested multivitamin supplementation decreases high-BP-related mortality. However, these effects were not observed in middle-aged and older women. Several studies support the role played by hydrosoluble vitamins in maintaining both SBP and DBP in various populations and a meta-analysis of 29 RCTs reveal"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lead exposure toxicity clinical guideline",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"4efde748-1f18-4b42-8e2e-9ab527ca4561\",\"hits\":[{\"text\":\" clinical practice guideline is trustworthy. Jama. 2013;309(2):139-40. Epub 2013/01/10. doi: 10.1001/jama.2012. 156703. PubMed PMID: 23299601.\\n20. Andrews JC, Sch\u00fcnemann HJ, Oxman AD, Pottie K, Meerpohl JJ, Coello PA, et al. GRADE guidelines: 15. Going from evidence to recommendation-determinants of a recommendation's direction and strength. J Clin Epidemiol. 2013;66(7):726-35. Epub 2013/04/11. doi: 10.1016/j.jclinepi.2013.02"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "environmental lead exposure blood pressure cardiovascular risk",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"5e36e06d-dba9-4abf-9abd-60b30b88ec20\",\"hits\":[{\"text\":\"# Risk factors\\n\\nNumerous risk factors influence the advent of hypertension. Age, sex (physiological, psychological and hormonal variations), ethnicity, family history, insulin resistance and genetic heritage constitute unalterable risk factors. Meanwhile, other risk factors include smoking, alcohol consumption, sedentariness, waist-to-hip ratio, socio-economic status, high cholesterol, poor nutrition, obesity, low potassium "
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "Here's what I found across the catalog:\n\n## Piper's position on unleaded aviation gasoline\nI was unable to retrieve this. The `aircraft-maintenance` source (Piper Aircraft Service Bulletins \u2014 269 service bulletins/letters for the Cherokee PA-28 and Saratoga PA-32 families) is the only source in this catalog that plausibly covers Piper's official stance, but its retrieval backend currently returns an error (\"family not yet supported for retrieval\") \u2014 the content exists (263 documents, 2,330 chunks per its metadata) but I cannot query it in its current state. So I can't confirm or quote Piper's actual position from this catalog right now. If retrieval access to this source is restored, I'd search it specifically for service bulletins/letters referencing \"unleaded fuel,\" \"UL94,\" \"G100UL,\" or \"100LL replacement\" to find Piper's approved-fuel guidance.\n\n## Clinical studies on lead exposure from leaded aviation fuel\nI checked the two clinical sources available:\n- **PubMed Hypertension Literature** (10 curated review articles, 2023\u20132025, on hypertension management) \u2014 searches for \"lead exposure health effects,\" \"environmental lead exposure and blood pressure,\" and related terms returned only general hypertension risk-factor discussions (diet, alcohol, sleep apnea, air pollution, etc.). None of the retrieved passages specifically address lead or leaded aviation gasoline as an exposure pathway.\n- **VA/DoD Clinical Practice Guidelines** (52 guidelines on chronic disease, mental health, pain, rehab, women's health) \u2014 searches for lead toxicity/exposure returned only generic guideline-methodology references (GRADE, evidence review processes), not substantive clinical content on lead exposure.\n\n**Bottom line:** Neither clinical source in this catalog contains studies specifically addressing lead exposure from leaded aviation gasoline (i.e., 100LL avgas) or its health effects. This catalog does not appear to cover environmental/occupational toxicology or aviation-fuel-specific epidemiology \u2014 the hypertension and VA/DoD sources are scoped to disease management guidelines, not fuel/environmental exposure research. I'd recommend searching a dedicated toxicology or environmental health database (e.g., PubMed broadly, EPA/CDC lead exposure literature) for that specific question, as it falls outside what's available here.",
+    "iterations": 4,
+    "input_tokens": 30550,
+    "output_tokens": 1768,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-025",
+    "question": "What recurring inspections does Piper require for wing attachment hardware, and how should maintenance personnel manage fatigue and adherence to recurring inspection schedules?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing attachment hardware recurring inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fatigue management adherence to recurring inspection schedule maintenance personnel",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I attempted to search the most relevant source for this question \u2014 **Piper Aircraft Service Bulletins** (`aircraft-maintenance`), which covers 269 service bulletins, service letters, and vendor publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families and would be the authoritative place for wing attachment hardware inspection requirements and maintenance scheduling guidance.\n\nHowever, the retrieval system returned an error: **\"Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval.\"** This means the source is listed in the catalog but its content family (technical_document) isn't currently enabled for querying on this platform, so I'm unable to pull specific passages from it right now.\n\nNone of the other available sources are relevant to this topic:\n- **RetrievalHub Codebase** \u2013 software source code, unrelated.\n- **PubMed Hypertension Literature** and **VA/DoD Clinical Practice Guidelines** \u2013 clinical/medical domains; while they do discuss \"fatigue\" and \"adherence,\" those terms refer to patient fatigue symptoms and medication/treatment adherence, not aircraft structural fatigue or maintenance inspection compliance. Applying them here would be a misleading cross-domain stretch.\n- **A Tale of Two Cities** \u2013 literary fiction, unrelated.\n\n**Bottom line:** I cannot currently retrieve the specific Piper service bulletin content needed to answer questions about recurring wing attachment hardware inspections or maintenance personnel fatigue/schedule-adherence practices, because the relevant source's document family is not yet supported for retrieval in this environment. If this is a recurring need, it may be worth flagging to the catalog administrators that the `aircraft-maintenance` source needs its retrieval family enabled. I'd be glad to try again if/when that source becomes queryable, or I can help if you'd like to explore a related question within the sources that are currently retrievable.",
+    "iterations": 3,
+    "input_tokens": 7458,
+    "output_tokens": 1172,
+    "source_precision": 1.0,
+    "source_recall": 0.5,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-001",
+    "question": "What is the part number for the witness hole drill fixture used during the control wheel shaft inspection?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "aircraft-maintenance"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "witness hole drill fixture control wheel shaft inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "This is indeed the relevant domain (Piper Cherokee/Saratoga control wheel shaft inspections are covered by service bulletins), but unfortunately the `aircraft-maintenance` source is currently in a `family` (technical_document) that the retrieval system does not yet support \u2014 attempting to query it returned an error: *\"uses a family that is not yet supported for retrieval.\"*\n\nNone of the other available sources (RetrievalHub codebase, PubMed hypertension literature, VA/DoD clinical guidelines, or A Tale of Two Cities) cover aircraft maintenance topics, so I have no alternative source to pull this part number from.\n\n**Bottom line:** I cannot currently retrieve the witness hole drill fixture part number for the control wheel shaft inspection because the only plausible source (Piper Aircraft Service Bulletins) is not yet queryable in this environment. If retrieval support for that source family is enabled, I'd be glad to search it (likely under a specific Service Bulletin covering control wheel/shaft AD compliance) and cite the exact bulletin and part number.",
+    "iterations": 4,
+    "input_tokens": 10699,
+    "output_tokens": 798,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ctrl-002",
+    "question": "How is the control wheel shaft assembly verified as correctly installed according to SB 1197E?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "aircraft-maintenance"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft assembly verify correctly installed SB 1197E",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft assembly installation verification",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I attempted to retrieve this information, but the source that would contain it \u2014 **Piper Aircraft Service Bulletins** (which explicitly covers documents like SB 1197E) \u2014 is currently not queryable. The platform returned an error indicating that its underlying document family (\"technical_document\") is \"not yet supported for retrieval\" at this time, despite being listed as a curated, available source.\n\nNone of the other available sources (RetrievalHub codebase, PubMed hypertension literature, *A Tale of Two Cities*, or VA/DoD clinical guidelines) are relevant to an aircraft maintenance service bulletin question.\n\n**Bottom line:** I cannot currently answer how SB 1197E verifies correct installation of the control wheel shaft assembly, because the only relevant source (aircraft-maintenance) is experiencing a retrieval-system limitation on my end, not a content gap. I'd recommend trying again later, or consulting the SB 1197E document directly if you have access to it. Let me know if you'd like me to attempt the retrieval again.",
+    "iterations": 5,
+    "input_tokens": 13955,
+    "output_tokens": 704,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ctrl-003",
+    "question": "How effective is tirzepatide at lowering blood pressure?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide blood pressure lowering effect",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"e7a60c12-16ee-478e-8022-31bc7d34d601\",\"hits\":[{\"text\":\"Angiotensin-converting enzyme (ACE) inhibitors, angiotensin receptor blockers (ARBs), thiazide-like diuretics, and dihydropyridine calcium channel blockers (CCBs) are among the first-line medications for hypertension. In most cases, multiple medication treatment is needed to reach BP goals. In one of the first studies to investigate whether patients with diabetes (with average BPs above 160/100 mmHg) would be more likely to ac"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide hypertension treatment",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"c555af6e-01ea-450c-a552-1a33b007fd41\",\"hits\":[{\"text\":\" review but noted here as potential reasons a provider may choose semaglutide or tirzepatide as an opportunity to treat overweight/obesity and another condition. Both semaglutide and tirzepatide have evidence to improve HbA1c in people who have diabetes(297,298), reduce the new onset of type 2 diabetes(287), and improve symptoms with heart failure with preserved ejection fraction(299,300). The SELECT trial(301) demonstrated th"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide systolic blood pressure reduction clinical trial data",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"f329e0ba-bcf8-410c-b556-fbba0a3bc2f7\",\"hits\":[{\"text\":\" review but noted here as potential reasons a provider may choose semaglutide or tirzepatide as an opportunity to treat overweight/obesity and another condition. Both semaglutide and tirzepatide have evidence to improve HbA1c in people who have diabetes(297,298), reduce the new onset of type 2 diabetes(287), and improve symptoms with heart failure with preserved ejection fraction(299,300). The SELECT trial(301) demonstrated th"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "GLP-1 receptor agonist weight loss effect on blood pressure",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"d9d4def6-1f57-46ca-a003-0042ca885ef3\",\"hits\":[{\"text\":\"Despite the availability of a wide range of antihypertensive agents, a significant proportion of individuals with resistant hypertension (RHTN) struggle to achieve blood pressure (BP) control. Obesity ranks among the most significant modifiable risk factors for RHTN, with 56\u201391% of patients with RHTN classified as overweight or obese. Glucagon-like peptide-1 receptor agonist (GLP-1 RAs) are a class of anti-obesity medications "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide SURMOUNT trial blood pressure mmHg reduction",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"2a6bb24d-450e-44f3-9be8-9d978af83600\",\"hits\":[{\"text\":\"Tirzepatide, a dual GLP-1 and glucose-dependent insulinotropic polypeptide (GIP) agonist, exhibits synergistic effects on reducing appetite, boosting metabolic function, and decreasing food intake. In the SURMOUNT-1 Trial, once weekly subcutaneous tirzepatide conferred dose-dependent weight reduction up to 20.1% at 72 weeks. A sub-study of SURMOUNT-1 evaluated the effect of tirzepatide on 24-h ABPM at week 36. Among 600 indivi"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "Now I have solid, specific data. Here's the synthesis:\n\n## Tirzepatide and Blood Pressure: What the Evidence Shows\n\n**Bottom line:** Tirzepatide produces clinically meaningful reductions in blood pressure, driven partly by weight loss but also through weight-independent mechanisms. It is not FDA-approved as an antihypertensive, but it is recognized as a BP-lowering agent in patients with overweight/obesity.\n\n### Trial evidence (PubMed Hypertension source \u2014 *\"GLP-1-based therapies for the treatment of resistant hypertension in individuals with overweight or obesity: a review,\"* PMC11377134, CC-licensed article)\n\n- **SURMOUNT-1 ambulatory BP sub-study**: Among ~600 participants, once-weekly tirzepatide reduced 24-hour ambulatory **systolic BP by 7.4\u201310.6 mmHg versus placebo** at week 36, in a trial where tirzepatide produced dose-dependent weight loss up to 20.1% at 72 weeks.\n- Notably, only ~30% of SURMOUNT-1 participants had hypertension at baseline, so the review suggests the true BP-lowering effect could be **even larger** in a hypertensive population.\n- Tirzepatide's BP-lowering effect appeared to be **partially independent of weight loss** \u2014 the review notes possible direct mechanisms shared across GLP-1-based therapies, including reduced sympathetic nervous system activity, natriuresis (via renal Na+/H+ exchanger inhibition), and vasodilation, along with inhibition of local renin-angiotensin-aldosterone system (RAAS) activity.\n- For comparison, the review cites liraglutide (an earlier, single-target GLP-1 RA) producing smaller effects: \u22122.8 mmHg SBP / \u22120.9 mmHg DBP in the SCALE trial, and a 12-trial meta-analysis showing \u22123.1 mmHg SBP / \u22121.0 mmHg DBP. The review characterizes **tirzepatide (dual GLP-1/GIP agonist) as having the greatest BP-lowering effect among approved GLP-1-based weight-management drugs**, and notes even larger effects are seen in newer triple agonists like retatrutide (still investigational) which achieved \u221212.1/\u22128.1 mmHg at 48 weeks.\n- Important caveat from this same review: **no trials have directly tested GLP-1/GIP therapies specifically for resistant hypertension management** \u2014 the BP data comes from obesity/weight-management trials as a secondary outcome, not from a hypertension-focused trial design.\n\n### Clinical guideline perspective (VA/DoD 2025 CPG for Management of Adult Overweight and Obesity)\n- The VA/DoD guideline supports tirzepatide as an effective anti-obesity agent (average body weight reduction of \u221215% to \u221221.2% depending on dose, per the Liu et al. 2024 network meta-analysis) and lists **treatment of hypertension as a common comorbidity** that may factor into a provider's choice of tirzepatide.\n- Practically, the guideline flags a monitoring point relevant to your question: tirzepatide (like other GLP-1/GIP agents) carries a **hypotension risk that may warrant de-escalation of a patient's existing antihypertensive medications** \u2014 meaning the BP-lowering effect can be strong enough to require adjusting other BP drugs during treatment.\n- This is a VA/DoD clinical practice guideline and may differ from other bodies' recommendations (e.g., ACC/AHA, ESC).\n\n### Synthesis\nBoth sources agree tirzepatide lowers blood pressure \u2014 a research-evidence source (PubMed) quantifies it (roughly 7\u201311 mmHg systolic reduction vs. placebo in a large sub-study) and explains plausible mechanisms, while a clinical-guideline source (VA/DoD) corroborates the effect indirectly by flagging hypotension risk and the need to monitor/adjust concurrent antihypertensive therapy. Neither source presents tirzepatide as a substitute for standard antihypertensive drugs (ACE inhibitors, ARBs, thiazides, CCBs remain first-line per the hypertension-guideline sources), but rather as an adjunctive benefit particularly relevant for patients with obesity-related hypertension, including possibly resistant hypertension \u2014 an indication still under active investigation rather than established, per the review's own caveat.",
+    "iterations": 5,
+    "input_tokens": 57917,
+    "output_tokens": 2318,
+    "source_precision": 0.5,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-004",
+    "question": "How much salt should someone with high blood pressure eat per day?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "recommended daily sodium/salt intake for hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"d5bdc592-33c0-468f-a881-623ace496030\",\"hits\":[{\"text\":\"A recent meta-analysis of prospective cohort studies investigating multiple nonconsecutive 24\u200ah urine samples to assess sodium intake (the current recommended standard) reported a linear association between sodium intake [1846\u20135230\u200amg (equivalent to 4.6\u201313.8\u200ag salt) per day] and cardiovascular events. Unfortunately, these studies do not define a recommended lower level of sodium intake. However, many community-based salt reduc"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "sodium restriction recommendation for hypertension management guideline",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"40e36773-25cc-4784-9738-543605c46d00\",\"hits\":[{\"text\":\"123] or in combination with varying degrees of sodium restriction.[122] Combining the DASH diet with sodium restriction consistently produces larger decreases in blood pressure than either intervention alone across diverse subgroups.[124]\\n\\nAs this is a Not Reviewed, Amended recommendation, the Work Group did not systematically review new evidence related to this recommendation. However, confidence in the quality of the evide"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "## Sodium/Salt Recommendations for High Blood Pressure\n\nTwo sources in the catalog address this directly, and they largely agree with modest differences in specific targets:\n\n**VA/DoD Clinical Practice Guideline for Hypertension** (VA/DoD CPG for the Diagnosis and Management of Hypertension in the Primary Care Setting, Recommendation 21, Strong for):\n- Recommends limiting sodium intake to **no more than 2,300 mg/day (100 mmol/day)**, with referral to a dietitian or other support as appropriate.\n- This aligns with the U.S. Dietary Guidelines for Americans (2015\u20132020) recommendation of <2,300 mg/day for adults.\n- The guideline notes other organizations suggest even lower targets: the **2017 ACC/AHA guideline lists <1,500 mg/day as an \"optimal goal\"** for adults with elevated blood pressure, and some evidence (from the DASH-sodium trial) suggests those with hypertension or prehypertension \"may benefit from further reduction to 1,500 mg/day.\"\n- Context: average U.S. sodium intake is roughly 3,400 mg/day, so this represents a substantial reduction from typical consumption. The VA/DoD Work Group's confidence in this recommendation is rated \"high,\" based on strong evidence from the DASH-Sodium trial and other RCTs showing a dose-dependent relationship between sodium intake and blood pressure.\n- Note: this is VA/DoD guidance specifically and may differ somewhat from other organizations' recommendations (a disclosure required by the source).\n\n**PubMed Hypertension Literature** \u2014 International Society of Hypertension (ISH) position paper (*Lifestyle management of hypertension*, PMC10713007, published in a peer-reviewed journal, CC-licensed):\n- Recommends **less than 2 g (2,000 mg) of sodium per day \u2014 roughly 5 g of salt, or about one teaspoon**.\n- Notes that high sodium consumption (over 2 g sodium/day) is considered the leading dietary risk factor for death, and that meta-analyses of RCTs show reducing sodium as low as 800 mg/day produces further, roughly linear reductions in blood pressure.\n- This is a research/position-paper recommendation rather than an institutional clinical guideline, so it should be read as evidence-based expert consensus rather than a formal treatment protocol.\n\n### Bottom line\nBoth sources converge on the same general message: **less salt is better**, with targets clustering around **2,300 mg/day of sodium (~5.75 g salt) as a common upper limit**, and some guidance (ACC/AHA, ISH, DASH-sodium evidence) pointing to **1,500\u20132,000 mg/day (~4\u20135 g salt)** as a stricter, more protective target \u2014 especially for people with existing hypertension. Since most dietary sodium in high-income countries comes from processed/manufactured foods rather than the salt shaker, both sources emphasize that meaningful reduction usually requires attention to packaged and restaurant foods, not just added table salt, and both suggest dietitian involvement can help patients reach these targets.\n\n**Caveat:** These are clinical guideline recommendations and published research findings for general adult populations with hypertension \u2014 they are not a substitute for individualized medical advice. A clinician should tailor sodium targets based on an individual's kidney function, other health conditions, and blood pressure response.",
+    "iterations": 3,
+    "input_tokens": 15875,
+    "output_tokens": 1404,
+    "source_precision": 0.5,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-005",
+    "question": "What percentage of people with diabetes also have hypertension?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "percentage of people with diabetes who also have hypertension comorbidity prevalence",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"505f3e2b-f0a9-42ed-85bd-a38538a6e5b5\",\"hits\":[{\"text\":\"Diabetes and hypertension are significant risk factors for macro- and microvascular illnesses, their coexistence in one patient is destructive. Together, diabetes and hypertension lead to substantial health issues that are connected with high death rates, morbidity, and health-care expenditures. Patients with diabetes and hypertension are more likely than the general population to experience kidney or cardiovascular issues as "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "prevalence of hypertension among patients with diabetes",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"d63289f5-ce80-4d60-9ac7-6493d900ba56\",\"hits\":[{\"text\":\"DM prevalence from approximately 151 million in 2000 to 537 million individuals in 2021 affected worldwide.(7) The number of Americans with diagnosed DM in 2022 has followed a similar trend, with approximately 29 million diagnosed and approximately 8.5 million undiagnosed individuals, impacting 11.3% of the U.S. population and about 13% of adults. The vast majority (~95%) of Americans with diabetes have T2DM.(8) Overall, appro"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "## Answer\n\nAccording to the **PubMed Hypertension Literature** source, approximately **70% of diabetic patients also have hypertension** \u2014 roughly twice the rate seen in people without diabetes. This figure comes from the review article *\"The connection between hypertension and diabetes and their role in heart and kidney disease development\"* (PMC11162087, 2024).\n\n**Additional context from the same article:**\n- Diabetes and hypertension frequently coexist because they share pathophysiological mechanisms \u2014 particularly obesity and insulin resistance. Excess abdominal fat drives pro-inflammatory cytokine release and insulin resistance, which in turn raises endothelin-1 (a vasoconstrictor) and triglycerides, promoting hypertension.\n- When the two conditions coexist, patients face substantially elevated risk of cardiovascular disease, chronic kidney disease, retinopathy, and sexual dysfunction, and the combination is associated with higher mortality and healthcare costs than either condition alone.\n- Note: this is described as an observational/narrative estimate within a review article, not a controlled trial statistic, so treat the \"70%\" as a summary figure from the literature rather than a precise meta-analytic result with confidence intervals.\n\n**Complementary perspective from the VA/DoD Clinical Practice Guidelines** (Type 2 Diabetes CPG): while this source didn't give a direct diabetes\u2192hypertension comorbidity percentage, it confirms the tight epidemiological link between diabetes, obesity, and cardiometabolic risk \u2014 noting diabetes prevalence is 6.6% in normal-weight individuals vs. 23.3% in obese individuals, consistent with the shared risk-factor pathway described in the PubMed article. It also notes that management of hypertension in diabetic patients (target BP <130/80 mmHg, with ACE inhibitors/ARBs preferred, especially with albuminuria) is a guideline-level priority given this frequent co-occurrence \u2014 a point echoed in the Saudi Heart Association 2023 guidelines within the PubMed source as well.\n\n**Sources:**\n1. \"The connection between hypertension and diabetes and their role in heart and kidney disease development,\" PMC, 2024 \u2014 https://pmc.ncbi.nlm.nih.gov/articles/PMC11162087/ (license terms vary per PMC article; check CC license on page)\n2. VA/DoD Clinical Practice Guideline for the Management of Type 2 Diabetes Mellitus \u2014 https://www.healthquality.va.gov/HEALTHQUALITY/guidelines/CD/diabetes/VADOD-Diabetes-CPG-Provider-Summary_final_508.pdf\n\n*Disclaimer:* The PubMed source represents peer-reviewed research evidence, not an official clinical guideline recommendation. The VA/DoD source is a clinical practice guideline that may differ from other bodies' (e.g., ACC/AHA, ADA) recommendations. Neither should substitute for individualized clinical judgment.",
+    "iterations": 3,
+    "input_tokens": 16282,
+    "output_tokens": 1289,
+    "source_precision": 0.5,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ad-hoc-001",
+    "question": "What are the known safety hazards from fuel system contamination in Piper Cherokee aircraft, and what inspection procedures address fuel line integrity?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "aircraft-maintenance"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel system contamination safety hazard",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel line inspection procedure integrity",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "This source (aircraft-maintenance / Piper Aircraft Service Bulletins) is not yet supported for retrieval, even though it appears in the catalog \u2014 the system returned an error indicating its document family isn't currently queryable.\n\nI checked the full catalog, and no other source covers aviation maintenance, fuel systems, or aircraft safety topics. The other available sources are:\n- **RetrievalHub Codebase** (Python source code) \u2014 irrelevant\n- **PubMed Hypertension Literature** \u2014 clinical/medical, irrelevant\n- **A Tale of Two Cities** \u2014 literary fiction, irrelevant\n- **VA/DoD Clinical Practice Guidelines** \u2014 clinical/medical, irrelevant\n\nSo while the \"Piper Aircraft Service Bulletins\" source is exactly the kind of material that would normally address your question (service bulletins/letters for the PA-28 Cherokee family often do cover fuel system airworthiness issues, contamination risks, and inspection intervals), it's currently inaccessible via retrieval due to a platform limitation on its document family.\n\n**I cannot currently answer this question from the available data.** I'd recommend either:\n1. Trying again later in case the source's family support is enabled, or\n2. Consulting the Piper Cherokee/PA-28 service bulletins and FAA airworthiness directives directly, since those are the authoritative documents for fuel system contamination hazards and fuel line inspection procedures.\n\nLet me know if you'd like me to check back on source availability or help with a different question that the current sources can address (e.g., hypertension management or VA/DoD clinical guidelines).",
+    "iterations": 3,
+    "input_tokens": 7349,
+    "output_tokens": 795,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ad-hoc-002",
+    "question": "How do VA CPG recommendations for resistant hypertension treatment compare with recent PubMed meta-analyses on renal denervation outcomes?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension treatment recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"b382e9f8-df7a-4fd6-a735-447a517c0f0f\",\"hits\":[{\"text\":\" values and preferences as some patients may prefer reducing the number of pills but fixed-dose combination therapy may not always be available (e.g., in the desired drug combination or strength) or prescribed.\\n\\n## b. For Resistant Hypertension Recommendation\\n\\n28. For patients with resistant hypertension (defined as those who are not adequately controlled with maximally tolerated dose of triple therapy [i.e., a thiazide-ty"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation resistant hypertension meta-analysis outcomes",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"a09db38f-d3e3-4cdc-9a5e-c45af99a3524\",\"hits\":[{\"text\":\"By contrast, the Symplicity global registry showed largely different results, reflecting renal sympathetic denervation to be a safe procedure for the sustainable reduction of blood pressure. The safety and efficacy of renal sympathetic denervation for BP lowering is actually evident in recent randomized clinical trials and registries. This benefit is observed across patient subgroups including those with high-risk, and across "
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation device procedure hypertension",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"44c77812-bfd6-47d3-972d-ddee7e49def6\",\"hits\":[{\"text\":\"ertension in Advanced Chronic Kidney Disease. N Engl J Med . Dec 30 2021;385(27):2507-2519. doi:10.1056/NEJMoa2110730\\n168. Jamerson K, Weber MA, Bakris GL, et al. Benazepril plus amlodipine or hydrochlorothiazide for hypertension in high-risk patients. N Engl J Med . Dec 4 2008;359(23):2417-28. doi:10.1056/NEJMoa0806182\\n169. Bakris GL, Sarafidis PA, Weir MR, et al. Renal outcomes with different fixed-dose combination therapi"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "This confirms that the VA/DoD CPG does **not address renal denervation at all** \u2014 it's absent from the guideline's recommendations. Here's the comparison based on what each source actually contains:\n\n## VA/DoD Clinical Practice Guideline (2020, Hypertension in Primary Care)\n- **Recommendation 28** (Weak for | Reviewed, New-replaced): For resistant hypertension \u2014 defined as blood pressure not controlled on maximally tolerated triple therapy (thiazide-type diuretic + calcium channel blocker + ACEI/ARB) \u2014 the CPG suggests **adding spironolactone** in patients without contraindications.\n- Evidence basis: two systematic reviews/meta-analyses of RCTs (662 and 553 patients) showing spironolactone reduced office SBP/DBP by ~15.7/6.2 mmHg vs. placebo, and ambulatory/home SBP/DBP by ~8.7/4.1 mmHg.\n- Cautions: avoid if eGFR <30 mL/min/1.73m\u00b2 or K+ >5.0 mEq/L; use carefully with hyperkalemia risk or endocrine side effects.\n- **Renal denervation is not mentioned anywhere in this CPG's recommendations** \u2014 it is a pharmacology-focused guideline (spironolactone is the sole recommended resistant-HTN escalation step) with no procedural/device-based intervention addressed.\n- *Source: VA/DoD CPG for the Diagnosis and Management of Hypertension in the Primary Care Setting, Recommendation 28 (healthquality.va.gov)*\n\n## PubMed Hypertension Literature (recent reviews, 2023\u20132025)\nThese are *not* meta-analyses per se but review articles summarizing meta-analytic and trial evidence on renal denervation (RDN):\n- The **National Heart Center/Saudi Heart Association 2023 guideline article** notes that while the early **Symplicity HTN-3** sham-controlled trial failed to meet its primary efficacy endpoint (no significant BP difference vs. sham), subsequent registries (Symplicity global registry) and more recent RCTs/meta-analyses show RDN **significantly lowers BP in both medicated and unmedicated resistant-hypertension patients**, with benefit consistent across risk subgroups and device types (radiofrequency and ultrasound-based).\n- A CKD-focused review (*\"Revisiting resistant hypertension in kidney disease\"*) reports RDN reduced ambulatory SBP by ~9\u201314 mmHg in real-world CKD cohorts, and notes the **FDA approved both radiofrequency- and ultrasound-based RDN devices in late 2023**, with SCAI/NKF now recommending RDN for patients who've ruled out secondary causes, optimized lifestyle/medical therapy, and either can't tolerate more medication or prefer a procedural option after shared decision-making.\n- Another review cites ESH guidelines now positioning RDN as an \"alternative or complementary option\" for resistant/uncontrolled hypertension with elevated sympathetic activity, with BP reductions of ~5\u20136.3 mmHg in off-medication patients.\n- *Sources: \"National Heart Center/Saudi Heart Association 2023 Guidelines on the Management of Hypertension\" (PMC10069676); \"Revisiting resistant hypertension in kidney disease\" (PMC11296285); \"Updates in the management of hypertension\" (PMC11152838)*\n\n## Synthesis and Comparison\n\n| Aspect | VA/DoD CPG (2020) | PubMed literature (2023\u20132025) |\n|---|---|---|\n| Primary resistant-HTN recommendation | Add spironolactone (Weak for) | Discusses RDN as device-based option, alongside pharmacotherapy |\n| Renal denervation coverage | None | Substantial \u2014 evolving from early negative sham trial (HTN-3) to more favorable recent RCT/registry/meta-analytic evidence |\n| Regulatory status noted | N/A | FDA approval of RDN devices (late 2023) explicitly noted |\n| Positioning of RDN | Not addressed | \"Alternative or complementary\" per ESH; recommended by SCAI/NKF for patients who've exhausted lifestyle/medication optimization or prefer a procedure |\n\n**Key takeaway:** There is a **temporal gap** rather than a direct disagreement. The VA/DoD CPG was published in 2020 and is entirely silent on renal denervation, reflecting the state of evidence at that time (when Symplicity HTN-3's negative sham-controlled results dominated). The more recent PubMed reviews (2023\u20132025) reflect a **maturing evidence base and 2023 FDA device approvals** that other bodies (ESH, SCAI/NKF, Saudi Heart Association) have since incorporated into their guidance, positioning RDN as a viable adjunct or alternative for resistant hypertension. This isn't a contradiction between the two sources so much as the VA CPG **predating** the newer RDN evidence \u2014 a good illustration of the *staleness_note* flagged for the VA CPG source (\"check healthquality.va.gov for the most current version\") and worth flagging to a clinician: **if a VA-based decision-maker wants to know current thinking on RDN, the 2020 CPG won't have it**, and newer external literature/guidelines would need to be consulted.\n\nPer the source usage rules, note that the VA/DoD CPG scope disclaimer states its recommendations may differ from other bodies (ACC/AHA, ESC, etc.), and the PubMed articles are peer-reviewed research evidence, not institutional clinical guidelines themselves \u2014 several of the RDN endorsements actually originate from *other* societies (ESH, SCAI/NKF, Saudi Heart Association) cited within these review articles, not from PubMed authors making independent institutional recommendations.",
+    "iterations": 4,
+    "input_tokens": 33346,
+    "output_tokens": 2427,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ad-hoc-003",
+    "question": "What are the recommended inspection intervals and adherence strategies for maintaining long-term safety outcomes?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "recommended inspection intervals for maintaining long-term safety",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Source 'aircraft-maintenance' uses a family that is not yet supported for retrieval."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "medication adherence strategies for long-term safety outcomes",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"f9bc7cf4-571f-4fbd-902f-0aa11edde906\",\"hits\":[{\"text\":\"In contrast, studies included in our analysis have found a positive relationship between medication adherence and clinical outcomes, such as the risk of all-cause mortality and cardiovascular events, underscoring the significance of sustaining optimal medication adherence. Research indicates a significant link between low adherence to antihypertensive medications and insufficient blood pressure control, resulting in an increas"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "follow-up visit intervals and adherence strategies for chronic disease management",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"7bdd620f-a6f6-45cd-b218-9f40e0c8b5d9\",\"hits\":[{\"text\":\" indicated or justified. The burden related to resource utilization and feasibility of 30-day follow-up, or sooner in patients with elevated risks, may be challenging for the provider and/or the patient. Patient focus group participants noted that frequent visits can be burdensome, and higher dosage may require more labor-intensive risk mitigation and monitoring strategies. While some of the follow-up evaluations may be done b"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "strategies to improve medication adherence in hypertension patients",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"4cdd4679-4da1-422a-96ff-556bce863c9a\",\"hits\":[{\"text\":\"Hypertensive patients are the ultimate implementers of drug regimens. Studies indicate that treatments focusing on patient behavior have a higher probability of positively impacting medication adherence compared to those that target medical professionals or the system.   Therefore, it is necessary to shift the focus to the needs of the patients themselves. Scientific and effective methods should first be used to assess the med"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure recheck interval follow-up monitoring hypertension",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"6a181765-b0d8-4e7c-ac95-4b9c2d34e133\",\"hits\":[{\"text\":\"2004 VA/DoD HTN CPG without an updated systematic review of the evidence.)                                                                                                             | Weak for                        | Not reviewed, Deleted   | --                  |\\n| 1.2             | 3               | p. 22           | We recommend the diagnosis of hypertension be determined based on at least two blood pressure readings on "
+      },
+      {
+        "tool_name": "refine",
+        "arguments": {
+          "source": "va-cpg-clinical-guidelines",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "chunk_index": 103,
+          "query": "multi-modal adherence intervention recommendation full text and follow-up interval recommendations",
+          "strategy": "section",
+          "window": 2
+        },
+        "result_summary": "{\"source\":\"va-cpg-clinical-guidelines\",\"doc_title\":\"VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING\",\"doc_url\":\"https://www.healthquality.va.gov/HEALTHQUALITY/guidelines/CD/htn/VADODHypertensionCPG508Corrected792020.pdf\",\"origin_chunk_index\":103,\"strategy\":\"section\",\"chunks\":[{\"text\":\"2004 VA/DoD HTN CPG without an updated systematic review of the evidence.)                                                                            "
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "Before diving in, a scope note: your phrasing (\"inspection intervals,\" \"safety outcomes\") could apply to the **Piper Aircraft Service Bulletins** source in this catalog, but that source's technical-document family is currently not supported by the retrieval tool (it returned an error), so I could not query it. If you meant aircraft maintenance inspection schedules, I'd need that source re-enabled to answer properly \u2014 let me know if you'd like me to flag that separately.\n\nWhat I *was* able to retrieve comes from the clinical domain \u2014 specifically hypertension management, where \"inspection intervals\" corresponds to **blood pressure monitoring/follow-up frequency** and \"adherence strategies\" corresponds to **medication and lifestyle adherence interventions** for long-term cardiovascular safety. Here's the synthesis from the **VA/DoD Clinical Practice Guideline for Hypertension** (institutional guideline) and two **PubMed Central peer-reviewed articles** (research evidence):\n\n## Monitoring / \"Inspection\" Intervals\n- **Diagnosis confirmation:** The VA/DoD HTN CPG recommends confirming a hypertension diagnosis using at least two BP readings on two separate visits (Strong for), using a properly calibrated sphygmomanometer (Strong for). Home blood pressure monitoring (HBPM) \u2014 two to three readings per day for seven consecutive days, discarding day one and averaging the rest \u2014 is recommended to confirm diagnosis before starting drug therapy (Strong for), with 24-hour ambulatory BP monitoring as a weaker alternative (Weak for). *(Source: VA/DoD HTN CPG, Recommendation 4)*\n- **Ongoing home monitoring:** For patients doing HBPM long-term, a minimum of 3 days (12 readings) is considered sufficient, ideally right before a provider visit, with results averaged; excluding the first day is optional but if done, the monitoring window should extend to 4\u20138 days. *(VA/DoD HTN CPG, Appendix H)*\n- **Follow-up visit cadence:** The guideline (2014 version, later revised) suggested follow-up **at least annually, or more frequently as clinically indicated**, depending on patient preference and risk. *(VA/DoD HTN CPG, Recommendation Categorization Table)*\n- The CPG's usage rules note this guideline may differ from other bodies (e.g., ACC/AHA, ESC, USPSTF), so treat it as one institutional perspective, not a universal standard.\n\n## Adherence Strategies for Long-Term Safety\n- **Multi-modal interventions:** The VA/DoD CPG suggests (Weak for) a multi-modal approach combining telemonitoring, multidisciplinary shared medical appointments, case management (pharmacists, nurses, social workers), patient/provider education, and behavioral therapy \u2014 rather than relying on any single tactic.\n- **Lifestyle-adherence supports:** Strongly recommended lifestyle interventions (diet, weight, exercise) should be tailored to patient preference and local resource availability to sustain adherence over time.\n- **Patient-centered/shared decision-making** is emphasized across VA/DoD guidelines generally as core to sustaining adherence.\n\nComplementing this institutional guidance, the **PubMed hypertension literature** (research evidence, not clinical guidelines per the source's own disclaimer) reinforces *why* adherence matters for long-term safety and adds behavioral/qualitative detail:\n- A systematic review and meta-analysis of cohort studies found that **high medication adherence (medication possession ratio 80\u2013100%)** is associated with better blood pressure control and significantly reduced cardiovascular events and all-cause mortality; nonadherence has been linked to increased stroke and CVD mortality risk across multiple analyses (e.g., meta-analysis of 39 studies, ~2.1 million participants, on nonadherence and stroke risk). *(Source: \"The link between adherence to antihypertensive medications and mortality rates,\" PMC11874117, CC-licensed \u2014 systematic review/meta-analysis of observational cohort studies)*\n- A qualitative meta-integration identifies key **facilitators**: strong patient knowledge/beliefs about disease risk, social support from family/community, and shared decision-making; and **barriers**: inadequate medication literacy, forgetfulness, and side-effect concerns. Recommended strategies include personalized, holistic interventions, mobile medication reminders, and increasing patient understanding of their living environment/psychological state rather than only targeting providers or systems. Global nonadherence rates are cited as 27\u201340% (and up to 58% in some regional surveys), underscoring the scale of the challenge. *(Source: \"Barriers and Facilitators of Medication Adherence in Hypertension Patients,\" PMC10976505, CC-licensed \u2014 qualitative meta-integration)*\n\n**Synthesis:** The two source types agree on the same underlying logic \u2014 periodic BP monitoring (annual-to-more-frequent follow-up, home monitoring protocols) functions as the \"inspection interval\" that detects control loss early, while sustained adherence (behavioral, social, and multi-modal system supports) is what preserves long-term safety outcomes (reduced mortality/CVD events) between those inspections. The VA/DoD CPG provides the procedural/interval specifics; the PubMed research evidence supplies the outcome data justifying why adherence intensity matters and what behavioral levers are most effective. Note the CPG's own caveat that recommendation strength is often \"weak for\" on adherence interventions, meaning evidence quality is moderate rather than definitive.\n\nIf your question was actually about aircraft inspection intervals, let me know and I can retry once that source becomes queryable, or you can rephrase for me to attempt `describe_source` on it for whatever metadata is accessible outside full retrieval.",
+    "iterations": 5,
+    "input_tokens": 68240,
+    "output_tokens": 3647,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ad-hoc-004",
+    "question": "What JavaScript frameworks are recommended for building responsive single-page applications with server-side rendering?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      }
+    ],
+    "sources_queried": [],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "None of the available sources in this catalog cover software engineering, web development, or JavaScript frameworks. The catalog currently includes:\n\n- **RetrievalHub Codebase** \u2013 Python source code for the RetrievalHub platform itself (not a general web-dev knowledge base)\n- **PubMed Hypertension Literature** \u2013 clinical research on hypertension\n- **A Tale of Two Cities** \u2013 Dickens novel\n- **Piper Aircraft Service Bulletins** \u2013 aircraft maintenance documentation\n- **VA/DoD Clinical Practice Guidelines** \u2013 clinical guidelines for chronic disease, mental health, etc.\n\nNone of these are relevant to JavaScript frameworks, single-page application architecture, or server-side rendering. I don't have a source that would let me ground an answer in retrieved material, so I won't fabricate one.\n\nIf you're looking for a general answer from common knowledge (not sourced from this catalog): frameworks commonly used for responsive SPAs with SSR include **Next.js** (React), **Nuxt.js** (Vue), **SvelteKit** (Svelte), **Angular Universal** (Angular), and **SolidStart** (Solid.js). Let me know if you'd like me to elaborate on any of these \u2014 just note this would be from general knowledge, not a retrieved/cited source.",
+    "iterations": 2,
+    "input_tokens": 4432,
+    "output_tokens": 463,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ad-hoc-005",
+    "question": "What cardiovascular health monitoring is recommended for commercial aviation pilots to maintain their medical certification?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Codebase\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code for the RetrievalHub platform\",\"document_count\":117},{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\""
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "pilot cardiovascular health monitoring aviation medical certification",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "{\"request_id\":\"2db1c21e-1bb9-4948-92cb-2f65f6de1159\",\"hits\":[{\"text\":\"Table: Saudi Heart Association classes of recommendations.\\nColor\\tClass\\tDefinition\\t \\t\\tRecommended\\tThe usefulness and efficacy of a particular treatment/procedure/action is supported by available evidence.\\t \\t\\tShould be considered\\tThe usefulness and efficacy of a particular treatment/procedure/action is established by favorable expert opinion on conflicting evidence.\\t \\t\\tMay be considered\\tThe usefulness and efficacy"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "occupational cardiovascular screening aviation pilot fitness for duty",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"request_id\":\"4bd321c7-c39b-4ffd-b013-8541f1780a21\",\"hits\":[{\"text\":\" consider a screen positive for unhealthy alcohol | A positive screen is any report of drinking 5 or more (men) or 4 or more (women) drinks on an occasion in the past year.                                                                  |\\n\\nAbbreviations: AUDIT-C: Alcohol Use Disorders Identification Test -Consumption; DoD: Department of Defense; SASQ: Single-Item Alcohol Screening Questionnaire; VA: Department of Veterans A"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "Neither of the two clinically relevant sources in my catalog actually addresses this question, and I want to be upfront about that rather than stretch unrelated material to fit.\n\n**What I searched:**\n- **PubMed Hypertension Literature** \u2014 returned general hypertension screening/management content (BP thresholds, AI-driven monitoring, Saudi Heart Association guidelines), but nothing about aviation, pilots, or occupational medical certification.\n- **VA/DoD Clinical Practice Guidelines** \u2014 returned content on substance use screening, asthma evaluation, lipid management/cardiovascular risk reduction, and military body composition standards, but nothing specific to aviation medicine or pilot certification requirements (these guidelines are oriented toward VA/DoD patient care and military service member fitness, not FAA/civil aviation medical certification standards).\n\n**Bottom line:** None of the sources in this catalog (which also includes a Piper aircraft maintenance/service-bulletin source, a Dickens novel, and codebase documentation \u2014 clearly not relevant here) cover FAA Aviation Medical Examiner (AME) protocols, ECG/echocardiogram intervals, or the specific cardiovascular certification standards (e.g., FAA Class 1/2/3 medical certificate requirements, ICAO cardiovascular risk assessment) that govern commercial pilot cardiovascular monitoring.\n\nIf you need this information, I'd recommend consulting the **FAA's Guide for Aviation Medical Examiners** or **ICAO cardiovascular assessment guidance** directly, as those are the authoritative sources for pilot medical certification and aren't represented in this catalog. If you have general cardiovascular risk-management questions (hypertension control, lipid management, exercise recommendations), I can pull relevant clinical guidance from the PubMed Hypertension or VA/DoD sources \u2014 just let me know if that reframing would be useful.",
+    "iterations": 3,
+    "input_tokens": 16348,
+    "output_tokens": 1198,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  }
+]

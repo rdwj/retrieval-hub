@@ -1,0 +1,146 @@
+{
+  "version": "1.0",
+  "description": "Cross-dataset reasoning eval questions for Phase 4 of data-products epic",
+  "questions": [
+    {
+      "id": "xds001",
+      "question": "What blood pressure targets do VA CPG guidelines recommend for patients with diabetes, and does recent peer-reviewed literature support those targets?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query both clinical sources and synthesize VA CPG guideline targets with PubMed evidence from the Saudi Heart Association 2023 guidelines (PMC10069676) converging on 130/80 mmHg for diabetic patients."
+    },
+    {
+      "id": "xds002",
+      "question": "What does the evidence say about why patients don't take their blood pressure medications, and what do VA guidelines recommend to address this?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query both clinical sources: PubMed for barrier themes and adherence mortality data (PMC10976505, PMC11874117), and VA CPG for guideline recommendations on improving adherence."
+    },
+    {
+      "id": "xds003",
+      "question": "For a patient with resistant hypertension and chronic kidney disease, what are the treatment options including newer therapies?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query VA CPG for stepped-care pharmacotherapy guidelines and PubMed for recent evidence on renal denervation, GLP-1 agonists, SGLT2 inhibitors, and dietary sodium restriction in CKD."
+    },
+    {
+      "id": "xds004",
+      "question": "What lifestyle changes can help lower blood pressure, and how much can they help?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query VA CPG for lifestyle modification recommendations and PubMed for quantified evidence from the ISH position paper (PMC10713007) and standardized treatment protocol data (PMC11773677)."
+    },
+    {
+      "id": "xds005",
+      "question": "What are the latest treatment advances for hypertension that go beyond the current VA CPG recommendations?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query VA CPG for current guideline scope and PubMed for 2023-2025 advances (renal denervation, GLP-1 agonists, SGLT2 inhibitors, STPs) that suggest potential updates to VA CPG algorithms."
+    },
+    {
+      "id": "am-021",
+      "question": "What are the risks to pilot health from repeated exposure to aircraft exhaust gases, and what blood pressure management guidelines exist for pilots?",
+      "expected_sources": ["aircraft-maintenance", "va-cpg-clinical-guidelines"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query aircraft-maintenance for SL_0177 exhaust gas hazard documentation and va-cpg-clinical-guidelines for blood pressure management relevant to pilot medical certification."
+    },
+    {
+      "id": "am-022",
+      "question": "What structural inspections are required for aging Piper Cherokee wing spars, and what occupational health precautions should mechanics observe when using solvents like MEK and acetone during these inspections?",
+      "expected_sources": ["aircraft-maintenance", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query aircraft-maintenance for SB_1304B spar inspection procedures and solvent specifications, and pubmed-hypertension for occupational health guidance on solvent exposure."
+    },
+    {
+      "id": "am-023",
+      "question": "How do defective altimeters affect flight safety, and what medical conditions can impair a pilot's ability to recognize altitude-related symptoms?",
+      "expected_sources": ["aircraft-maintenance", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query aircraft-maintenance for SB 1297 altimeter defect details and pubmed-hypertension for how cardiovascular conditions affect cognitive response to hypoxia at altitude."
+    },
+    {
+      "id": "am-024",
+      "question": "What is Piper's position on unleaded aviation gasolines, and are there clinical studies on health effects of lead exposure from leaded aviation fuel?",
+      "expected_sources": ["aircraft-maintenance", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query aircraft-maintenance for CIL 2025-002 on unapproved fuels and the EAGLE initiative, and pubmed-hypertension for cardiovascular effects of chronic lead exposure linked to hypertension."
+    },
+    {
+      "id": "am-025",
+      "question": "What recurring inspections does Piper require for wing attachment hardware, and how should maintenance personnel manage fatigue and adherence to recurring inspection schedules?",
+      "expected_sources": ["aircraft-maintenance", "pubmed-hypertension"],
+      "category": "cross-dataset",
+      "expected_behavior": "Agent should query aircraft-maintenance for SB 1423B recurring 100-hour inspection requirements and pubmed-hypertension for adherence research parallels between maintenance compliance and clinical adherence frameworks."
+    },
+    {
+      "id": "ctrl-001",
+      "question": "What is the part number for the witness hole drill fixture used during the control wheel shaft inspection?",
+      "expected_sources": ["aircraft-maintenance"],
+      "category": "single-source-control",
+      "expected_behavior": "Agent should query only aircraft-maintenance. Answer is Piper P/N 766-585. No clinical source is relevant to this aviation parts question."
+    },
+    {
+      "id": "ctrl-002",
+      "question": "How is the control wheel shaft assembly verified as correctly installed according to SB 1197E?",
+      "expected_sources": ["aircraft-maintenance"],
+      "category": "single-source-control",
+      "expected_behavior": "Agent should query only aircraft-maintenance. A 3/64 inch drill rod is inserted into the witness hole; approximately 0.2 inches penetration indicates correct installation. No clinical source is relevant."
+    },
+    {
+      "id": "ctrl-003",
+      "question": "How effective is tirzepatide at lowering blood pressure?",
+      "expected_sources": ["pubmed-hypertension"],
+      "category": "single-source-control",
+      "expected_behavior": "Agent should query only pubmed-hypertension. Tirzepatide led to the largest decreases in SBP (-6.45 mmHg) and DBP (-3.64 mmHg) among GLP-1-based agents. No aviation or VA CPG source is relevant."
+    },
+    {
+      "id": "ctrl-004",
+      "question": "How much salt should someone with high blood pressure eat per day?",
+      "expected_sources": ["pubmed-hypertension"],
+      "category": "single-source-control",
+      "expected_behavior": "Agent should query only pubmed-hypertension. The ISH recommends less than 2g sodium (approximately 5g salt) per day. No aviation source is relevant."
+    },
+    {
+      "id": "ctrl-005",
+      "question": "What percentage of people with diabetes also have hypertension?",
+      "expected_sources": ["va-cpg-clinical-guidelines"],
+      "category": "single-source-control",
+      "expected_behavior": "Agent should query only va-cpg-clinical-guidelines for comorbidity prevalence data. About 70% of diabetic patients have hypertension. While pubmed-hypertension also covers this, a well-routed agent should recognize this as a clinical guideline question."
+    },
+    {
+      "id": "ad-hoc-001",
+      "question": "What are the known safety hazards from fuel system contamination in Piper Cherokee aircraft, and what inspection procedures address fuel line integrity?",
+      "expected_sources": ["aircraft-maintenance"],
+      "category": "ad-hoc-probe",
+      "expected_behavior": "Agent should query only aircraft-maintenance despite 'safety hazards' and 'contamination' sounding clinical. This is purely an aviation maintenance question about fuel system integrity, not a health question."
+    },
+    {
+      "id": "ad-hoc-002",
+      "question": "How do VA CPG recommendations for resistant hypertension treatment compare with recent PubMed meta-analyses on renal denervation outcomes?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "ad-hoc-probe",
+      "expected_behavior": "Agent should query both clinical sources but NOT aircraft-maintenance. VA CPG for guideline recommendations on resistant hypertension, PubMed for 2023-2024 renal denervation trial data."
+    },
+    {
+      "id": "ad-hoc-003",
+      "question": "What are the recommended inspection intervals and adherence strategies for maintaining long-term safety outcomes?",
+      "expected_sources": ["aircraft-maintenance", "pubmed-hypertension"],
+      "category": "ad-hoc-probe",
+      "expected_behavior": "Genuinely ambiguous query. 'Inspection intervals' maps to aircraft maintenance SBs (e.g., SB 1423B 100-hour recurring inspections). 'Adherence strategies' and 'long-term safety outcomes' map to clinical medication adherence literature. A good agent should either ask for clarification or query both domains."
+    },
+    {
+      "id": "ad-hoc-004",
+      "question": "What JavaScript frameworks are recommended for building responsive single-page applications with server-side rendering?",
+      "expected_sources": [],
+      "category": "ad-hoc-probe",
+      "expected_behavior": "Agent should recognize that no available data source covers web development topics and respond that no relevant data is available. It should NOT query any source."
+    },
+    {
+      "id": "ad-hoc-005",
+      "question": "What cardiovascular health monitoring is recommended for commercial aviation pilots to maintain their medical certification?",
+      "expected_sources": ["va-cpg-clinical-guidelines", "pubmed-hypertension"],
+      "category": "ad-hoc-probe",
+      "expected_behavior": "Despite using aviation terminology ('commercial aviation pilots', 'medical certification'), this is fundamentally a clinical question about cardiovascular monitoring. The agent should query clinical sources for blood pressure management guidelines relevant to pilot fitness, not aircraft-maintenance."
+    }
+  ]
+}

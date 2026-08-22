@@ -1,0 +1,9 @@
+{
+  "prompt_file": "/Users/wjackson/Developer/retrieval-hub-agent/identity.md",
+  "prompt_version": "v0",
+  "model": "claude-sonnet-5",
+  "temperature": 0.0,
+  "mcp_url": "http://127.0.0.1:8000/mcp",
+  "timestamp": "2026-08-22T14:42:44.536510+00:00",
+  "question_count": 20
+}
