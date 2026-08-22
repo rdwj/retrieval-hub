@@ -1,10 +1,10 @@
 # Next Session — model-registry-and-health
 
-## Next: Registry-aware ingestion (Phase 4)
+## Status: Epic complete
 
-Ingestion scripts resolve embedding endpoints through the registry
-instead of hardcoding URLs. `ChunkEmbedder` calls `resolve_model()`
-when no explicit endpoint is passed.
+All six phases are done. The model registry is fully operational:
+endpoints are registered, query and ingestion resolve from the registry,
+health probing updates status, and describe_source surfaces health.
 
 1. **Alembic migration for `model_endpoint` table**
    Fields: `id` (varchar PK, same convention as other catalog tables),
@@ -237,6 +237,23 @@ Phase 1 complete — model registry data model + API:
 - 11 tests for model + API
 
 Phase 2 skipped — Nomic v1.5 deployment deferred (no remote consumer).
+
+Phases 5+6 complete — health probing + describe_source:
+- Health probe script (scripts/probe_model_endpoints.py) checks /health
+  on all registered endpoints, updates status in catalog DB
+- Supports --json-log for structured event output (ops alerting)
+- ModelUnavailableError caught in retrieve/refine → clear ToolError
+- describe_source includes SourceHealth field (status, model, last_checked)
+- 9 probe tests, import ordering fixes
+
+Phase 4 complete — registry-aware ingestion:
+- `try_resolve_endpoint(db_url, model_name)` convenience function in
+  model_registry.py for scripts without an existing session
+- All four production ingestion scripts resolve from registry before
+  constructing ChunkEmbedder
+- Aircraft `--embedding-endpoint` flag now optional (registry fallback)
+- Removed endpoint URL from recipe content — model name only
+- 3 tests for try_resolve_endpoint
 
 Phase 3 complete — registry-aware retrieve + refine:
 - `_resolve_embedding_endpoint()` in retrieval API resolves model name
