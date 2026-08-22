@@ -96,6 +96,7 @@ def session(engine: Engine) -> Iterator[Session]:
             "eval_run",
             "eval_suite",
             "rewrite_prompt_ref",
+            "model_endpoint",
             "sample_prompt",
         ]:
             sess.execute(_delete_all(table))
@@ -258,6 +259,29 @@ def make_eval_run(
     return run
 
 
+def make_model_endpoint(
+    session: Session,
+    *,
+    model_name: str = "test-model/test-embed-v1",
+    endpoint_url: str = "http://test-embedding:8000",
+    status: str = "unknown",
+) -> "ModelEndpoint":
+    """Insert a ModelEndpoint row with sensible defaults."""
+    from retrieval_hub.models.model_endpoint import ModelEndpoint
+
+    ep = ModelEndpoint(
+        id=str(uuid.uuid4()),
+        model_name=model_name,
+        endpoint_url=endpoint_url,
+        status=status,
+        registered_at=_utcnow(),
+        updated_at=_utcnow(),
+    )
+    session.add(ep)
+    session.flush()
+    return ep
+
+
 # ---------------------------------------------------------------------------
 # Identity factories
 # ---------------------------------------------------------------------------
@@ -280,6 +304,7 @@ __all__ = [
     "make_eval_run",
     "make_eval_suite",
     "make_identity",
+    "make_model_endpoint",
     "make_physical_index",
     "make_recipe_version",
     "make_source",
