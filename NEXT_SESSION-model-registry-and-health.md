@@ -1,10 +1,10 @@
 # Next Session — model-registry-and-health
 
-## Next: Model registry data model + internal API (Phase 1)
+## Next: Registry-aware ingestion (Phase 4)
 
-Build the `model_endpoint` table and the internal resolution API that
-all later phases depend on. Pure data-model-and-API work — no changes
-to the MCP server or ingestion scripts yet.
+Ingestion scripts resolve embedding endpoints through the registry
+instead of hardcoding URLs. `ChunkEmbedder` calls `resolve_model()`
+when no explicit endpoint is passed.
 
 1. **Alembic migration for `model_endpoint` table**
    Fields: `id` (varchar PK, same convention as other catalog tables),
@@ -84,27 +84,18 @@ applies cleanly.
 
 **Parallel-ok:** Yes — independent of all other epics.
 
-### Phase 2: Deploy embedding model as a standalone service
+### Phase 2: Deploy embedding model as a standalone service — SKIPPED
 
-Nomic v1.5 running on its own vLLM pod in OpenShift, serving
-`/v1/embeddings`, registered in the model registry.
+**Status:** Skipped (2026-08-22). The original plan called for deploying
+Nomic v1.5 as a new vLLM pod on agent-security-dev-3. Cluster inventory
+showed Snowflake Arctic and PubMedBERT are already deployed and serving
+the datasets that need them. No dataset currently requires a remote Nomic
+endpoint — VA CPG and Tale of Two Cities use Nomic via local
+sentence-transformers during ingestion only. Deploying Nomic would consume
+the one available GPU slot with no consumer.
 
-**Work:**
-1. vLLM deployment manifest for Nomic v1.5 (StatefulSet, Service,
-   GPU toleration, `enableServiceLinks: false`, `--task embed`).
-2. Register the endpoint in the model registry from Phase 1.
-3. Verify: curl the endpoint with a test string, confirm 768-dim vector
-   response.
-
-**Definition of done:** The vLLM pod is serving, registered in the
-catalog, and responds to embedding requests. A `resolve_model` call
-returns this endpoint.
-
-**Dependencies:** Phase 1 (needs registry table to register into). The
-vLLM deployment itself can start before Phase 1 merges.
-
-**Parallel-ok:** Phases 1 and 2 can run in parallel for the deployment
-work; registration is sequential after Phase 1.
+**Revisit when:** a dataset needs Nomic embeddings at query time (not just
+ingestion), or we move VA CPG ingestion to always-remote embedding.
 
 ### Phase 3: Registry-aware retrieve + refine
 
@@ -126,8 +117,9 @@ the registry-resolved endpoint. MCP pod runs without sentence-transformers
 installed. Pod memory stays under 1Gi. Latency delta measured and
 documented.
 
-**Dependencies:** Phase 1 + Phase 2 (needs both the registry and a
-running model endpoint).
+**Dependencies:** Phase 1 (registry exists). Phase 2 skipped — the two
+models (Snowflake Arctic, PubMedBERT) are already deployed and seeded
+in the registry.
 
 **Parallel-ok:** Yes — parallel with Phase 4 (different code paths).
 
@@ -235,7 +227,23 @@ status).
 - data-products: ingestion scripts for PubMed and aircraft would be
   updated in Phase 4 here.
 
-## What landed last session (2026-08-22)
+## What landed this session (2026-08-22)
+
+Phase 1 complete — model registry data model + API:
+- `model_endpoint` table (Alembic migration b4378152f6b0)
+- `ModelEndpoint` ORM model, `ModelEndpointStatus` enum
+- Internal API: `resolve_model()`, `register_model()`, `update_model_status()`
+- Seed script registering Snowflake Arctic and PubMedBERT
+- 11 tests for model + API
+
+Phase 2 skipped — Nomic v1.5 deployment deferred (no remote consumer).
+
+Phase 3 complete — registry-aware retrieve + refine:
+- `_resolve_embedding_endpoint()` in retrieval API resolves model name
+  through registry, falls back to recipe endpoint if not registered
+- `DocumentAdapter` accepts pre-resolved endpoint from `_build_adapter()`
+- Unhealthy models raise `ModelUnavailableError` through to caller
+- 6 tests covering registry resolution, fallback, and error paths
 
 Cluster inventory and deployment infrastructure:
 - Inventoried both clusters (gpt-oss-120b and agent-security-dev-3)

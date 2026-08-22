@@ -427,6 +427,23 @@ def test_document_adapter_refine_truncation_fits_all() -> None:
     assert output.total_chunks is None
 
 
+def test_document_adapter_uses_explicit_embedding_endpoint() -> None:
+    """When embedding_endpoint is passed, _embedding_endpoint() returns it."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "m", "dimension": 768, "endpoint": "http://recipe:9000"}}
+    )
+    index = _make_physical_index("test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql://fake",
+        embedding_endpoint="http://registry:8000",
+    )
+    assert adapter._embedding_endpoint() == "http://registry:8000"
+
+
 def test_document_adapter_embedding_model_name_missing_raises() -> None:
     source = _make_source()
     recipe = _make_recipe_version({"embedding": {}})  # no model key

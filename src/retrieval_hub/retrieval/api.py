@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.adapters.document import DocumentAdapter
+from retrieval_hub.model_registry import ModelNotFoundError, resolve_model
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 from retrieval_hub.models.enums import SourceFamily
 
@@ -69,12 +70,38 @@ class UnsupportedFamilyError(RuntimeError):
     """Raised when no adapter exists for the source's family yet."""
 
 
+def _resolve_embedding_endpoint(
+    session: Session, recipe_version: RecipeVersion
+) -> str | None:
+    """Resolve the embedding endpoint via the model registry.
+
+    Falls back to the recipe's ``embedding.endpoint`` field when the model
+    is not registered, so existing deployments and local dev keep working.
+    """
+    content = recipe_version.content or {}
+    embedding = content.get("embedding") or {}
+    model_name = embedding.get("model")
+    if not model_name:
+        return None
+    try:
+        return resolve_model(session, model_name)
+    except ModelNotFoundError:
+        recipe_endpoint = embedding.get("endpoint")
+        if recipe_endpoint:
+            logger.warning(
+                "Model %r not in registry, falling back to recipe endpoint",
+                model_name,
+            )
+        return recipe_endpoint
+
+
 def _build_adapter(
     source: Source,
     physical_index: PhysicalIndex,
     recipe_version: RecipeVersion,
     *,
     vectors_db_url: str | None,
+    embedding_endpoint: str | None = None,
 ) -> SourceAdapter:
     """Return the right adapter instance for the source's family."""
     if source.family in (
@@ -87,6 +114,7 @@ def _build_adapter(
             physical_index=physical_index,
             recipe_version=recipe_version,
             vectors_db_url=vectors_db_url,
+            embedding_endpoint=embedding_endpoint,
         )
     raise UnsupportedFamilyError(
         f"No adapter implementation for family {source.family!r} yet. "
@@ -153,11 +181,14 @@ def query(
         .one()
     )
 
+    embedding_endpoint = _resolve_embedding_endpoint(session, recipe_version)
+
     adapter = _build_adapter(
         source,
         physical_index,
         recipe_version,
         vectors_db_url=vectors_db_url,
+        embedding_endpoint=embedding_endpoint,
     )
 
     effective_request_id = request_id or str(uuid.uuid4())
@@ -214,11 +245,14 @@ def refine(
         .one()
     )
 
+    embedding_endpoint = _resolve_embedding_endpoint(session, recipe_version)
+
     adapter = _build_adapter(
         source,
         physical_index,
         recipe_version,
         vectors_db_url=vectors_db_url,
+        embedding_endpoint=embedding_endpoint,
     )
 
     effective_request_id = request_id or str(uuid.uuid4())

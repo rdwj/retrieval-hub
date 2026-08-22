@@ -72,6 +72,7 @@ class DocumentAdapter(SourceAdapter):
         physical_index: PhysicalIndex,
         recipe_version: RecipeVersion,
         vectors_db_url: str | None = None,
+        embedding_endpoint: str | None = None,
     ) -> None:
         super().__init__(
             source=source,
@@ -79,6 +80,7 @@ class DocumentAdapter(SourceAdapter):
             recipe_version=recipe_version,
         )
         self._vectors_db_url = vectors_db_url or get_default_vectors_db_url()
+        self._resolved_endpoint = embedding_endpoint
 
         if physical_index.backend_kind != PhysicalIndexBackend.PGVECTOR:
             raise ValueError(
@@ -242,7 +244,9 @@ class DocumentAdapter(SourceAdapter):
         return name
 
     def _embedding_endpoint(self) -> str | None:
-        """Pull the optional remote embedding endpoint from the recipe."""
+        """Return the embedding endpoint, preferring the registry-resolved URL."""
+        if self._resolved_endpoint is not None:
+            return self._resolved_endpoint
         content = self.recipe_version.content or {}
         embedding = content.get("embedding") or {}
         return embedding.get("endpoint")
