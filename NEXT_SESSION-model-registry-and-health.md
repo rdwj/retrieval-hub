@@ -235,7 +235,24 @@ status).
 - data-products: ingestion scripts for PubMed and aircraft would be
   updated in Phase 4 here.
 
-## What landed last session (2026-08-21)
+## What landed last session (2026-08-22)
+
+Cluster inventory and deployment infrastructure:
+- Inventoried both clusters (gpt-oss-120b and agent-security-dev-3)
+- TEI PubMedBERT (CPU) on gpt-oss-120b, vLLM Snowflake Arctic (GPU) on
+  agent-security-dev-3. No Nomic endpoint deployed (used locally only).
+- Created `scripts/deploy-embedding.sh` with `--context` / `--namespace`
+  flags for reproducible deployment to new clusters
+- Added `deploy-embedding-tei` and `deploy-embedding-snowflake` Makefile
+  targets
+- Removed four superseded individual manifest files; consolidated
+  manifests (`tei.yaml`, `vllm-snowflake.yaml`) are the source of truth
+- Added deployment README with model details, API differences,
+  verification steps, and troubleshooting
+- Decision: hold off on Nomic v1.5 remote deployment (no urgent need;
+  VA CPG and Tale of Two Cities use local sentence-transformers)
+
+## What landed (2026-08-21)
 
 Epic bootstrapped. Design decisions made during eval-convergence session:
 - Always-remote embedding (no models in MCP pod)

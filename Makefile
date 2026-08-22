@@ -7,7 +7,7 @@
 PYTHON ?= python3
 PIP    ?= pip
 
-.PHONY: help install test test-cov migrate migrate-down format lint clean
+.PHONY: help install test test-cov migrate migrate-down format lint clean deploy-embedding-tei deploy-embedding-snowflake
 
 help:
 	@echo "retrieval-hub core library targets:"
@@ -19,6 +19,13 @@ help:
 	@echo "  format        ruff format"
 	@echo "  lint          ruff check + mypy"
 	@echo "  clean         remove caches and build artifacts"
+	@echo ""
+	@echo "embedding model deployment targets:"
+	@echo "  deploy-embedding-tei        deploy TEI PubMedBERT (CPU)"
+	@echo "  deploy-embedding-snowflake  deploy vLLM Snowflake Arctic (GPU)"
+	@echo ""
+	@echo "  CONTEXT=<ctx>    (required) OpenShift context"
+	@echo "  NAMESPACE=<ns>   (default: retrieval-hub)"
 
 install:
 	$(PIP) install -e ".[dev]"
@@ -45,3 +52,15 @@ lint:
 clean:
 	rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+
+# --- Embedding model deployment ------------------------------------------------
+
+NAMESPACE ?= retrieval-hub
+
+deploy-embedding-tei:
+	./scripts/deploy-embedding.sh tei-pubmedbert \
+		--context=$(CONTEXT) --namespace=$(NAMESPACE)
+
+deploy-embedding-snowflake:
+	./scripts/deploy-embedding.sh vllm-snowflake \
+		--context=$(CONTEXT) --namespace=$(NAMESPACE)
