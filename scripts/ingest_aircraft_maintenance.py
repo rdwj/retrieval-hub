@@ -216,7 +216,7 @@ def _extract_sections_from_markdown(text: str) -> list[ParsedSection]:
 # ---------------------------------------------------------------------------
 
 
-def _recipe_content(embedding_endpoint: str) -> dict:
+def _recipe_content() -> dict:
     """Return the recipe content dict stored on RecipeVersion."""
     return {
         "parser": {"kind": "docling_extracted_markdown"},
@@ -233,7 +233,6 @@ def _recipe_content(embedding_endpoint: str) -> dict:
             "normalize": True,
             "document_prefix": DOCUMENT_PREFIX,
             "query_prefix": QUERY_PREFIX,
-            "endpoint": embedding_endpoint,
         },
         "backend": {
             "kind": "pgvector",
@@ -387,6 +386,10 @@ def _run_ingestion(
     # Stage 5: embed
     # ------------------------------------------------------------------
     from retrieval_hub.ingestion.embed import ChunkEmbedder
+    from retrieval_hub.model_registry import try_resolve_endpoint
+
+    if embedding_endpoint is None:
+        embedding_endpoint = try_resolve_endpoint(db_url, EMBEDDING_MODEL)
 
     embed_start = time.monotonic()
     embedder = ChunkEmbedder(
@@ -441,7 +444,7 @@ def _run_ingestion(
             description_long=DESCRIPTION_LONG,
             owner_team=SOURCE_OWNER_TEAM,
             owner_contacts=SOURCE_OWNER_CONTACTS,
-            recipe_content=_recipe_content(embedding_endpoint),
+            recipe_content=_recipe_content(),
             physical_index_location=PGVECTOR_TABLE,
             document_count=docs_processed,
             chunk_count=len(all_chunks),
@@ -508,10 +511,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--embedding-endpoint",
-        required=True,
+        default=None,
         help=(
             "Base URL of an OpenAI-compatible embedding endpoint "
-            "(e.g. http://vllm-host:8000). Required."
+            "(e.g. http://vllm-host:8000). Falls back to model registry if not provided."
         ),
     )
     parser.add_argument(

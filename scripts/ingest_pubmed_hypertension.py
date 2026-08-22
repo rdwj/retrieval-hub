@@ -247,10 +247,14 @@ def _run_ingestion(data_dir: Path, db_url: str, vectors_db_url: str) -> int:
 
     # Stage 5: embed.
     from retrieval_hub.ingestion.embed import ChunkEmbedder
+    from retrieval_hub.model_registry import try_resolve_endpoint
+
+    endpoint = try_resolve_endpoint(db_url, EMBEDDING_MODEL)
 
     embed_start = time.monotonic()
     embedder = ChunkEmbedder(
         model_name=EMBEDDING_MODEL,
+        endpoint=endpoint,
         document_prefix=DOCUMENT_PREFIX,
     )
     actual_dim = embedder.dimension

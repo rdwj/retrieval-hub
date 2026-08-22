@@ -11,6 +11,7 @@ from retrieval_hub.model_registry import (
     ModelUnavailableError,
     register_model,
     resolve_model,
+    try_resolve_endpoint,
     update_model_status,
 )
 from retrieval_hub.models.model_endpoint import ModelEndpoint
@@ -88,3 +89,42 @@ def test_update_model_status_not_found(session: Session) -> None:
     """update_model_status raises ModelNotFoundError for missing model."""
     with pytest.raises(ModelNotFoundError):
         update_model_status(session, "nonexistent/model", "healthy")
+
+
+# ---------------------------------------------------------------------------
+# try_resolve_endpoint (session-managing wrapper)
+# ---------------------------------------------------------------------------
+
+
+def test_try_resolve_endpoint_found(session: Session, db_url: str) -> None:
+    """try_resolve_endpoint returns URL when model is registered and healthy."""
+    make_model_endpoint(
+        session,
+        model_name="resolve/found",
+        endpoint_url="http://resolve-test:8000",
+        status="healthy",
+    )
+    session.commit()
+
+    url = try_resolve_endpoint(db_url, "resolve/found")
+    assert url == "http://resolve-test:8000"
+
+
+def test_try_resolve_endpoint_not_found(db_url: str) -> None:
+    """try_resolve_endpoint returns None when model is not registered."""
+    url = try_resolve_endpoint(db_url, "nonexistent/model")
+    assert url is None
+
+
+def test_try_resolve_endpoint_unhealthy(session: Session, db_url: str) -> None:
+    """try_resolve_endpoint raises ModelUnavailableError for unhealthy model."""
+    make_model_endpoint(
+        session,
+        model_name="resolve/unhealthy",
+        endpoint_url="http://unhealthy:8000",
+        status="unhealthy",
+    )
+    session.commit()
+
+    with pytest.raises(ModelUnavailableError):
+        try_resolve_endpoint(db_url, "resolve/unhealthy")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from retrieval_hub.models.enums import ModelEndpointStatus
 from retrieval_hub.models.model_endpoint import ModelEndpoint
+
+logger = logging.getLogger(__name__)
 
 
 class ModelRegistryError(Exception):
@@ -74,3 +77,24 @@ def update_model_status(
     endpoint.status = status
     endpoint.last_probed = datetime.now(UTC)
     session.flush()
+
+
+def try_resolve_endpoint(db_url: str, model_name: str) -> str | None:
+    """Try to resolve a model endpoint from the registry.
+
+    Returns the endpoint URL if the model is registered and healthy/unknown.
+    Returns None if the model is not registered (local embedding fallback).
+    Raises ModelUnavailableError if the model is registered but unhealthy.
+    """
+    from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
+
+    engine = create_db_engine(db_url)
+    factory = make_session_factory(engine)
+    with session_scope(factory) as session:
+        try:
+            url = resolve_model(session, model_name)
+            logger.info("Resolved %s -> %s from model registry", model_name, url)
+            return url
+        except ModelNotFoundError:
+            logger.info("Model %s not in registry, using local embedding", model_name)
+            return None
