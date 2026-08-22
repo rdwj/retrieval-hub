@@ -1,0 +1,44 @@
+{
+  "title": "Chunk Config Comparison \u2014 VA CPG (Nomic v1.5) (30 queries, seed 42)",
+  "condition": "raw",
+  "recommend": "512/0",
+  "pareto_front": [
+    "1024/0",
+    "512/0"
+  ],
+  "configs": {
+    "512/0": {
+      "context_precision": 0.8149999999733701,
+      "answer_relevancy": 0.7345127609447974,
+      "faithfulness": 0.854280045351474,
+      "query_count": 30,
+      "eval_seed": 42,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9111,
+      "mean_cosine_sim": 0.7817,
+      "chunk_count": 6500
+    },
+    "512/64": {
+      "context_precision": 0.8040740740471326,
+      "answer_relevancy": 0.724280157865661,
+      "faithfulness": 0.8252782931354361,
+      "query_count": 30,
+      "eval_seed": 42,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9667,
+      "mean_cosine_sim": 0.7846,
+      "chunk_count": 7420
+    },
+    "1024/0": {
+      "context_precision": 0.8235185184901443,
+      "answer_relevancy": 0.7192799293335814,
+      "faithfulness": 0.8819321029847345,
+      "query_count": 30,
+      "eval_seed": 42,
+      "hit_rate_at_5": 1.0,
+      "mrr_at_5": 0.9667,
+      "mean_cosine_sim": 0.7609,
+      "chunk_count": 3263
+    }
+  }
+}
