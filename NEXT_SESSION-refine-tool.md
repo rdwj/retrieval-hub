@@ -1,26 +1,68 @@
 # Next Session — refine-tool
 
-## Next: Phase 5 planning or #34 multi-source retrieve
+## Next: Phase 5 — A/B eval (does refine improve answer quality?)
 
-All refine-tool implementation (Phases 1-4) and data normalization are
-complete and deployed. The epic's remaining work is Phase 5 (A/B eval)
-and #34 (multi-source retrieve).
+The epic's gate. Eval-convergence Phase 3 is done and baseline metrics
+are available. Extend the eval pipeline to compare retrieve-only vs
+retrieve+refine, then measure the lift.
 
-1. **Assess Phase 5 readiness**
-   Phase 5 (A/B eval for refine lift) depends on the eval-convergence
-   epic having baseline metrics. Check current eval-convergence status.
-   If blocked, pull #34 forward.
+1. **Extend `eval_answer_quality.py` with a refine stage**
+   The eval pipeline is retrieve → generate → score. Add an optional
+   refine step between retrieve and generate that calls the refine API
+   (adjacent or section strategy) to expand context around the top
+   retrieve hits before generation. The script should support a flag
+   like `--refine-strategy adjacent` to enable it, defaulting to no
+   refine (the current behavior, which is the baseline).
 
-2. **#34 Multi-source retrieve** (if Phase 5 blocked)
-   Search across sources in one call. The 4 existing sources (VA CPG,
-   aircraft maintenance, code repo, tale-of-two-cities) are enough to
-   build and test. See the tool ergonomics backlog below.
+   Key files:
+   - `scripts/eval_answer_quality.py` — the eval pipeline
+   - `src/retrieval_hub/retrieval/api.py` — `query()` function used
+     by the eval script for retrieval
+   - `src/retrieval_hub/retrieval/refine.py` — the refine
+     implementation (adjacent, section, cross_reference, entity_arc)
+   - `eval/autorag/qa_dataset_draft.json` — the 30-query Q/A set
+
+2. **Run the eval with refine enabled**
+   Run with `--refine-strategy adjacent` and `--refine-strategy section`
+   against the same 30-query Q/A set. Use the same LLM endpoint
+   (gpt-oss-120b) for generation and scoring.
+
+3. **Compare against baseline**
+   Baseline metrics (from eval-convergence Phase 3, 512/0 Nomic v1.5):
+   - context_precision: 0.815
+   - answer_relevancy: 0.735
+   - faithfulness: 0.854
+
+   Use the `/eval-report` skill to generate a Pareto front comparison.
+   The question is whether refine improves answer_relevancy and/or
+   faithfulness without degrading context_precision.
+
+4. **Record results in the eval register**
+   Import results using the eval register import pattern from
+   eval-convergence (see `scripts/import_nomic_sweep_results.py`).
+
+**Sequencing.** Step 1 first (implementation), then steps 2-4 together
+(run + compare + record).
 
 **Session start protocol:**
-- Premise checks:
+- Premise checks (~5 min):
   - `git pull` and confirm clean merge
   - `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` — green
-  - Cluster access: `oc whoami --context=gpt-oss-120b`
+    baseline (should be 260 + 43)
+  - Local databases up: `pg_isready -h 127.0.0.1 -p 5433` (vectors)
+    and `pg_isready -h 127.0.0.1 -p 5434` (catalog)
+  - Verify baseline exists: check that `eval/rewrite_lift/runs/` has
+    the 512/0 baseline run with `summary.json`
+  - gpt-oss-120b reachable for LLM generation/scoring
+- Rules with history:
+  - gpt-oss-120b reasoning off via `enable_thinking=False` in
+    `extra_body` (from eval-convergence sessions)
+  - Ragas max_tokens=8192 to avoid faithfulness NaN
+  - Per-condition checkpointing in scoring stage
+  - Use 127.0.0.1 not localhost for Postgres connections
+  - Nomic requires `search_query: ` / `search_document: ` prefixes
+- Stop-and-ask before: modifying the eval register (append only);
+  dropping or re-ingesting any index tables
 - Close ritual: session summary, commit, update this file.
 
 ## What landed this session (2026-08-21, ninth session)
@@ -86,21 +128,26 @@ if Phase 5 remains blocked.
 
 ## Watch out for
 
-- **Re-ingestion replaces all rows.** The VA CPG ingestion script uses
-  `write_chunks(replace=True)`, which drops and recreates the table
-  contents. Confirm the table name before running.
-- **Deploy memory limit.** Currently 4Gi, sufficient for Nomic v1.5.
-  Don't change unless the embedding model changes.
+- **gpt-oss-120b sandbox may be reprovisioned.** If the endpoint
+  changes, update the eval scripts. Also: reasoning off via
+  `enable_thinking=False`, max_tokens=8192 for faithfulness scoring.
+- **Refine window size affects token budget.** Adjacent with window=2
+  returns 5 chunks (origin + 2 before + 2 after). Section strategy
+  can return much more. The generation prompt may need truncation or
+  the eval script may need a token budget parameter.
 - **Parallel sessions.** The data-products and eval-convergence epics
-  may be running concurrently. Don't touch their pgvector tables.
+  may be running concurrently. Don't touch their pgvector tables or
+  eval runs.
 
 ## If blocked
 
-- **Cluster unavailable for deploy:** Complete normalization and
-  re-ingestion locally, commit, and defer deploy to next available
-  cluster window.
-- **Normalization scope creep:** If title normalization turns into a
-  larger framework concern (multiple sources, complex rules), scope
-  down to VA CPG only and file a follow-up for a general normalizer.
-- **If both items finish quickly:** Pull #34 (multi-source retrieve)
+- **gpt-oss-120b unavailable:** The eval pipeline needs an LLM for
+  generation and scoring. If the endpoint is down, defer to next
+  session — the implementation work (step 1) can still be done and
+  tested locally with mock responses.
+- **Refine shows no lift:** That's a valid result. Document it, close
+  Phase 5, and move to #34. The refine tool still has value for
+  human-in-the-loop exploration even if it doesn't improve automated
+  answer quality.
+- **If Phase 5 finishes quickly:** Pull #34 (multi-source retrieve)
   forward — the 4 existing sources are enough to build and test it.
