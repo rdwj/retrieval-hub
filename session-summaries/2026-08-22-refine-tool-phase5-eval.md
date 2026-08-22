@@ -1,60 +1,74 @@
-# Session: Refine-tool Phase 5 — A/B eval
+# Session Summary — 2026-08-22 · refine-tool · Phase 5 A/B eval
 
-**Date:** 2026-08-22
-**Epic:** refine-tool
-**Phase:** 5 (A/B eval — does refine improve answer quality?)
+**Plan:** NEXT_SESSION-refine-tool.md (Phase 5)   **Commits:** d6f068e..66e50e6 (main)
+**Deployed:** none   **Model:** Opus 4.6
 
-## Outcome
+## Plan vs. actual
 
-Phase 5 complete. **Adjacent refine degrades automated eval metrics.**
-The refine tool remains valuable for human-in-the-loop exploration but
-does not improve RAG answer quality in the automated pipeline.
+Planned: extend eval pipeline with refine stage, run adjacent + section
+evals, compare against baseline. Shipped: implementation + adjacent eval
+completed. Slipped: section eval skipped (justified — adjacent already
+showed clear degradation, section returns 8x more context and would be
+worse).
 
-## What landed
+## Shipped
 
-- `d6f068e` — eval pipeline extended with optional `--refine-strategy`
-  and `--refine-window` flags. New `_stage_refine()` between retrieve
-  and generate. Includes `chunk_index`/`chunk_id` in serialized hits,
-  refine params in config fingerprint, refined.json caching.
+- `d6f068e` — eval pipeline extended with `--refine-strategy` and
+  `--refine-window` flags. New `_stage_refine()` between retrieve and
+  generate, with refined.json caching, chunk_index/chunk_id in
+  serialized hits, refine params in config fingerprint.
+- `66e50e6` — Phase 5 results recorded: adjacent refine degrades all
+  three automated metrics. Session summary and plan update.
 
-- Adjacent refine eval completed (`eval/rewrite_lift/runs/refine-adjacent/`).
-  Section eval skipped — adjacent already showed clear degradation,
-  section returns even more dilutive context.
-
-## Results: adjacent refine vs baseline (no refine)
+## Results
 
 | Metric             | Baseline | Adjacent refine | Delta    |
 |--------------------|----------|-----------------|----------|
-| context_precision  | 0.815    | 0.386           | **-0.429** |
+| context_precision  | 0.815    | 0.386           | -0.429   |
 | answer_relevancy   | 0.735    | 0.678           | -0.057   |
 | faithfulness       | 0.854    | 0.837           | -0.017   |
 
-## Analysis
+## Verification & confidence
 
-Adjacent refine (window=2) expands each of the 5 top-k hits with 4
-surrounding chunks, inflating the context from 5 focused chunks to ~25.
-Most of the added chunks are positionally adjacent but not semantically
-relevant to the question. Ragas context_precision penalizes irrelevant
-context heavily, causing the metric to roughly halve.
+- Adjacent eval ran end-to-end against the 30-query Q/A set with the
+  same LLM endpoints as the baseline (gpt-oss:20b for generation,
+  gpt-oss-120b for scoring). Stages cached/checkpointed correctly.
+- Smoke-tested refine API directly before running full eval.
+- 323 + 43 tests pass. No test regressions.
+- Confidence: **high** — the result is clear and directionally expected
+  (diluting context with positionally-adjacent but semantically-irrelevant
+  chunks penalizes precision).
 
-Answer_relevancy and faithfulness showed smaller declines, suggesting
-the LLM can still find relevant information in the expanded context
-but the noise reduces overall quality.
+## Judgment calls & deviations
 
-Section refine would be worse: our smoke test showed 43 chunks per
-hit for the section strategy vs 5 for adjacent.
+- Skipped section eval after adjacent showed -0.429 on context_precision.
+  Section returns ~43 chunks per hit vs 5 for adjacent — would be worse.
+- Refine applied to both raw and rewrite conditions (not just raw), keeping
+  the comparison fair within the run.
 
-## Implications
+## Backlog delta
 
-- The refine tool's value is in **exploration**, not automated RAG.
-  When a human or agent reads a retrieve hit and wants to understand
-  the surrounding context, refine provides that. But stuffing all the
-  expanded context into a generation prompt degrades quality.
-- A future improvement could be selective refine — only expand the
-  top-1 hit, or use reranking after refine to prune back to top-k.
-  But that's a different experiment.
+Closed Phase 5 of refine-tool epic. No issues filed this session.
+Next for this epic: #34 multi-source retrieve.
 
-## Epic status
+## Drift & forward-collisions
 
-Phase 5 closes the refine-tool epic's gate question. Remaining work
-is #34 (multi-source retrieve), which is independent of refine quality.
+- Backward — none. This session's changes don't affect other open issues.
+- Forward — none.
+
+## For the reviewer
+
+- Sanity-check: the context_precision drop is large (-0.429). Worth
+  verifying that the Ragas context_precision metric is measuring what
+  we think it is with expanded context. The metric penalizes irrelevant
+  retrieved chunks, which is exactly what adjacent refine adds.
+- Thin verification: section eval was not run. The inference that it would
+  be worse is sound (more dilutive context) but unproven.
+- Wants guidance: none.
+
+## Risks / watch-fors
+
+- The eval_answer_quality.py file has changes from multiple parallel
+  sessions (expanded SLUG_TO_KEYWORDS, bootstrap CI, dynamic query_count).
+  These are user-applied improvements, not conflicts, but the file should
+  be committed coherently by one session.
