@@ -460,6 +460,17 @@ async def async_main(args: argparse.Namespace) -> int:
                 logger.error("MCP server is missing required tools: %s", missing)
                 return 1
 
+            # Probe catalog size for the config record.
+            catalog_probe = await mcp_session.call_tool("list_sources", {})
+            catalog_size = 0
+            for block in catalog_probe.content:
+                if hasattr(block, "text"):
+                    try:
+                        catalog_size = len(json.loads(block.text))
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+            logger.info("Catalog contains %d sources", catalog_size)
+
             # Anthropic client.
             client = anthropic.AsyncAnthropic()
 
@@ -472,6 +483,7 @@ async def async_main(args: argparse.Namespace) -> int:
                 "temperature": 0.0 if uses_temperature else None,
                 "mcp_url": args.mcp_url,
                 "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+                "catalog_size": catalog_size,
                 "question_count": len(questions),
             }
             (output_dir / "config.json").write_text(

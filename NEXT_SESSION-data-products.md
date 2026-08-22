@@ -1,15 +1,12 @@
 # Next Session -- data-products
 
-## Next: Dataset selection at scale (Phase 6)
+## Next: Lab notes consolidation + paper outline (Phase 7)
 
-Research question: at what catalog size does "list_sources + agent picks
-the right one" break down? Phase 4 showed it works at 3 sources. Phase 6
-tests at larger scales.
+Pull findings from Phases 1-6 into a consolidated lab notes document
+and paper outline. This is the final phase of the data-products epic.
 
 **Session start protocol:**
-- Read Phase 4 lab notes for baseline metrics
-- Consider synthetic source registrations (metadata-only, no real data)
-  to test at 10/20/50 sources without ingesting real corpora
+- Read all phase lab notes and session summaries
 - `git status` — commit any uncommitted files first
 
 ## Remaining epic phases
@@ -75,10 +72,18 @@ reference.
 
 **Dependencies:** Phases 2 + 3 (done)
 
-### Phase 6: Dataset selection at scale + lab notes
+### Phase 6: Dataset selection at scale + lab notes [DONE -- 2026-08-22]
 
-Research question: at what catalog size does "list_sources + agent picks
-the right one" break down?
+Tested source selection at 4, 14, and 54 catalog sources using 50
+synthetic sources with realistic descriptions. Key finding: catalog SIZE
+doesn't degrade selection — the agent ignores non-overlapping domains.
+But domain-overlap confusers cause 38% precision drop (0.86→0.53) as
+soon as they're introduced. Recall stays robust (0.93-0.95). The
+confuser set is bounded (only 5 of 50 synthetics ever queried). This
+strengthens the case for #34 (multi-source search) once the catalog has
+domain overlap.
+
+Full results in `eval/cross_dataset_reasoning/SCALE_LAB_NOTES.md`.
 
 **Dependencies:** Phase 4
 
@@ -118,6 +123,11 @@ See `eval/cross_dataset_reasoning/LAB_NOTES.md`.
 **Phase 5**: Source scaffolding tool (`scripts/new_source.py`). Generates
 complete ingestion scripts from a slug. 43 unit tests. Makefile target.
 Updated data owner guide with tool reference.
+
+**Phase 6**: Dataset selection at scale. Tested at 4/14/54 sources with
+50 synthetic confusers. Catalog size doesn't degrade selection, but
+domain-overlap confusers cause 38% precision drop. Recall stays robust.
+Strengthens case for #34. See `eval/cross_dataset_reasoning/SCALE_LAB_NOTES.md`.
 
 ## Watch out for
 

@@ -1,0 +1,32 @@
+{
+  "total_questions": 20,
+  "by_category": {
+    "ad-hoc-probe": {
+      "count": 5,
+      "source_precision_mean": 0.6,
+      "source_recall_mean": 1.0,
+      "exact_match_rate": 0.2
+    },
+    "cross-dataset": {
+      "count": 10,
+      "source_precision_mean": 0.6,
+      "source_recall_mean": 0.85,
+      "exact_match_rate": 0.0
+    },
+    "single-source-control": {
+      "count": 5,
+      "source_precision_mean": 0.35,
+      "source_recall_mean": 1.0,
+      "exact_match_rate": 0.0
+    }
+  },
+  "overall": {
+    "count": 20,
+    "source_precision_mean": 0.5375,
+    "source_recall_mean": 0.925,
+    "exact_match_rate": 0.05,
+    "total_input_tokens": 840658,
+    "total_output_tokens": 33740,
+    "avg_iterations": 5.5
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "prompt_file": "eval/cross_dataset_reasoning/prompts/v0.yaml",
+  "prompt_version": "v0",
+  "model": "claude-sonnet-5",
+  "temperature": null,
+  "mcp_url": "http://127.0.0.1:8000/mcp",
+  "timestamp": "2026-08-22T19:19:32.940778+00:00",
+  "catalog_size": 14,
+  "question_count": 20
+}

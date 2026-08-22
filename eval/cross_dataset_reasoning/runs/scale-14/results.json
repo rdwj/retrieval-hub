@@ -1,0 +1,1639 @@
+[
+  {
+    "question_id": "xds001",
+    "question": "What blood pressure targets do VA CPG guidelines recommend for patients with diabetes, and does recent peer-reviewed literature support those targets?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target for patients with diabetes",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target in diabetes mellitus hypertension treatment",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target for patients with diabetes",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target in diabetes mellitus hypertension treatment",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target for patients with diabetes hypertension guideline",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure target in diabetes mellitus hypertension treatment",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "diabetes hypertension blood pressure goal",
+          "source": "va-cpg-clinical-guidelines",
+          "top_k": 3
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I attempted to retrieve information from the two most relevant sources for this question, but both are currently unavailable:\n\n- **VA/DoD Clinical Practice Guidelines** (`va-cpg-clinical-guidelines`) \u2014 repeatedly returned a backend database error (`model_endpoint` table not found), indicating a service-side infrastructure problem rather than a lack of relevant content.\n- **PubMed Hypertension Literature** (`pubmed-hypertension`) \u2014 reports it \"exists but has no active index,\" suggesting it's still being ingested and isn't queryable yet.\n- I also tried the **Cardiology and Vascular Research Papers** source as an alternative for peer-reviewed literature, but it has the same \"no active index\" issue.\n\nSince none of the sources that would plausibly contain this information (VA CPG guidelines for the target-recommendation side, and PubMed/cardiology research for the literature-support side) are currently functional, I can't produce a grounded, cited answer right now rather than guessing from general knowledge.\n\n**What I'd suggest:**\n- Retry shortly \u2014 these look like transient/ingestion issues, not permanent gaps in coverage.\n- If you'd like, I can retry the queries now in case the services recover, or I can answer from general medical knowledge with a clear caveat that it's *not* sourced from the retrieval catalog (i.e., unverified against your curated VA CPG/PubMed content). Let me know which you'd prefer.",
+    "iterations": 6,
+    "input_tokens": 24971,
+    "output_tokens": 1425,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "xds002",
+    "question": "What does the evidence say about why patients don't take their blood pressure medications, and what do VA guidelines recommend to address this?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "reasons for medication nonadherence in hypertension patients",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "antihypertensive medication adherence recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "antihypertensive medication adherence recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "reasons for medication nonadherence in hypertension patients",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "barriers to adherence hypertension treatment guideline recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "patient nonadherence to antihypertensive therapy causes",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension medication adherence",
+          "source": "va-cpg-clinical-guidelines",
+          "top_k": 3
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I attempted to retrieve information from the two most relevant sources for this question, but both are currently unavailable:\n\n- **VA/DoD Clinical Practice Guidelines** (`va-cpg-clinical-guidelines`) \u2014 this is the source that would hold the VA guideline recommendations you're asking about, but every query returned a backend database error (a missing `model_endpoint` table), which appears to be a persistent infrastructure issue rather than a lack of relevant content.\n- **PubMed Hypertension Literature** (`pubmed-hypertension`) \u2014 this source, which covers adherence and lifestyle factors in hypertension management, reported that it \"has no active index\" and may still be ingesting data.\n- I also tried the **Cardiology and Vascular Research Papers** source as a fallback for adherence evidence, but it likewise has no active index yet.\n\nSo I'm unable to retrieve grounded, citable evidence right now for either half of your question (the evidence on why patients skip BP medications, or the VA guideline recommendations to address it). These sources look like the right places to look \u2014 the catalog is just not currently queryable for them due to what seem to be transient system/indexing errors.\n\nIf you'd like, I can retry shortly (indexing/backend issues sometimes resolve quickly), or I can proceed with general knowledge not grounded in these sources \u2014 but I want to flag that this would not carry the same provenance/citation guarantees the other sources provide. Let me know how you'd like to proceed.",
+    "iterations": 6,
+    "input_tokens": 25190,
+    "output_tokens": 1493,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "xds003",
+    "question": "For a patient with resistant hypertension and chronic kidney disease, what are the treatment options including newer therapies?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension management in chronic kidney disease",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension treatment chronic kidney disease newer therapies",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "novel therapies for resistant hypertension in CKD patients",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension management in chronic kidney disease",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "{\"slug\":\"va-cpg-clinical-guidelines\",\"name\":\"VA/DoD Clinical Practice Guidelines\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"52 clinical practice guidelines from the VA/DoD covering chronic disease, mental health, pain management, rehabilitation, and women's health.\",\"description_long\":\"A curated ingestion of the VA/DoD Clinical Practice Guidelines corpus covering five clinical categories: chronic disease management (diabetes, hypertension, heart failure, COPD, CKD), me"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension CKD treatment",
+          "source": "va-cpg-clinical-guidelines",
+          "top_k": 5
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [
+      "va-cpg-clinical-guidelines"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I attempted to retrieve information from three relevant sources in this catalog, but none were currently accessible:\n\n- **VA/DoD Clinical Practice Guidelines** \u2014 returned a backend database error (missing embedding model endpoint configuration) on repeated attempts. This appears to be a system-side infrastructure issue, not something resolvable by rephrasing the query.\n- **PubMed Hypertension Literature** \u2014 reported \"no active index,\" meaning the source exists in the catalog but isn't currently queryable (possibly still ingesting).\n- **Cardiology and Vascular Research Papers** \u2014 same \"no active index\" issue.\n\n**What this means:** I cannot currently retrieve grounded, citable content on resistant hypertension and CKD management from the available clinical sources, even though they are exactly the sources that should cover this topic (the VA/DoD CPG source explicitly lists CKD and hypertension guidelines, and PubMed Hypertension + Cardiology Research would cover newer pharmacotherapies like non-steroidal MRAs and dual endothelin antagonists).\n\nI don't want to answer from unverified general knowledge and present it as if it were sourced from this catalog, since that would misrepresent provenance. A couple of options:\n\n1. **Retry shortly** \u2014 the PubMed and Cardiology sources may just be mid-ingestion; I can re-query them in a few minutes if you'd like.\n2. **I can give a general clinical overview from my own background knowledge** (clearly labeled as *not* sourced from the catalog, and *not* a substitute for consulting current guidelines/a clinician), covering things like confirming true resistance (ABPM, adherence, secondary causes), optimizing diuretics (chlorthalidone vs. loop diuretics based on eGFR), adding a mineralocorticoid receptor antagonist, and newer options such as non-steroidal MRAs (finerenone) and dual endothelin receptor antagonists (aprocitentan) \u2014 but I'd flag this as unverified against the current sources.\n\nWould you like me to retry the sources now, or would you prefer the general (unsourced) clinical summary with that caveat?",
+    "iterations": 6,
+    "input_tokens": 25747,
+    "output_tokens": 1585,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "xds004",
+    "question": "What lifestyle changes can help lower blood pressure, and how much can they help?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lifestyle modifications to lower blood pressure and their effect size",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lifestyle modification recommendations for hypertension management",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "effect of diet exercise weight loss sodium restriction on blood pressure reduction mmHg",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lifestyle modification recommendations for hypertension management",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lifestyle interventions to reduce blood pressure hypertension prevention",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "All four sources most relevant to this question are currently unavailable:\n\n- **pubmed-hypertension** and **synthetic-cardiology-research**: no active index yet (\"may still be ingesting data\")\n- **synthetic-who-clinical-guidelines**: same issue, no active index\n- **va-cpg-clinical-guidelines**: returned a backend database error (a missing `model_endpoint` table needed to resolve the embedding model), not a \"no relevant results\" case \u2014 this looks like a genuine service fault rather than a content gap\n\nI don't want to fabricate clinical figures without a retrieved source to back them up, and none of the plausible sources are currently queryable. So I can't responsibly give you sourced numbers right now.\n\nWhat I'd suggest:\n- Try again shortly \u2014 the ingestion-pending sources (PubMed Hypertension Literature, Cardiology and Vascular Research, WHO Clinical Practice Guidelines) look like they're the best fit for this question once available.\n- The VA/DoD error suggests a transient infrastructure issue rather than missing content \u2014 worth retrying that one too.\n\nIf you'd like, I can retry all of these again now, or you can let me know if you want me to proceed with general knowledge (clearly flagged as not sourced from the catalog) instead of retrieval-backed answers. Just say the word.",
+    "iterations": 4,
+    "input_tokens": 14530,
+    "output_tokens": 1186,
+    "source_precision": 0.5,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "xds005",
+    "question": "What are the latest treatment advances for hypertension that go beyond the current VA CPG recommendations?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension treatment recommendations first-line antihypertensive therapy",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "latest advances in hypertension pharmacotherapy beyond guidelines",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "novel antihypertensive therapies emerging treatments resistant hypertension",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension treatment recommendations first-line antihypertensive therapy",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension VA CPG diagnosis and management",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I'm currently unable to retrieve information from any of the relevant sources due to technical issues:\n\n- **va-cpg-clinical-guidelines** (VA/DoD Clinical Practice Guidelines) \u2014 returning a persistent backend database error (`model_endpoint` table missing) on every attempt.\n- **pubmed-hypertension** (PubMed Hypertension Literature) \u2014 reports \"no active index,\" possibly still ingesting.\n- **synthetic-cardiology-research** (Cardiology and Vascular Research Papers) \u2014 also reports \"no active index.\"\n\nThese three sources are exactly the ones that would let me answer your question properly: the VA CPG source for the baseline guideline recommendations, and the PubMed hypertension literature / cardiology research sources for advances that go beyond those recommendations (e.g., newer agents, device-based therapies, resistant hypertension approaches).\n\nSince none of them are currently queryable, I don't want to fabricate an answer from general knowledge and present it as sourced. A couple of options:\n\n1. I can retry shortly in case this is a transient outage (the errors suggest an infrastructure/indexing issue rather than the sources being empty).\n2. If you'd like, I can answer from general medical knowledge instead, but I'd flag clearly that it would **not** be grounded in the retrieval sources and could be less current/reliable than what those curated sources would provide.\n\nWould you like me to retry the retrieval now, or proceed with a general-knowledge answer (clearly labeled as such)?",
+    "iterations": 5,
+    "input_tokens": 19467,
+    "output_tokens": 1245,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-021",
+    "question": "What are the risks to pilot health from repeated exposure to aircraft exhaust gases, and what blood pressure management guidelines exist for pilots?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "va-cpg-clinical-guidelines"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "exhaust gas carbon monoxide exposure cockpit pilot health hazard",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "exhaust system leak carbon monoxide cabin heater inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension management guidelines blood pressure targets",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "blood pressure management pharmacotherapy guidelines",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "exhaust system leak carbon monoxide cabin heater inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension management guidelines blood pressure targets",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension blood pressure management guideline",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension treatment blood pressure targets",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "test query",
+          "source": "retrieval-hub-code"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'jinaai/jina-code-embeddings-0.5b'}]\n(Backgr"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "retrieval-hub-code",
+      "synthetic-cardiology-research",
+      "synthetic-general-aviation-maintenance",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "This confirms the retrieval backend itself is currently down (a database table it depends on \u2014 `model_endpoint` \u2014 is missing/unavailable), so no source can be searched right now regardless of topic. This is a systemic infrastructure issue, not something specific to aviation or hypertension content.\n\nHere's what I found when trying to answer your question:\n\n**On exhaust gas exposure risks to pilots:** The catalog includes aviation-focused sources \u2014 *Piper Aircraft Service Bulletins* and *General Aviation Maintenance Directives* \u2014 which plausibly cover exhaust system integrity, cabin heater/carbon monoxide leak inspections, and related airworthiness directives. However, I could not query either source: one returned a database error and the other reported \"no active index\" (data still ingesting).\n\n**On blood pressure management guidelines:** The catalog has several relevant clinical sources \u2014 *VA/DoD Clinical Practice Guidelines*, *PubMed Hypertension Literature*, *WHO Clinical Practice Guidelines*, and *Cardiology and Vascular Research Papers* \u2014 any of which would likely contain hypertension management protocols (diagnostic thresholds, pharmacotherapy, lifestyle guidance). None of these are specific to aviation/pilot populations, and I found no dedicated aeromedical or FAA pilot-medical-certification source in the catalog, so pilot-specific BP certification standards (e.g., FAA AME disqualifying thresholds) don't appear to be covered here at all. I attempted to query these sources but each either had no active index or the backend threw the same database error.\n\n**Bottom line:** I'm unable to retrieve any results right now due to what appears to be a system-wide outage of the retrieval backend (missing `model_endpoint` table affects every source I tried, including an unrelated code repository source used as a control test). I don't want to fabricate answers about exhaust toxicology or blood pressure guidelines without grounding them in the actual sources.\n\nPlease retry shortly \u2014 if the issue persists, it likely needs attention from whoever administers the RetrievalHub database. In the meantime, I'd flag that even once retrieval is restored, this catalog appears to lack a dedicated aviation medicine/aeromedical certification source, so pilot-specific guidance (as opposed to general hypertension and general-aviation-maintenance content) may need to be sourced elsewhere (e.g., FAA Guide for Aviation Medical Examiners).",
+    "iterations": 6,
+    "input_tokens": 29102,
+    "output_tokens": 2397,
+    "source_precision": 0.2857142857142857,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-022",
+    "question": "What structural inspections are required for aging Piper Cherokee wing spars, and what occupational health precautions should mechanics observe when using solvents like MEK and acetone during these inspections?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "Piper Cherokee PA-28 wing spar inspection cracks corrosion",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing spar structural inspection aging aircraft eddy current corrosion",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "synthetic-iso-safety-standards"
+        },
+        "result_summary": "{\"slug\":\"synthetic-iso-safety-standards\",\"name\":\"ISO Machinery Safety Standards Collection\",\"family\":\"document\",\"status\":\"curated\",\"description_short\":\"74 ISO safety standards covering machine guarding, electrical safety, and risk assessment methodology.\",\"description_long\":null,\"owner_team\":\"synthetic-eval\",\"document_count\":null,\"chunk_count\":null,\"sample_prompts\":null}"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "Piper Cherokee PA-28 wing spar inspection cracks corrosion",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "solvent hazard exposure ventilation personal protective equipment",
+          "source": "synthetic-iso-safety-standards"
+        },
+        "result_summary": "Source 'synthetic-iso-safety-standards' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing spar corrosion inspection service bulletin",
+          "source": "aircraft-maintenance",
+          "top_k": 5
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "synthetic-general-aviation-maintenance",
+      "synthetic-iso-safety-standards"
+    ],
+    "sources_described": [
+      "synthetic-iso-safety-standards"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I attempted to retrieve information from the two most relevant sources in the catalog, but both are currently unavailable:\n\n1. **\"Piper Aircraft Service Bulletins\" (aircraft-maintenance)** \u2014 this is the source that would directly cover Piper Cherokee (PA-28) wing spar inspection bulletins, but every query against it is failing with a backend database error (`model_endpoint` table missing), not a \"no results\" response. This looks like a system/infrastructure fault rather than an absence of relevant data.\n\n2. **\"General Aviation Maintenance Directives\" (synthetic-general-aviation-maintenance)** \u2014 this source, which covers FAA airworthiness directives, inspection intervals, and parts replacement for general aviation, has **no active index** right now (\"may still be ingesting data\"), so it cannot be searched.\n\n3. **\"ISO Machinery Safety Standards Collection\" (synthetic-iso-safety-standards)** \u2014 the closest available source for occupational solvent-handling precautions (ventilation, PPE) \u2014 is also **unindexed** and unqueryable at the moment. Its description focuses on machine guarding, electrical safety, and risk assessment methodology, so even if it were available, it may not specifically address chemical/solvent exposure limits for MEK and acetone.\n\nNone of the other catalog sources (clinical guidelines, cardiology research, contract templates, case law, banking compliance, SEC filings, earnings calls, credit risk, or the retrieval-hub code repo) are relevant to aircraft structural inspection or industrial solvent safety.\n\n**What I can't confirm right now:**\n- Specific inspection requirements (e.g., eddy-current or dye-penetrant checks, AD-mandated intervals, spar cap crack criteria) for aging PA-28 wing spars, which would normally come from Piper service bulletins or FAA ADs.\n- OSHA-style occupational exposure limits, ventilation, and PPE guidance for MEK/acetone use during maintenance \u2014 this catalog does not appear to have an OSHA/NIOSH chemical-safety source at all, even when sources are healthy.\n\n**Recommendation:** Please retry shortly \u2014 the aircraft-maintenance source's error suggests a transient service issue rather than missing content, and the FAA directives/ISO safety sources may come back online once indexing completes. In the meantime, for authoritative answers you'd want to consult Piper's actual PA-28 Service Bulletins/AD list (e.g., wing spar corrosion/crack inspection ADs such as those following the 2020 Piper spar AD actions) and OSHA/NIOSH safety data sheets for MEK and acetone (flammability, inhalation limits, skin contact, ventilation requirements), since this catalog currently has no working source that can substantiate those specifics.",
+    "iterations": 5,
+    "input_tokens": 20590,
+    "output_tokens": 1921,
+    "source_precision": 0.3333333333333333,
+    "source_recall": 0.5,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-023",
+    "question": "How do defective altimeters affect flight safety, and what medical conditions can impair a pilot's ability to recognize altitude-related symptoms?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "defective altimeter flight safety",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "altimeter malfunction airworthiness",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "pilot ability to recognize hypoxia symptoms medical condition",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "altitude sickness symptom recognition impaired cognition",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "altimeter malfunction airworthiness directive",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypoxia altitude illness cognitive impairment",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "altimeter defect service bulletin",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "altitude illness impaired judgment medical condition",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "synthetic-general-aviation-maintenance",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I'm unable to complete this request right now due to technical issues on the retrieval backend. Here's a transparent account of what happened:\n\n**What I attempted:**\n1. **`aircraft-maintenance`** (Piper Aircraft Service Bulletins) and **`va-cpg-clinical-guidelines`** (VA/DoD Clinical Practice Guidelines) \u2014 the two sources most plausibly relevant to your question (altimeter defects/flight safety, and medical conditions affecting symptom recognition) \u2014 both returned a persistent database error (`relation \"model_endpoint\" does not exist`) on every attempt. This appears to be a system-level infrastructure fault, not a \"no results\" situation.\n2. **`synthetic-general-aviation-maintenance`** (FAA airworthiness directives) and **`synthetic-who-clinical-guidelines`** (WHO clinical guidelines) \u2014 both reported they have \"no active index\" and may still be ingesting data, meaning they're not currently queryable at all.\n\n**Caveat on domain fit:** Even if these sources had worked, I should flag that none of the available sources are a strong match for the *medical/aviation-physiology* half of your question specifically (e.g., FAA aeromedical guidance on hypoxia recognition, cardiac/respiratory conditions affecting altitude tolerance). The VA/DoD guidelines cover general chronic disease, mental health, pain, rehab, and women's health \u2014 they are not focused on aviation medicine or hypoxia/altitude physiology, so even a working query there might yield only tangentially related content (e.g., general cognitive impairment or cardiopulmonary disease sections) rather than a direct answer.\n\n**Recommendation:** Please retry shortly \u2014 this looks like a transient backend outage (missing embedding model registration) rather than an absence of data. If it persists, I'd also suggest that a dedicated aviation-medicine or FAA aeromedical source (not currently in this catalog) would be needed to properly answer the \"medical conditions impairing hypoxia/altitude-symptom recognition\" part of your question, since nothing in the current catalog is purpose-built for that topic.\n\nWould you like me to retry now, or focus on just one half of the question once the sources are back online?",
+    "iterations": 5,
+    "input_tokens": 22591,
+    "output_tokens": 2037,
+    "source_precision": 0.25,
+    "source_recall": 0.5,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-024",
+    "question": "What is Piper's position on unleaded aviation gasolines, and are there clinical studies on health effects of lead exposure from leaded aviation fuel?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "unleaded aviation gasoline avgas position",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lead exposure health effects clinical study",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lead exposure toxicity blood lead levels health effects",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "unleaded aviation gasoline avgas position",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lead exposure health effects clinical study",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "unleaded avgas 100 octane fuel",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "lead poisoning clinical effects",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I'm hitting a persistent backend infrastructure error (a missing database table for the embedding model endpoints) when trying to query both the **Piper Aircraft Service Bulletins** source and the **VA/DoD Clinical Practice Guidelines** source. This isn't a \"no relevant results\" situation \u2014 the retrieval system itself is failing at the database level, so I can't get actual passages right now.\n\nHere's where things stand and what I can tell you honestly:\n\n**On Piper's position on unleaded avgas:** The `aircraft-maintenance` source (Piper Aircraft Service Bulletins, covering PA-28/PA-32 aircraft) is the right place to look for this, but the retrieve call is currently erroring out on the backend, so I cannot pull Piper's actual documented position right now. I don't want to guess or fabricate a citation here.\n\n**On clinical studies of lead exposure from leaded aviation fuel:** I checked the source catalog, and none of the available sources are focused on environmental/occupational lead toxicology specifically. The closest candidates were:\n- `va-cpg-clinical-guidelines` (VA/DoD guidelines \u2014 chronic disease, mental health, pain, rehab, women's health) \u2014 also errored on retrieval, but based on its description it's unlikely to cover lead exposure toxicology in depth.\n- `pubmed-hypertension` \u2014 has no active index right now (\"still ingesting data\"), so it's not queryable at all, and its scope (hypertension management/pharmacotherapy) wouldn't be the natural home for lead-exposure studies anyway.\n- `synthetic-cardiology-research` and `synthetic-general-aviation-maintenance` are other tangential possibilities but not indicated for toxicology.\n\n**Bottom line:** I don't have a reliable answer to either part of your question right now due to a tool/backend failure, and even under normal conditions this catalog doesn't appear to contain a dedicated environmental-health/toxicology source that would cover clinical studies on aviation-fuel lead exposure. If you'd like, I can retry the retrieval shortly (in case the backend issue is transient) \u2014 just let me know, or I can try alternate phrasings once the service is back up.",
+    "iterations": 5,
+    "input_tokens": 21270,
+    "output_tokens": 1566,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "am-025",
+    "question": "What recurring inspections does Piper require for wing attachment hardware, and how should maintenance personnel manage fatigue and adherence to recurring inspection schedules?",
+    "category": "cross-dataset",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing attachment hardware recurring inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fatigue management and adherence to recurring inspection schedules",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing attachment hardware recurring inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing spar attachment bolt inspection Piper",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing attachment hardware inspection",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "test query hypertension management",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "wing attachment bolts inspection interval",
+          "source": "aircraft-maintenance",
+          "top_k": 3
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "synthetic-general-aviation-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I need to be transparent: the retrieval backend for the Piper Aircraft Service Bulletins source is currently throwing a persistent database error (missing embedding-model endpoint table), not a transient glitch \u2014 I retried it four times with varied phrasing and it fails identically each time. The other candidate source, \"General Aviation Maintenance Directives\" (FAA ADs), reports it has no active index yet (\"may still be ingesting data\"), so it's also unavailable right now.\n\nHere's where things stand:\n\n**What I attempted:**\n- `aircraft-maintenance` (Piper Aircraft Service Bulletins \u2014 the most directly relevant source, covering PA-28 Cherokee/PA-32 Saratoga service bulletins, letters, and inspection intervals): repeated `retrieve` calls failed with a backend error (`relation \"model_endpoint\" does not exist`). This is a system-side infrastructure fault, not a \"no results found\" situation \u2014 I cannot get any passages back from it right now.\n- `synthetic-general-aviation-maintenance` (FAA airworthiness directives): returned \"no active index... may still be ingesting data,\" meaning it's not queryable yet either.\n\n**Why I'm not answering from memory:** Your question asks specifically what *Piper* requires for wing attachment hardware inspections and its guidance on fatigue/schedule adherence. That is exactly the kind of bulletin-specific, compliance-time-sensitive detail (specific SB/SL numbers, serial-number applicability, inspection intervals) that I should only state after retrieving it from the actual service bulletin source \u2014 not from general aviation knowledge, since Piper's specific requirements vary by model, serial-number block, and revision, and could easily be misstated without the source text in front of me.\n\n**What I'd suggest:**\n- I can retry the `aircraft-maintenance` retrieval later once the backend issue clears \u2014 the error pattern suggests a server-side embedding-model registration problem rather than something fixable from my end.\n- If you have a specific bulletin number in mind (e.g., an SB/SL covering wing attach fittings), let me know and I'll target that once retrieval is restored.\n- No other listed source (clinical, financial, legal, ISO safety, code) covers Piper aircraft maintenance, so there's no alternate source I can substitute in.\n\nWould you like me to retry now, or wait and retry shortly?",
+    "iterations": 8,
+    "input_tokens": 38912,
+    "output_tokens": 2062,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-001",
+    "question": "What is the part number for the witness hole drill fixture used during the control wheel shaft inspection?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "aircraft-maintenance"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "witness hole drill fixture control wheel shaft inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "witness hole drill fixture control wheel shaft inspection part number",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "witness hole drill fixture control wheel shaft inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft inspection",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft witness hole drill fixture",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "shaft inspection fixture",
+          "source": "aircraft-maintenance",
+          "top_k": 3
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "synthetic-general-aviation-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I wasn't able to retrieve an answer to this question due to a technical issue. Here's the situation:\n\n- **Most relevant source**: \"Piper Aircraft Service Bulletins\" (`aircraft-maintenance`) covers Cherokee/Saratoga inspection procedures and would be the logical place to find a control wheel shaft inspection procedure involving a witness-hole drill fixture. However, every retrieval attempt against this source failed with a backend database error (`relation \"model_endpoint\" does not exist`) \u2014 this is an infrastructure/embedding-service fault on the retrieval backend, not a \"no results found\" situation. I retried multiple times with varied queries and it failed consistently.\n- I also checked **\"General Aviation Maintenance Directives\"** (`synthetic-general-aviation-maintenance`), which could plausibly cover this topic, but it reported it has **no active index** (data may still be ingesting), so it isn't queryable right now either.\n- No other cataloged source (clinical, legal, financial, ISO safety, code, etc.) is topically relevant to an aircraft control wheel shaft inspection.\n\n**Bottom line:** I cannot currently retrieve the specific part number for the witness hole drill fixture \u2014 both plausible sources are temporarily unavailable due to backend errors/indexing issues, not because the information doesn't exist. I'd recommend retrying shortly once the retrieval backend for `aircraft-maintenance` is restored, or I'm happy to try again now if you'd like.",
+    "iterations": 8,
+    "input_tokens": 36678,
+    "output_tokens": 1528,
+    "source_precision": 0.5,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-002",
+    "question": "How is the control wheel shaft assembly verified as correctly installed according to SB 1197E?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "aircraft-maintenance"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft assembly verification installation SB 1197E",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft assembly verification installation SB 1197E",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft assembly verification",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "control wheel shaft assembly installation verification torque check",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "SB 1197E control wheel shaft",
+          "source": "aircraft-maintenance",
+          "top_k": 3
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I'm unable to retrieve the answer right now. Here's what's happening and what I know:\n\n**Source identified:** Your question matches the **Piper Aircraft Service Bulletins** source (`aircraft-maintenance`), which covers Cherokee (PA-28) and Saratoga (PA-32) service bulletins \u2014 SB 1197E would be one of these documents.\n\n**Problem:** Every attempt to run `retrieve` against this source (I tried 4 times with varied queries) fails with the same backend error:\n\n```\npsycopg.errors.UndefinedTable: relation \"model_endpoint\" does not exist\n```\n\nThis indicates the embedding model registry (`Snowflake/snowflake-arctic-embed-m-v1.5`, per the source's metadata) that backs this source's retrieval pipeline is currently broken or misconfigured on the server side \u2014 it's not something I can work around from the client side (e.g., rephrasing the query doesn't help, since the failure happens before search even runs). The `describe_source` call worked fine, confirming the source itself exists and is curated, but the search index/embedding endpoint is unavailable.\n\n**What I'd suggest:**\n- Retry the question later \u2014 this looks like a transient infrastructure outage rather than a content-availability problem.\n- If you have direct access to the SB 1197E PDF, I obviously can't substitute for it \u2014 I don't have independent knowledge of Piper Aircraft SB 1197E's control wheel shaft assembly verification procedure beyond what would come from this retrieval source, and I don't want to guess at safety-critical maintenance steps.\n\nWould you like me to try again now, or check a different angle (e.g., search for a related/superseding bulletin) once the source is back online?",
+    "iterations": 7,
+    "input_tokens": 30350,
+    "output_tokens": 1441,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ctrl-003",
+    "question": "How effective is tirzepatide at lowering blood pressure?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide effect on blood pressure",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide blood pressure lowering GLP-1 GIP receptor agonist",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide hypertension treatment guideline",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide blood pressure obesity diabetes",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "tirzepatide hypertension blood pressure",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I wasn't able to retrieve information on this topic. Here's what happened when I checked the catalog:\n\n- **PubMed Hypertension Literature**, **Cardiology and Vascular Research Papers**, and **WHO Clinical Practice Guidelines Collection** \u2014 the sources most likely to cover tirzepatide's cardiovascular/blood-pressure effects \u2014 currently report \"no active index,\" meaning they may still be ingesting data and are temporarily unqueryable.\n- **VA/DoD Clinical Practice Guidelines** returned a backend database error (a missing table for the embedding model endpoint), which appears to be an infrastructure issue on the retrieval system's side rather than a lack of content.\n\nNone of the other sources in the catalog (aviation, legal, banking, SEC filings, etc.) are relevant to a clinical pharmacology question like this.\n\n**I don't have a reliable retrieval to base an answer on right now**, so I don't want to answer from general knowledge and present it as sourced fact. If you'd like, I can retry these queries in a moment in case the indexing/infrastructure issue resolves \u2014 or if you want a general (non-cited) summary of what's known about tirzepatide and blood pressure from public clinical trial literature (e.g., SURMOUNT/SURPASS trial data showing modest reductions in systolic blood pressure), I can provide that with a clear caveat that it isn't sourced from your curated catalog. Just let me know which you'd prefer.",
+    "iterations": 4,
+    "input_tokens": 14486,
+    "output_tokens": 1133,
+    "source_precision": 0.25,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-004",
+    "question": "How much salt should someone with high blood pressure eat per day?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "dietary sodium salt intake recommendation hypertension",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "sodium restriction blood pressure lowering daily intake",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "salt sodium intake recommendation hypertension guideline",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "dietary sodium salt intake recommendation hypertension",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "dietary sodium salt intake recommendation for hypertension patients",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "sodium intake limit blood pressure management",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I'm unable to retrieve an answer from the catalog right now, and I want to be transparent about why rather than guess.\n\n**What I found:** The catalog does contain sources that would normally cover this question well \u2014 the VA/DoD Clinical Practice Guidelines, PubMed Hypertension Literature, WHO Clinical Practice Guidelines, and Cardiology and Vascular Research Papers. However, when I attempted to query them:\n\n- **VA/DoD Clinical Practice Guidelines** \u2014 returned a backend database error (a missing embedding-model endpoint table), so the query could not execute.\n- **PubMed Hypertension Literature**, **WHO Clinical Practice Guidelines**, and **Cardiology and Vascular Research Papers** \u2014 all reported \"no active index,\" meaning they aren't currently queryable (possibly mid-ingestion).\n\nNone of the other sources in the catalog (aviation, code, legal, finance, banking, ISO safety) are relevant to a clinical nutrition question.\n\n**Bottom line:** I don't have a working, citable source to pull a specific sodium/salt intake recommendation from at this moment \u2014 I'd rather tell you that than state a number without provenance. If you'd like, I can retry these sources shortly in case the indexing/backend issue is transient, or you could consult general public-health guidance in the meantime (e.g., WHO and AHA have historically recommended under 2,000\u20132,300 mg of sodium per day, with lower targets often suggested for people with hypertension), but I can't currently verify or cite that from the catalog. Let me know if you'd like me to retry.",
+    "iterations": 6,
+    "input_tokens": 23998,
+    "output_tokens": 1307,
+    "source_precision": 0.25,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ctrl-005",
+    "question": "What percentage of people with diabetes also have hypertension?",
+    "category": "single-source-control",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "percentage of diabetes patients with comorbid hypertension prevalence",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "prevalence of hypertension among patients with diabetes",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "diabetes and hypertension comorbidity prevalence",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension prevalence in people with diabetes",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "diabetes and hypertension comorbidity prevalence",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I attempted to answer this by querying the sources most relevant to your question \u2014 **PubMed Hypertension Literature**, **Cardiology and Vascular Research Papers**, **WHO Clinical Practice Guidelines**, and the **VA/DoD Clinical Practice Guidelines** \u2014 since these are the domains in the catalog that would plausibly contain epidemiological data on diabetes/hypertension comorbidity.\n\nHowever, none of them could return results right now:\n\n- **pubmed-hypertension**, **synthetic-cardiology-research**, and **synthetic-who-clinical-guidelines** each reported \"no active index\" (they appear to still be ingesting data).\n- **va-cpg-clinical-guidelines** returned a backend database error (a missing `model_endpoint` table needed for its embedding model), indicating a service-side misconfiguration rather than a content gap.\n\nSo I'm currently unable to retrieve grounded evidence for the percentage of people with diabetes who also have hypertension. I don't want to give you a number from general knowledge without being able to verify and cite it against the curated sources, since that would bypass the sourcing/citation requirements this system is built around.\n\n**Suggestion:** Please try again shortly \u2014 this looks like a transient indexing/infrastructure issue rather than a genuine lack of coverage, since sources like the VA/DoD Clinical Practice Guidelines and PubMed Hypertension Literature are exactly the kind of collections that would address this comorbidity question. If the errors persist, it may be worth flagging to whoever administers the RetrievalHub catalog.",
+    "iterations": 4,
+    "input_tokens": 14446,
+    "output_tokens": 1152,
+    "source_precision": 0.25,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ad-hoc-001",
+    "question": "What are the known safety hazards from fuel system contamination in Piper Cherokee aircraft, and what inspection procedures address fuel line integrity?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "aircraft-maintenance"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel system contamination safety hazard Cherokee",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel line integrity inspection procedure",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel system contamination airworthiness directive general aviation",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel line inspection interval Piper Cherokee PA-28",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel system contamination Cherokee PA-28",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "aircraft-maintenance"
+        },
+        "result_summary": "{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"description_long\":\"A collection of Piper Aircraft service documents spanning Cherokee (PA-28) and Saratoga (PA-32) families.  Includes Service Bulletins (SB), Service Letters (SL), Supplemental Service Letters (SSL),"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel contamination hazard inspection fuel lines",
+          "source": "aircraft-maintenance",
+          "top_k": 5
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "fuel line integrity inspection",
+          "source": "synthetic-general-aviation-maintenance",
+          "top_k": 5
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "synthetic-general-aviation-maintenance"
+    ],
+    "sources_described": [
+      "aircraft-maintenance"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I'm unable to retrieve an answer to your question right now due to two separate issues on the infrastructure side:\n\n1. **`aircraft-maintenance` (Piper Aircraft Service Bulletins)** \u2014 this is the most directly relevant source (269 service bulletins/letters specifically for Cherokee PA-28 and Saratoga PA-32, covering airworthiness directives and component inspection intervals). However, every retrieval attempt against it is failing with a backend database error (`relation \"model_endpoint\" does not exist`), which indicates the embedding-model lookup needed to run the search is broken \u2014 not a lack of relevant content. I retried multiple times with no success.\n\n2. **`synthetic-general-aviation-maintenance` (FAA airworthiness directives / GA maintenance)** \u2014 also plausibly relevant, but the tool reports it \"has no active index\" and may still be ingesting data, so it cannot be queried yet.\n\n**What this means:** I cannot currently produce a sourced answer to your question about fuel system contamination hazards and fuel line inspection procedures for Piper Cherokee aircraft, because the two catalog sources that would contain this information are both unavailable (one due to a technical error, one due to indexing not being ready).\n\nI don't want to fabricate specifics about service bulletin numbers, hazard descriptions, or inspection intervals without being able to verify them against the actual source documents. If you'd like, I can retry the queries later once the backend issue is resolved, or I can proceed with general aviation-safety knowledge I have outside these sources \u2014 but please let me know which you'd prefer, since the latter would not carry the citation/provenance guarantees this system is designed to provide.",
+    "iterations": 6,
+    "input_tokens": 27550,
+    "output_tokens": 1699,
+    "source_precision": 0.5,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ad-hoc-002",
+    "question": "How do VA CPG recommendations for resistant hypertension treatment compare with recent PubMed meta-analyses on renal denervation outcomes?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension treatment recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation outcomes meta-analysis resistant hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension treatment recommendations",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation outcomes meta-analysis resistant hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension treatment",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "describe_source",
+        "arguments": {
+          "slug": "pubmed-hypertension"
+        },
+        "result_summary": "{\"slug\":\"pubmed-hypertension\",\"name\":\"PubMed Hypertension Literature\",\"family\":\"clinical_document\",\"status\":\"curated\",\"description_short\":\"10 open-access review articles from PubMed Central on hypertension management, spanning management guidelines, pharmacotherapy, lifestyle and adherence, and comorbidities.\",\"description_long\":null,\"owner_team\":\"ai-americas\",\"document_count\":null,\"chunk_count\":null,\"sample_prompts\":null}"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "resistant hypertension management guideline",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation resistant hypertension",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "renal denervation meta-analysis resistant hypertension outcomes",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [
+      "pubmed-hypertension"
+    ],
+    "used_list_sources": true,
+    "final_answer": "I attempted to retrieve information from both relevant sources for your question, but neither is currently accessible:\n\n1. **VA/DoD Clinical Practice Guidelines** (`va-cpg-clinical-guidelines`) \u2014 This source is listed as curated and available in the catalog, but every retrieval attempt returned a backend database error (`UndefinedTable: relation \"model_endpoint\" does not exist`). This is an infrastructure/configuration problem on the retrieval service side, not a \"no results\" situation \u2014 I could not search this source at all.\n\n2. **PubMed Hypertension Literature** (`pubmed-hypertension`) \u2014 This source exists in the catalog (10 open-access review articles on hypertension management) but reports \"no active index... may still be ingesting data,\" meaning it isn't queryable right now.\n\nI also tried the **Cardiology and Vascular Research Papers** source (`synthetic-cardiology-research`), which covers hypertension treatment and antihypertensive pharmacology and could plausibly contain renal denervation meta-analyses, but it returned the same \"no active index\" error.\n\n**Bottom line:** I cannot currently produce a sourced comparison of VA CPG resistant hypertension recommendations against PubMed renal denervation meta-analyses, because the specific sources needed are either broken (VA CPG) or unindexed (PubMed Hypertension, and the cardiology research corpus as a fallback). I don't want to fabricate clinical content or rely on general knowledge when you've asked for a source-grounded comparison from this catalog.\n\nIf you'd like, I can:\n- Retry these sources later once ingestion/indexing completes or the backend issue is fixed, or\n- Check the **WHO Clinical Practice Guidelines Collection**, which does cover chronic disease management and might have hypertension content, as a partial substitute for the VA CPG side (though it's not VA/DoD-specific).\n\nLet me know if you'd like me to try that WHO source now.",
+    "iterations": 6,
+    "input_tokens": 25191,
+    "output_tokens": 1796,
+    "source_precision": 0.6666666666666666,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ad-hoc-003",
+    "question": "What are the recommended inspection intervals and adherence strategies for maintaining long-term safety outcomes?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "aircraft-maintenance",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "recommended inspection intervals for long-term safety outcomes",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "inspection interval compliance and adherence to maintenance schedule",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "inspection intervals for machine safety maintenance",
+          "source": "synthetic-iso-safety-standards"
+        },
+        "result_summary": "Source 'synthetic-iso-safety-standards' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "adherence strategies to improve long-term safety outcomes",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "medication adherence strategies for long-term safety and outcomes",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "inspection interval compliance and adherence to maintenance schedule",
+          "source": "aircraft-maintenance"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'Snowflake/snowflake-arctic-embed-m-v1.5'}]\n"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "medication adherence strategies for long-term safety and outcomes",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "adherence strategies for long-term treatment safety outcomes chronic disease",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      }
+    ],
+    "sources_queried": [
+      "aircraft-maintenance",
+      "pubmed-hypertension",
+      "synthetic-general-aviation-maintenance",
+      "synthetic-iso-safety-standards",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I'm unable to retrieve an answer right now, and I want to be transparent about why rather than guess.\n\n**What happened:**\n- Several sources that could plausibly answer this question (`synthetic-general-aviation-maintenance`, `synthetic-iso-safety-standards`, `pubmed-hypertension`, `synthetic-who-clinical-guidelines`) currently report **\"no active index\"** \u2014 meaning they're listed in the catalog but not yet queryable (likely still ingesting).\n- Two other sources (`aircraft-maintenance` and `va-cpg-clinical-guidelines`) returned a **backend database error** (`model_endpoint` table missing) unrelated to the content itself \u2014 this looks like an infrastructure/embedding-service issue on the retrieval backend, not a \"no results\" situation.\n\n**Why this matters for your question:**\nYour question is also inherently ambiguous across two very different domains in this catalog:\n1. **Aviation/machinery maintenance** \u2014 \"inspection intervals\" and \"adherence\" to maintenance schedules for aircraft/machine safety (candidates: Piper Aircraft Service Bulletins, General Aviation Maintenance Directives, ISO Machinery Safety Standards).\n2. **Clinical/medical** \u2014 \"adherence strategies\" and \"long-term safety outcomes\" is classic terminology for patient treatment adherence and chronic disease management (candidates: VA/DoD Clinical Practice Guidelines, WHO Clinical Practice Guidelines, PubMed Hypertension Literature).\n\nSince none of these sources are currently returning data, I can't give you a grounded answer right now without risking fabrication.\n\n**Suggested next steps:**\n- If you can clarify which domain you mean (aviation/mechanical safety vs. clinical/patient treatment), I can target the retry more precisely once the indexes are back up.\n- Otherwise, I'm happy to retry all candidate sources shortly in case this is a transient outage \u2014 just let me know and I'll re-query.",
+    "iterations": 4,
+    "input_tokens": 17098,
+    "output_tokens": 2252,
+    "source_precision": 0.3333333333333333,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  },
+  {
+    "question_id": "ad-hoc-004",
+    "question": "What JavaScript frameworks are recommended for building responsive single-page applications with server-side rendering?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      }
+    ],
+    "sources_queried": [],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "None of the available sources cover web development, JavaScript frameworks, or front-end/server-side rendering topics. The catalog is focused on domains like aviation maintenance, clinical/medical guidelines, legal/contract documents, banking compliance, SEC filings, and safety standards \u2014 plus a Python source-code repository (which is about the RetrievalHub tool itself, not general JS framework guidance).\n\nSince no source is plausibly relevant to your question about JavaScript frameworks for responsive SPAs with server-side rendering, I won't force a retrieval that would just return noise. This falls outside the scope of what I can answer from this catalog \u2014 you'd want a general web-development knowledge source or documentation for frameworks like Next.js, Nuxt.js, SvelteKit, or Remix, which aren't represented here.",
+    "iterations": 2,
+    "input_tokens": 5364,
+    "output_tokens": 304,
+    "source_precision": 1.0,
+    "source_recall": 1.0,
+    "source_exact_match": true
+  },
+  {
+    "question_id": "ad-hoc-005",
+    "question": "What cardiovascular health monitoring is recommended for commercial aviation pilots to maintain their medical certification?",
+    "category": "ad-hoc-probe",
+    "expected_sources": [
+      "va-cpg-clinical-guidelines",
+      "pubmed-hypertension"
+    ],
+    "tool_calls": [
+      {
+        "tool_name": "list_sources",
+        "arguments": {},
+        "result_summary": "[{\"slug\":\"retrieval-hub-code\",\"name\":\"RetrievalHub Code\",\"family\":\"code\",\"status\":\"curated\",\"description_short\":\"Python source code from the retrieval-hub repository\",\"document_count\":118},{\"slug\":\"aircraft-maintenance\",\"name\":\"Piper Aircraft Service Bulletins\",\"family\":\"technical_document\",\"status\":\"curated\",\"description_short\":\"269 service bulletins, service letters, and vendor service publications for Piper Cherokee (PA-28) and Saratoga (PA-32) aircraft families.\",\"document_count\":263},{\"slug"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "cardiovascular monitoring pilot medical certification aviation",
+          "source": "synthetic-general-aviation-maintenance"
+        },
+        "result_summary": "Source 'synthetic-general-aviation-maintenance' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "cardiovascular risk monitoring screening guidelines",
+          "source": "synthetic-cardiology-research"
+        },
+        "result_summary": "Source 'synthetic-cardiology-research' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "cardiovascular health monitoring for aviation pilots certification",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "occupational cardiovascular screening pilots",
+          "source": "synthetic-who-clinical-guidelines"
+        },
+        "result_summary": "Source 'synthetic-who-clinical-guidelines' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "hypertension monitoring guidelines for occupational fitness",
+          "source": "pubmed-hypertension"
+        },
+        "result_summary": "Source 'pubmed-hypertension' exists but has no active index. It may still be ingesting data."
+      },
+      {
+        "tool_name": "retrieve",
+        "arguments": {
+          "query": "cardiovascular health monitoring aviation pilots",
+          "source": "va-cpg-clinical-guidelines"
+        },
+        "result_summary": "Error calling tool 'retrieve': (psycopg.errors.UndefinedTable) relation \"model_endpoint\" does not exist\nLINE 2: FROM model_endpoint \n             ^\n[SQL: SELECT model_endpoint.id, model_endpoint.model_name, model_endpoint.endpoint_url, model_endpoint.status, model_endpoint.last_probed, model_endpoint.registered_at, model_endpoint.updated_at \nFROM model_endpoint \nWHERE model_endpoint.model_name = %(model_name_1)s::VARCHAR]\n[parameters: {'model_name_1': 'nomic-ai/nomic-embed-text-v1.5'}]\n(Backgrou"
+      }
+    ],
+    "sources_queried": [
+      "pubmed-hypertension",
+      "synthetic-cardiology-research",
+      "synthetic-general-aviation-maintenance",
+      "synthetic-who-clinical-guidelines",
+      "va-cpg-clinical-guidelines"
+    ],
+    "sources_described": [],
+    "used_list_sources": true,
+    "final_answer": "I wasn't able to retrieve a good answer to this question, and I want to be transparent about why:\n\n**No source in this catalog specifically covers aviation medical certification standards** (e.g., FAA/EASA cardiovascular requirements for pilot medical certificates, ECG/stress-test intervals tied to Airman Medical Certificate classes, etc.). The two aviation-related sources in the catalog \u2014 \"Piper Aircraft Service Bulletins\" and \"General Aviation Maintenance Directives\" \u2014 cover **aircraft** maintenance and airworthiness, not pilot health or FAA Aeromedical requirements.\n\nThe sources that could plausibly speak to general cardiovascular monitoring practice (Cardiology and Vascular Research Papers, WHO Clinical Practice Guidelines, PubMed Hypertension Literature) are currently **unavailable**:\n- `synthetic-cardiology-research` and `synthetic-who-clinical-guidelines` and `pubmed-hypertension` all returned \"exists but has no active index \u2014 may still be ingesting data.\"\n- `va-cpg-clinical-guidelines` returned a backend database error (not a content issue) when queried.\n\nSo at this moment I cannot ground an answer in any of the retrieval sources.\n\n**My recommendation:** If you need authoritative guidance on FAA/EASA cardiovascular requirements for pilot medical certification (e.g., ECG frequency by age, blood pressure thresholds, cardiac risk stratification for Class 1/2/3 medicals), that would come from FAA Aeromedical guidance materials or ICAO Annex 1 medical provisions \u2014 none of which are present in this catalog. If you'd like, I can retry the clinical guideline sources once they finish indexing, or you can rephrase toward general hypertension/cardiovascular monitoring practice (not aviation-specific) once those sources are back online, and I'll pull what's available then.",
+    "iterations": 5,
+    "input_tokens": 20052,
+    "output_tokens": 1829,
+    "source_precision": 0.4,
+    "source_recall": 1.0,
+    "source_exact_match": false
+  }
+]
