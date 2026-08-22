@@ -7,7 +7,7 @@
 PYTHON ?= python3
 PIP    ?= pip
 
-.PHONY: help install test test-cov migrate migrate-down format lint clean deploy-embedding-tei deploy-embedding-snowflake
+.PHONY: help install test test-cov migrate migrate-down format lint clean new-source deploy-embedding-tei deploy-embedding-snowflake
 
 help:
 	@echo "retrieval-hub core library targets:"
@@ -19,6 +19,9 @@ help:
 	@echo "  format        ruff format"
 	@echo "  lint          ruff check + mypy"
 	@echo "  clean         remove caches and build artifacts"
+	@echo ""
+	@echo "source onboarding targets:"
+	@echo "  new-source SLUG=<slug>  scaffold a new ingestion script"
 	@echo ""
 	@echo "embedding model deployment targets:"
 	@echo "  deploy-embedding-tei        deploy TEI PubMedBERT (CPU)"
@@ -52,6 +55,14 @@ lint:
 clean:
 	rm -rf build dist *.egg-info .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+
+# --- Source onboarding ----------------------------------------------------------
+
+new-source:
+ifndef SLUG
+	$(error SLUG is required. Usage: make new-source SLUG=my-data-source)
+endif
+	$(PYTHON) scripts/new_source.py --slug=$(SLUG) $(if $(NAME),--name="$(NAME)",) $(if $(FAMILY),--family=$(FAMILY),)
 
 # --- Embedding model deployment ------------------------------------------------
 

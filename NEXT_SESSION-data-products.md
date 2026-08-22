@@ -1,45 +1,16 @@
 # Next Session -- data-products
 
-## Next: Data owner onboarding path (Phase 5)
+## Next: Dataset selection at scale (Phase 6)
 
-Distill the data-to-serving pipeline into a process a domain expert
-(non-AI engineer) could follow. Document what works, what requires
-engineering help, and what gaps remain. Phase 4 findings inform what
-metadata descriptions need to contain for effective agent-driven
-source selection.
-
-1. **Audit the current onboarding steps**
-   Walk through what it takes to go from raw data to a serving source:
-   data preparation, ingestion script, chunking sweep, Ragas validation,
-   source registration, cluster deployment. Identify which steps require
-   engineering skills vs domain expertise.
-
-2. **Draft onboarding documentation**
-   Write a guide that a domain expert could follow, noting where they
-   need engineering help. Use the three existing sources (VA CPG, PubMed
-   hypertension, aircraft maintenance) as worked examples.
-
-3. **Identify gaps in the pipeline**
-   What tooling is missing? Does the data owner need CLI tools, a web UI,
-   templates? What metadata do they need to write (descriptions, usage
-   rules) and what guidance do they need for effective agent-driven
-   source selection (from Phase 4 findings)?
-
-4. **Lab notes: onboarding path assessment**
-   Document what works, what requires engineering intervention, and
-   recommendations for making onboarding self-service.
+Research question: at what catalog size does "list_sources + agent picks
+the right one" break down? Phase 4 showed it works at 3 sources. Phase 6
+tests at larger scales.
 
 **Session start protocol:**
-- Premise checks (~5 min):
-  - `git status` — commit any uncommitted files first
-  - Review Phase 4 lab notes for source description findings
-  - Review the three ingestion scripts to catalog the steps
-- Rules with history:
-  - Use `127.0.0.1` not `localhost` for any local Postgres connections
-    (IPv4/IPv6 race condition — see CLAUDE.md).
-- Stop-and-ask before: modifying the MCP server code or any production
-  data source registrations.
-- Close ritual: session summary, update this file
+- Read Phase 4 lab notes for baseline metrics
+- Consider synthetic source registrations (metadata-only, no real data)
+  to test at 10/20/50 sources without ingesting real corpora
+- `git status` — commit any uncommitted files first
 
 ## Remaining epic phases
 
@@ -93,18 +64,16 @@ Full results in `eval/cross_dataset_reasoning/LAB_NOTES.md`.
 
 **Dependencies:** Phase 3 (done)
 
-### Phase 5: Data owner onboarding path + lab notes
+### Phase 5: Data owner onboarding path + lab notes [DONE -- 2026-08-22]
 
-Distill the onboarding process into something a domain expert (non-AI
-engineer) could follow.
-
-**Definition of done:** A domain expert could reasonably follow the
-process from data to serving agents, documented with evidence of what
-works and what gaps remain.
+Built `scripts/new_source.py` scaffolding tool that generates complete
+ingestion scripts from a source slug. Generated scripts include the full
+7-stage pipeline, Phase 4-informed description guidance, governance
+templates, and CLI with all standard arguments. 43 unit tests. Makefile
+`new-source` target. Updated `docs/guide-data-owner.md` with tool
+reference.
 
 **Dependencies:** Phases 2 + 3 (done)
-
-**Parallel-ok:** Yes, dependencies met. Can start immediately.
 
 ### Phase 6: Dataset selection at scale + lab notes
 
@@ -139,13 +108,16 @@ Pull findings from all phases into structured lab notes and paper outline.
 
 ## What landed last session (2026-08-22)
 
-Phase 4 completed: cross-dataset reasoning agent test. Scaffolded agent
-with fips-agents 0.17.1 (Anthropic provider, Sonnet 5). Built 20-question
-eval harness with automated source selection scoring. Ran 2 prompt
-iterations. Key finding: cross-domain source selection works at 3-source
-scale (0.95 recall), within-domain discrimination unreliable.
-Assessed #34: defer until catalog grows. Full results in
-`eval/cross_dataset_reasoning/LAB_NOTES.md`.
+**Phase 4**: Cross-dataset reasoning agent test. Scaffolded agent with
+fips-agents 0.17.1 (Anthropic provider, Sonnet 5). 20-question eval
+harness with automated source selection scoring. 2 prompt iterations.
+Key finding: cross-domain selection works at 3-source scale (0.95
+recall), within-domain discrimination unreliable. #34 deferred.
+See `eval/cross_dataset_reasoning/LAB_NOTES.md`.
+
+**Phase 5**: Source scaffolding tool (`scripts/new_source.py`). Generates
+complete ingestion scripts from a slug. 43 unit tests. Makefile target.
+Updated data owner guide with tool reference.
 
 ## Watch out for
 

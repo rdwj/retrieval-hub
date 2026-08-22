@@ -12,6 +12,22 @@ and validate that retrieval quality meets your standards.
 For a worked example of this process with the VA/DoD Clinical Practice
 Guidelines, see [onboarding-journey-va-cpg.md](onboarding-journey-va-cpg.md).
 
+## Getting started
+
+Scaffold your ingestion script first. This generates a complete template
+with all required fields, guidance comments, and the full pipeline:
+
+```bash
+make new-source SLUG=my-data-source
+
+# Or with explicit name and family:
+make new-source SLUG=my-data-source NAME="My Data Source" FAMILY=clinical_document
+```
+
+This creates `scripts/ingest_my_data_source.py` with TODO placeholders for
+every field you need to fill in. The rest of this guide explains what each
+field means and how to choose good values.
+
 ## What you will need
 
 Before you begin, gather:
