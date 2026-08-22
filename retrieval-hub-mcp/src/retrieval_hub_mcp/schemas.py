@@ -34,6 +34,15 @@ class SourceDetail(BaseModel):
     document_count: int | None = None
     chunk_count: int | None = None
     sample_prompts: list[dict] | None = None
+    health: SourceHealth | None = None
+
+
+class SourceHealth(BaseModel):
+    """Embedding model health status for a source."""
+
+    status: str
+    embedding_model: str | None = None
+    last_checked: str | None = None
 
 
 class RetrievalHit(BaseModel):

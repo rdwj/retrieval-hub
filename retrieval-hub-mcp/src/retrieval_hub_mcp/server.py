@@ -23,6 +23,7 @@ from mcp.types import ToolAnnotations
 from sqlalchemy.orm import Session
 
 from retrieval_hub.db.engine import create_db_engine, make_session_factory
+from retrieval_hub.model_registry import ModelUnavailableError
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, SamplePrompt, Source
 from retrieval_hub.models.enums import SourceStatus
 from retrieval_hub.retrieval.api import (
@@ -48,6 +49,7 @@ from retrieval_hub_mcp.schemas import (
     RetrievalResponse,
     RewrittenQueryInfo,
     SourceDetail,
+    SourceHealth,
     SourceSummary,
     UsageRules,
 )
@@ -353,6 +355,29 @@ async def describe_source(
             for sp in prompts
         ] or None
 
+        # Resolve embedding model health from the registry
+        embedding_model = _resolve_embedding_model(source, session)
+        health = None
+        if embedding_model:
+            from retrieval_hub.models.model_endpoint import ModelEndpoint
+
+            me = (
+                session.query(ModelEndpoint)
+                .filter(ModelEndpoint.model_name == embedding_model)
+                .one_or_none()
+            )
+            if me is not None:
+                health = SourceHealth(
+                    status=me.status,
+                    embedding_model=embedding_model,
+                    last_checked=me.last_probed.isoformat() if me.last_probed else None,
+                )
+            else:
+                health = SourceHealth(
+                    status="unknown",
+                    embedding_model=embedding_model,
+                )
+
         return SourceDetail(
             slug=source.slug,
             name=source.name,
@@ -364,6 +389,7 @@ async def describe_source(
             document_count=doc_count,
             chunk_count=chunk_count,
             sample_prompts=sample_prompts,
+            health=health,
         )
     finally:
         session.close()
@@ -481,6 +507,11 @@ async def retrieve(
             rewritten_queries=rewritten_queries_info,
             embedding_model=embedding_model,
         )
+    except ModelUnavailableError as exc:
+        raise ToolError(
+            f"Embedding model for source {source!r} is currently unavailable. "
+            f"The model endpoint may be down. Details: {exc}"
+        ) from exc
     except SourceNotFoundError as exc:
         raise ToolError(
             f"Source {source!r} not found. Use list_sources to see available sources."
@@ -827,6 +858,11 @@ async def refine(
             usage_rules=usage_rules,
             data_freshness=data_freshness,
         )
+    except ModelUnavailableError as exc:
+        raise ToolError(
+            f"Embedding model for source {source!r} is currently unavailable. "
+            f"The model endpoint may be down. Details: {exc}"
+        ) from exc
     except SourceNotFoundError as exc:
         raise ToolError(
             f"Source {source!r} not found. Use list_sources to see available sources."
