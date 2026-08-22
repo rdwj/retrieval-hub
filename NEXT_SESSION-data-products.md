@@ -1,13 +1,10 @@
 # Next Session -- data-products
 
-## Next: Lab notes consolidation + paper outline (Phase 7)
+## Status: EPIC COMPLETE
 
-Pull findings from Phases 1-6 into a consolidated lab notes document
-and paper outline. This is the final phase of the data-products epic.
-
-**Session start protocol:**
-- Read all phase lab notes and session summaries
-- `git status` — commit any uncommitted files first
+All 7 phases delivered. See `eval/DATA_PRODUCTS_EPIC_LAB_NOTES.md` for
+the consolidated findings and `eval/PAPER_OUTLINE.md` for the paper
+structure.
 
 ## Remaining epic phases
 
@@ -87,9 +84,13 @@ Full results in `eval/cross_dataset_reasoning/SCALE_LAB_NOTES.md`.
 
 **Dependencies:** Phase 4
 
-### Phase 7: Lab notes consolidation + paper outline
+### Phase 7: Lab notes consolidation + paper outline [DONE -- 2026-08-22]
 
-Pull findings from all phases into structured lab notes and paper outline.
+Consolidated all phase findings into `eval/DATA_PRODUCTS_EPIC_LAB_NOTES.md`
+(373 lines covering all 6 prior phases with exact metrics, cross-cutting
+findings, and recommendations). Paper outline at `eval/PAPER_OUTLINE.md`
+(399 lines, 8-section CS paper structure with proposed figures/tables
+and grounded metrics).
 
 **Dependencies:** Phases 2-6
 
@@ -128,6 +129,9 @@ Updated data owner guide with tool reference.
 50 synthetic confusers. Catalog size doesn't degrade selection, but
 domain-overlap confusers cause 38% precision drop. Recall stays robust.
 Strengthens case for #34. See `eval/cross_dataset_reasoning/SCALE_LAB_NOTES.md`.
+
+**Phase 7**: Consolidated lab notes (`eval/DATA_PRODUCTS_EPIC_LAB_NOTES.md`)
+and paper outline (`eval/PAPER_OUTLINE.md`). Epic complete.
 
 ## Watch out for
 
