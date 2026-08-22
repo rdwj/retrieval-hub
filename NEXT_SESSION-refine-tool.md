@@ -1,10 +1,64 @@
 # Next Session — refine-tool
 
-## Next: #34 Multi-source retrieve
+## Next: #34 — Federated multi-source retrieve
 
-Search across sources in one call. The 4 existing sources are enough
-to build and test it. Phase 5 is done — refine does not improve
-automated answer quality (see session summary below).
+Build federated search: a single retrieve call that searches across
+multiple sources, normalizes scores across different embedding models,
+and returns a merged ranked list. The 4 existing sources use 3 different
+embedding models (Nomic, PubMedBERT, Snowflake Arctic), which makes
+this a good testbed for cross-model score normalization.
+
+1. **Core retrieval API (`src/retrieval_hub/retrieval/api.py`)**
+   Add a `multi_query()` function (or extend `query()`) that accepts
+   a list of source slugs (or `"*"` for all queryable sources). For
+   each source, embed the query with that source's model, run the
+   similarity search, then merge results with normalized scores.
+
+   Score normalization strategy to decide up front: reciprocal rank
+   fusion (RRF) is model-agnostic and well-studied for merging ranked
+   lists from heterogeneous retrieval systems. Simpler than min-max
+   normalization, which requires knowing each model's score distribution.
+   Start with RRF unless there's a reason not to.
+
+2. **MCP tool surface (`retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`)**
+   Extend `retrieve` so `source` accepts `str | list[str]`. When a list
+   is passed, call the federated search. The `"*"` shorthand searches
+   all queryable sources. Response shape stays the same (list of hits),
+   but each hit already carries `source_slug` provenance — the agent
+   sees which source each result came from.
+
+3. **Tests**
+   - Unit tests for score normalization (RRF with known inputs)
+   - Unit tests for multi-source query routing (correct model per source)
+   - Integration test with 2+ mock sources
+
+4. **Smoke test against live data**
+   Query across va-cpg + pubmed-hypertension for a clinical question
+   that spans both. Verify results are interleaved sensibly and scores
+   are comparable.
+
+**Sequencing.** Step 1 first (core API), then step 2 (MCP surface),
+then steps 3-4 together (test + validate).
+
+**Session start protocol:**
+- Premise checks (~5 min):
+  - `git pull` and confirm clean merge
+  - `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` — green
+  - Local databases up: `pg_isready -h 127.0.0.1 -p 5433` (vectors)
+    and `pg_isready -h 127.0.0.1 -p 5434` (catalog)
+  - Verify at least 2 sources are queryable (have active physical
+    indexes): `SELECT slug, active_physical_index_id FROM source
+    WHERE active_physical_index_id IS NOT NULL;`
+- Rules with history:
+  - Use 127.0.0.1 not localhost for Postgres connections
+  - Nomic requires `search_query: ` / `search_document: ` prefixes;
+    PubMedBERT and Snowflake do not — the recipe's `query_prefix`
+    field handles this per source
+  - Embedding models are per-source config; the adapter already
+    resolves model name + endpoint from the recipe
+- Stop-and-ask before: changing the `retrieve` tool's MCP schema
+  (breaking change for existing agents); modifying any pgvector tables
+- Close ritual: session summary, commit, update this file.
 
 ## What landed this session (2026-08-22, tenth session)
 
@@ -81,26 +135,24 @@ if Phase 5 remains blocked.
 
 ## Watch out for
 
-- **gpt-oss-120b sandbox may be reprovisioned.** If the endpoint
-  changes, update the eval scripts. Also: reasoning off via
-  `enable_thinking=False`, max_tokens=8192 for faithfulness scoring.
-- **Refine window size affects token budget.** Adjacent with window=2
-  returns 5 chunks (origin + 2 before + 2 after). Section strategy
-  can return much more. The generation prompt may need truncation or
-  the eval script may need a token budget parameter.
-- **Parallel sessions.** The data-products and eval-convergence epics
-  may be running concurrently. Don't touch their pgvector tables or
-  eval runs.
+- **Score normalization is the hard part.** Different embedding models
+  produce scores on different scales. Cosine similarity from Nomic v1.5
+  clusters around 0.7-0.85 for relevant hits; PubMedBERT may differ.
+  RRF sidesteps this by using rank position instead of raw scores, but
+  verify the merged ranking makes intuitive sense.
+- **Query embedding cost scales with source count.** Each unique
+  embedding model requires a separate embed call. With 3 models across
+  4 sources, that's 3 embed calls per query. Acceptable at 4 sources;
+  worth noting for future scaling.
+- **Parallel sessions.** The data-products, eval-convergence, and
+  model-registry epics may be running concurrently. Don't touch their
+  pgvector tables or eval runs.
 
 ## If blocked
 
-- **gpt-oss-120b unavailable:** The eval pipeline needs an LLM for
-  generation and scoring. If the endpoint is down, defer to next
-  session — the implementation work (step 1) can still be done and
-  tested locally with mock responses.
-- **Refine shows no lift:** That's a valid result. Document it, close
-  Phase 5, and move to #34. The refine tool still has value for
-  human-in-the-loop exploration even if it doesn't improve automated
-  answer quality.
-- **If Phase 5 finishes quickly:** Pull #34 (multi-source retrieve)
-  forward — the 4 existing sources are enough to build and test it.
+- **Embedding model not loadable locally.** PubMedBERT and Snowflake
+  Arctic may not be cached in `.model_cache/`. If download fails, test
+  with just the 2 Nomic sources (va-cpg + tale-of-two-cities) first.
+- **Only 1-2 sources queryable.** If some sources lack active physical
+  indexes, the implementation still works — test with whatever is
+  available and add coverage as more sources come online.
