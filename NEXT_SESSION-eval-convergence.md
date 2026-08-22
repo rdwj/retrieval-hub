@@ -1,30 +1,67 @@
 # Next Session — eval-convergence
 
-## Next: Phase 4 (leaderboards and publication)
+## Next: Phase 5 — Query set expansion and statistical rigor
 
-Phase 3 is DONE. The chunk config decision is settled: 512/0 wins.
+Expand the eval query set from 50 (30 sampled) to 120+ with clinical
+category stratification and bootstrap confidence intervals. This gives
+the statistical power to confirm the 512/0 vs 1024/0 faithfulness gap
+(0.854 vs 0.882) is real or noise, and makes the eventual leaderboard
+submission and paper credible.
 
-Begin Phase 4:
-1. Survey MTEB, BEIR, and clinical NLP benchmarks.
-2. Map retrieval-hub's eval metrics to leaderboard protocols.
-3. Draft arXiv paper abstract and methods section.
+1. **Generate 70+ new Q/A pairs from the VA CPG corpus**
+   Current dataset has 50 questions across 17 CPGs and 5 categories, but
+   distribution is uneven (hypertension: 6, osteoarthritis: 1). Generate
+   new questions targeting under-represented CPGs and categories.
+   - Use LLM-assisted generation: feed each CPG's source docs to gpt-oss
+     and ask for factoid/treatment/procedure questions with ground-truth
+     answers citing specific sections.
+   - Validate each Q/A pair against the source document — the answer must
+     be directly supported by the cited section.
+   - Target distribution: ~8 questions per category (chronic-disease,
+     mental-health, pain, rehabilitation, womens-health), balanced across
+     lay and clinical registers.
+   - Add to `eval/autorag/qa_dataset_draft.json`, bump version to `v2`.
+
+2. **Add bootstrap confidence intervals to the eval pipeline**
+   Modify `eval_answer_quality.py` to compute 95% bootstrap CIs on all
+   aggregate metrics (context_precision, answer_relevancy, faithfulness).
+   This requires running N bootstrap resamples of the per-query scores
+   and reporting the 2.5th and 97.5th percentiles alongside the mean.
+   Output the CIs in `summary.json` alongside the point estimates.
+
+3. **Re-run the winner config (512/0) on the expanded set**
+   Run `eval_answer_quality.py` with the full 120+ query set. Compare
+   point estimates and CIs against the 30-query baseline. Use the
+   `/eval-report` skill to produce the comparison report.
+
+4. **Record results in the eval register**
+   Create a new eval suite version or a new suite
+   (`va-cpg-nomic-answer-quality-v2`) with the expanded results.
+
+**Sequencing.** Step 1 (Q/A generation) is the bulk of the creative work
+and should be done first. Step 2 (bootstrap CIs) is independent
+engineering and can be done in parallel or after. Steps 3-4 are
+sequential after 1 and 2.
 
 **Session start protocol:**
 - Premise checks (~5 min):
   - Databases up (`pg_isready -h 127.0.0.1 -p 5433` and `-p 5434`)
   - gpt-oss-120b reachable
   - Verify `idx_va_cpg_nomic_v1` table exists and is populated
+  - Read `eval/autorag/qa_dataset_draft.json` to confirm current state
+    (50 questions, version draft-v1)
+  - Refine-tool epic running in parallel — don't modify shared retrieval
+    code without checking for conflicts
 - Rules with history:
   - gpt-oss-120b reasoning off via `enable_thinking=False` in `extra_body`
   - Ragas max_tokens=8192 to avoid faithfulness NaN
   - Per-condition checkpointing in scoring stage
-  - Nomic v1.5 with batch_size=8 on MPS to avoid OOM (batch_size=2 for
-    1024-token chunks)
-  - Nomic requires `search_query: ` / `search_document: ` prefixes
-  - **Use 127.0.0.1 not localhost** for Postgres connections (see CLAUDE.md
-    lesson about IPv4/IPv6 ambiguity with oc port-forward)
-- Stop-and-ask before: modifying the eval register (append only);
-  dropping existing index tables
+  - **Use 127.0.0.1 not localhost** for Postgres connections
+  - Q/A generation must cite specific source_doc and source_section from
+    the VA CPG corpus — no hallucinated answers
+- Stop-and-ask before: replacing the existing QA dataset (keep v1 as a
+  separate file); modifying the eval register schema; modifying
+  `eval_answer_quality.py` in ways that break existing run compatibility
 
 ## Remaining epic phases
 
@@ -80,6 +117,45 @@ Report at `eval/reports/va-cpg-chunk-sweep-final.png`.
 - answer_relevancy: 0.735
 - faithfulness: 0.854
 
+### Phase 5: Query set expansion and statistical rigor — NEXT
+
+Expand the eval query set from 50 (30 sampled) to 120+ for statistical
+power, add bootstrap confidence intervals to all metrics.
+
+**Work:**
+1. Generate additional Q/A pairs from the VA CPG corpus (LLM-assisted,
+   validated against source documents).
+2. Stratify by clinical category (not just register) to surface
+   per-condition performance.
+3. Re-run the best configuration on the expanded set.
+4. Add bootstrap confidence intervals to the eval output.
+
+**Definition of done:** 120+ query eval set with per-category stratification
+and confidence intervals on all metrics. Results recorded in the eval
+register.
+
+**Dependencies:** None (running locally, not gated on EvalHub).
+
+### Phase 2: EvalHub integration
+
+Package the eval pipeline as an EvalHub task for automated sweeps on the
+cluster, rather than running locally.
+
+**Work:**
+1. Define the eval task interface: parameterized inputs (chunk_size,
+   overlap, embedding_model, rewriter_config, semantic_context).
+2. Package as an EvalHub-compatible task (container + config).
+3. Run a proof-of-concept sweep: the Tier 1 experiments from
+   `eval/rewrite_lift/EVAL_PLAN.md` (expanded vocab mappings,
+   register-aware rewriting).
+4. Results flow back to `eval/rewrite_lift/` and the eval register.
+
+**Definition of done:** At least two sweep experiments run on EvalHub with
+results in the eval register. The sweep is repeatable without manual
+intervention.
+
+**Dependencies:** Phase 1 (done). Phase 5 results inform the task config.
+
 ### Phase 4: Industry leaderboards and publication
 
 Research which retrieval/RAG leaderboards are relevant, understand their
@@ -100,32 +176,8 @@ eval protocols, and position retrieval-hub's results for submission.
 arXiv paper abstract and methods section drafted. At least one leaderboard
 submission prepared (or a documented decision about why none fit yet).
 
-**Dependencies:** Phase 3 (need the converged results to publish).
-
-**Parallel-ok:** The research (step 1-2) can run concurrently with Phase 3.
-The submission (step 3-4) is sequential after Phase 3.
-
-### Phase 5: Query set expansion and statistical rigor
-
-Expand the eval query set from 30 to 100+ for statistical power, add
-confidence intervals to all metrics.
-
-**Work:**
-1. Generate additional Q/A pairs from the VA CPG corpus (LLM-assisted,
-   validated against source documents).
-2. Stratify by clinical category (not just register) to surface
-   per-condition performance.
-3. Re-run the best configuration on the expanded set.
-4. Add bootstrap confidence intervals to the eval output.
-
-**Definition of done:** 100+ query eval set with per-category stratification
-and confidence intervals on all metrics. Results recorded in the eval
-register.
-
-**Dependencies:** Phase 2 (EvalHub for running larger eval sets efficiently).
-
-**Parallel-ok:** Yes -- the query set expansion (step 1-2) can happen
-concurrently with Phase 3's config sweep.
+**Dependencies:** Phase 5 (need expanded results with CIs for credible
+submission). Phase 2 (EvalHub for reproducible runs).
 
 ---
 
