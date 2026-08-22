@@ -153,3 +153,11 @@ class LlmResolution(StrEnum):
     DEFAULT = "default"
     CALLER_REQUIRED = "caller_required"
     CALLER_OPTIONAL = "caller_optional"
+
+
+class ModelEndpointStatus(StrEnum):
+    """Health status of a registered model endpoint."""
+
+    HEALTHY = "healthy"
+    UNHEALTHY = "unhealthy"
+    UNKNOWN = "unknown"

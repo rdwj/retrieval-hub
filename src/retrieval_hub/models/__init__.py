@@ -6,6 +6,7 @@ from retrieval_hub.models.audit import AuditRecord
 from retrieval_hub.models.eval import EvalResult, EvalRun, EvalSuite
 from retrieval_hub.models.identity import Identity
 from retrieval_hub.models.ingestion import IngestionRun
+from retrieval_hub.models.model_endpoint import ModelEndpoint
 from retrieval_hub.models.recipe import Recipe, RecipeVersion
 from retrieval_hub.models.rewriter import RewritePromptRef
 from retrieval_hub.models.source import (
@@ -23,6 +24,7 @@ __all__ = [
     "Identity",
     "IngestionRun",
     "InvalidStateTransitionError",
+    "ModelEndpoint",
     "PhysicalIndex",
     "Recipe",
     "RecipeVersion",
