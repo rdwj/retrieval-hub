@@ -1,71 +1,27 @@
 # Next Session — refine-tool
 
-## Next: Phase 5 — A/B eval (does refine improve answer quality?)
+## Next: #34 Multi-source retrieve
 
-The epic's gate. Eval-convergence Phase 3 is done and baseline metrics
-are available. Extend the eval pipeline to compare retrieve-only vs
-retrieve+refine, then measure the lift.
+Search across sources in one call. The 4 existing sources are enough
+to build and test it. Phase 5 is done — refine does not improve
+automated answer quality (see session summary below).
 
-1. **Extend `eval_answer_quality.py` with a refine stage**
-   The eval pipeline is retrieve → generate → score. Add an optional
-   refine step between retrieve and generate that calls the refine API
-   (adjacent or section strategy) to expand context around the top
-   retrieve hits before generation. The script should support a flag
-   like `--refine-strategy adjacent` to enable it, defaulting to no
-   refine (the current behavior, which is the baseline).
+## What landed this session (2026-08-22, tenth session)
 
-   Key files:
-   - `scripts/eval_answer_quality.py` — the eval pipeline
-   - `src/retrieval_hub/retrieval/api.py` — `query()` function used
-     by the eval script for retrieval
-   - `src/retrieval_hub/retrieval/refine.py` — the refine
-     implementation (adjacent, section, cross_reference, entity_arc)
-   - `eval/autorag/qa_dataset_draft.json` — the 30-query Q/A set
+Phase 5 A/B eval — refine does not improve answer quality. See
+`session-summaries/2026-08-22-refine-tool-phase5-eval.md`.
 
-2. **Run the eval with refine enabled**
-   Run with `--refine-strategy adjacent` and `--refine-strategy section`
-   against the same 30-query Q/A set. Use the same LLM endpoint
-   (gpt-oss-120b) for generation and scoring.
+- `d6f068e` — eval pipeline extended with `--refine-strategy` and
+  `--refine-window` flags. New `_stage_refine()` between retrieve
+  and generate, with refined.json caching.
+- Adjacent refine eval: context_precision 0.386 (baseline 0.815),
+  answer_relevancy 0.678 (baseline 0.735), faithfulness 0.837
+  (baseline 0.854). Refine dilutes context precision by ~53%.
+- Section eval skipped — adjacent already showed clear degradation.
+- Phase 5 closed. Refine tool is valuable for exploration, not
+  automated RAG augmentation.
 
-3. **Compare against baseline**
-   Baseline metrics (from eval-convergence Phase 3, 512/0 Nomic v1.5):
-   - context_precision: 0.815
-   - answer_relevancy: 0.735
-   - faithfulness: 0.854
-
-   Use the `/eval-report` skill to generate a Pareto front comparison.
-   The question is whether refine improves answer_relevancy and/or
-   faithfulness without degrading context_precision.
-
-4. **Record results in the eval register**
-   Import results using the eval register import pattern from
-   eval-convergence (see `scripts/import_nomic_sweep_results.py`).
-
-**Sequencing.** Step 1 first (implementation), then steps 2-4 together
-(run + compare + record).
-
-**Session start protocol:**
-- Premise checks (~5 min):
-  - `git pull` and confirm clean merge
-  - `pytest tests/ && cd retrieval-hub-mcp && pytest tests/` — green
-    baseline (should be 260 + 43)
-  - Local databases up: `pg_isready -h 127.0.0.1 -p 5433` (vectors)
-    and `pg_isready -h 127.0.0.1 -p 5434` (catalog)
-  - Verify baseline exists: check that `eval/rewrite_lift/runs/` has
-    the 512/0 baseline run with `summary.json`
-  - gpt-oss-120b reachable for LLM generation/scoring
-- Rules with history:
-  - gpt-oss-120b reasoning off via `enable_thinking=False` in
-    `extra_body` (from eval-convergence sessions)
-  - Ragas max_tokens=8192 to avoid faithfulness NaN
-  - Per-condition checkpointing in scoring stage
-  - Use 127.0.0.1 not localhost for Postgres connections
-  - Nomic requires `search_query: ` / `search_document: ` prefixes
-- Stop-and-ask before: modifying the eval register (append only);
-  dropping or re-ingesting any index tables
-- Close ritual: session summary, commit, update this file.
-
-## What landed this session (2026-08-21, ninth session)
+## What landed last session (2026-08-21, ninth session)
 
 doc_title normalization + MCP server deploy. See
 `session-summaries/2026-08-21-refine-tool-title-normalization-and-deploy.md`.
@@ -102,15 +58,12 @@ Stable chunk identifiers (#33). See
 
 ## Remaining epic phases
 
-### Phase 5: A/B eval (refine lift measurement)
+### ~~Phase 5: A/B eval (refine lift measurement)~~ — Done
 
-The epic's gate: does refine actually improve answer quality?
-
-**Dependencies:** Eval-convergence epic chunk-sweep results (in
-progress). Refine-tool Phases 1-4 all done.
-
-**Status:** Blocked. Phase 5 unblocks once the eval pipeline has
-baseline metrics to compare refine-augmented retrieval against.
+Adjacent refine degrades automated eval metrics (context_precision
+halved, answer_relevancy and faithfulness slightly worse). Section
+eval skipped. The refine tool is valuable for human exploration,
+not automated RAG augmentation.
 
 ### #34 Multi-source retrieve
 

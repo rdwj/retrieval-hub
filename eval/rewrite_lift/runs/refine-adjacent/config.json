@@ -1,0 +1,12 @@
+{
+  "fingerprint": "cc8f72cc585605c9",
+  "source_slug": "va-cpg-clinical-guidelines",
+  "rewriter_llm": "/mnt/models",
+  "answer_llm": "gpt-oss:20b",
+  "scoring_llm": "/mnt/models",
+  "top_k": 5,
+  "eval_seed": 42,
+  "query_count": 30,
+  "refine_strategy": "adjacent",
+  "refine_window": 2
+}
