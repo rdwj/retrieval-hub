@@ -1,102 +1,58 @@
 # Next Session — eval-convergence
 
-## Next: Phase 5 — Query set expansion and statistical rigor
+## Next: Phase 2 — EvalHub integration
 
-Expand the eval query set from 50 (30 sampled) to 120+ with clinical
-category stratification and bootstrap confidence intervals. This gives
-the statistical power to confirm the 512/0 vs 1024/0 faithfulness gap
-(0.854 vs 0.882) is real or noise, and makes the eventual leaderboard
-submission and paper credible.
+Package the eval pipeline as an EvalHub task for automated sweeps on the
+cluster. The 7.1-hour wall time for a single 107-query eval run makes local
+iteration expensive; cluster-based parallelized scoring is the unlock for
+both faster experimentation and reproducible automated sweeps.
 
-1. **Generate 70+ new Q/A pairs from the VA CPG corpus**
-   Current dataset has 50 questions across 17 CPGs and 5 categories, but
-   distribution is uneven (hypertension: 6, osteoarthritis: 1). Generate
-   new questions targeting under-represented CPGs and categories.
-   - Use LLM-assisted generation: feed each CPG's source docs to gpt-oss
-     and ask for factoid/treatment/procedure questions with ground-truth
-     answers citing specific sections.
-   - Validate each Q/A pair against the source document — the answer must
-     be directly supported by the cited section.
-   - Target distribution: ~8 questions per category (chronic-disease,
-     mental-health, pain, rehabilitation, womens-health), balanced across
-     lay and clinical registers.
-   - Add to `eval/autorag/qa_dataset_draft.json`, bump version to `v2`.
+1. **Define the eval task interface**
+   Parameterized inputs: chunk_size, overlap, embedding_model, qa_dataset,
+   rewriter_config, semantic_context, refine_strategy. The existing
+   `eval_answer_quality.py` CLI flags already cover most of this.
 
-2. **Add bootstrap confidence intervals to the eval pipeline**
-   Modify `eval_answer_quality.py` to compute 95% bootstrap CIs on all
-   aggregate metrics (context_precision, answer_relevancy, faithfulness).
-   This requires running N bootstrap resamples of the per-query scores
-   and reporting the 2.5th and 97.5th percentiles alongside the mean.
-   Output the CIs in `summary.json` alongside the point estimates.
+2. **Package as an EvalHub-compatible task (container + config)**
+   Build a container that runs `eval_answer_quality.py` with the parameterized
+   inputs. Needs access to the catalog DB and vectors DB on the cluster, plus
+   the gpt-oss-120b scoring LLM endpoint.
 
-3. **Re-run the winner config (512/0) on the expanded set**
-   Run `eval_answer_quality.py` with the full 120+ query set. Compare
-   point estimates and CIs against the 30-query baseline. Use the
-   `/eval-report` skill to produce the comparison report.
+3. **Run a proof-of-concept sweep**
+   The Tier 1 experiments from `eval/rewrite_lift/EVAL_PLAN.md` (expanded
+   vocab mappings, register-aware rewriting). Use the v2 107-query dataset.
 
-4. **Record results in the eval register**
-   Create a new eval suite version or a new suite
-   (`va-cpg-nomic-answer-quality-v2`) with the expanded results.
-
-**Sequencing.** Step 1 (Q/A generation) is the bulk of the creative work
-and should be done first. Step 2 (bootstrap CIs) is independent
-engineering and can be done in parallel or after. Steps 3-4 are
-sequential after 1 and 2.
+4. **Results flow back to the eval register**
+   Sweep results should be importable into the eval register automatically,
+   not via one-off import scripts.
 
 **Session start protocol:**
 - Premise checks (~5 min):
   - Databases up (`pg_isready -h 127.0.0.1 -p 5433` and `-p 5434`)
   - gpt-oss-120b reachable
-  - Verify `idx_va_cpg_nomic_v1` table exists and is populated
-  - Read `eval/autorag/qa_dataset_draft.json` to confirm current state
-    (50 questions, version draft-v1)
-  - Refine-tool epic running in parallel — don't modify shared retrieval
-    code without checking for conflicts
+  - Check if EvalHub infra exists or needs to be built
+  - Read `eval/rewrite_lift/EVAL_PLAN.md` for the Tier 1 experiment list
 - Rules with history:
   - gpt-oss-120b reasoning off via `enable_thinking=False` in `extra_body`
+  - gpt-oss-120b has ~60s HAProxy idle timeout — use streaming for long requests
   - Ragas max_tokens=8192 to avoid faithfulness NaN
-  - Per-condition checkpointing in scoring stage
   - **Use 127.0.0.1 not localhost** for Postgres connections
-  - Q/A generation must cite specific source_doc and source_section from
-    the VA CPG corpus — no hallucinated answers
-- Stop-and-ask before: replacing the existing QA dataset (keep v1 as a
-  separate file); modifying the eval register schema; modifying
-  `eval_answer_quality.py` in ways that break existing run compatibility
+  - Container builds need `--platform linux/amd64` and 644 file permissions
+- Stop-and-ask before: modifying the eval register schema; modifying
+  `eval_answer_quality.py` in ways that break existing run compatibility;
+  deploying containers to the cluster
 
 ## Remaining epic phases
 
 Converge on the best retrieval configuration for the VA CPG source through
 systematic experimentation, then publish results on the data card and
 position for industry leaderboards. The eval infrastructure built here
-serves the whole platform -- every source gets the same eval pipeline. This
+serves the whole platform — every source gets the same eval pipeline. This
 epic also gates the refine tool epic's definition of done (A/B testing
 refine requires this eval infrastructure).
 
 ### Phase 1: Full answer-quality eval pipeline — DONE
 
 Built in session 2026-08-20 (morning). See Runs 1-5.
-
-### Phase 2: EvalHub integration
-
-Package the eval pipeline as an EvalHub task for automated sweeps on the
-cluster, rather than running locally.
-
-**Work:**
-1. Define the eval task interface: parameterized inputs (chunk_size,
-   overlap, embedding_model, rewriter_config, semantic_context).
-2. Package as an EvalHub-compatible task (container + config).
-3. Run a proof-of-concept sweep: the Tier 1 experiments from
-   `eval/rewrite_lift/EVAL_PLAN.md` (expanded vocab mappings,
-   register-aware rewriting).
-4. Results flow back to `eval/rewrite_lift/` and the eval register.
-
-**Definition of done:** At least two sweep experiments run on EvalHub with
-results in the eval register. The sweep is repeatable without manual
-intervention.
-
-**Dependencies:** Phase 1 (need the full eval pipeline before automating it).
-
-**Parallel-ok:** No -- sequential after Phase 1.
 
 ### Phase 3: Retrieval configuration sweep — DONE
 
@@ -108,35 +64,20 @@ answer_relevancy (0.735) with competitive faithfulness (0.854). 1024/0
 has higher faithfulness (0.882) but lower answer_relevancy (0.719).
 512/64 is dominated on all Ragas metrics despite higher MRR.
 
-**Results recorded:** eval register suite `va-cpg-nomic-chunking-sweep` v1
-with 4 runs (256/0 retrieval-only, 512/0 + 512/64 + 1024/0 with full Ragas).
-Report at `eval/reports/va-cpg-chunk-sweep-final.png`.
+### Phase 5: Query set expansion and statistical rigor — DONE
 
-**Baseline metrics for refine-tool epic (Phase 5):**
-- context_precision: 0.815
-- answer_relevancy: 0.735
-- faithfulness: 0.854
+Completed 2026-08-22 (evening). Expanded eval from 50 (30 sampled) to 107
+queries covering all 26 VA/DoD CPGs. Added bootstrap 95% CIs.
 
-### Phase 5: Query set expansion and statistical rigor — NEXT
+**v2 results (n=107, raw retrieval, 512/0 Nomic v1.5):**
+- context_precision: 0.738 [0.682, 0.792]
+- answer_relevancy: 0.723 [0.686, 0.759]
+- faithfulness: 0.806 [0.752, 0.858]
 
-Expand the eval query set from 50 (30 sampled) to 120+ for statistical
-power, add bootstrap confidence intervals to all metrics.
+Results recorded in eval register as suite `va-cpg-nomic-answer-quality-v2`.
+Report: see `session-summaries/2026-08-22-eval-convergence-phase5-expanded-dataset.md`.
 
-**Work:**
-1. Generate additional Q/A pairs from the VA CPG corpus (LLM-assisted,
-   validated against source documents).
-2. Stratify by clinical category (not just register) to surface
-   per-condition performance.
-3. Re-run the best configuration on the expanded set.
-4. Add bootstrap confidence intervals to the eval output.
-
-**Definition of done:** 120+ query eval set with per-category stratification
-and confidence intervals on all metrics. Results recorded in the eval
-register.
-
-**Dependencies:** None (running locally, not gated on EvalHub).
-
-### Phase 2: EvalHub integration
+### Phase 2: EvalHub integration — NEXT
 
 Package the eval pipeline as an EvalHub task for automated sweeps on the
 cluster, rather than running locally.
@@ -154,7 +95,7 @@ cluster, rather than running locally.
 results in the eval register. The sweep is repeatable without manual
 intervention.
 
-**Dependencies:** Phase 1 (done). Phase 5 results inform the task config.
+**Dependencies:** Phase 1 (done), Phase 5 (done). Results inform task config.
 
 ### Phase 4: Industry leaderboards and publication
 
@@ -176,8 +117,7 @@ eval protocols, and position retrieval-hub's results for submission.
 arXiv paper abstract and methods section drafted. At least one leaderboard
 submission prepared (or a documented decision about why none fit yet).
 
-**Dependencies:** Phase 5 (need expanded results with CIs for credible
-submission). Phase 2 (EvalHub for reproducible runs).
+**Dependencies:** Phase 5 (done). Phase 2 (EvalHub for reproducible runs).
 
 ---
 
@@ -198,80 +138,45 @@ submission). Phase 2 (EvalHub for reproducible runs).
 - New source onboarding (future epic)
 - Fine-tuning / model training (future work, referenced in refine epic)
 
-## What landed last session (2026-08-22)
+## What landed last session (2026-08-22, evening)
+
+Phase 5 complete: expanded eval dataset and bootstrap CIs.
+
+- Created `scripts/generate_qa_pairs.py` for LLM-assisted Q/A generation
+  from VA CPG clinician summaries using gpt-oss-120b with streaming.
+- Generated 57 new Q/A pairs across 19 CPGs, merged into `qa_dataset_v2.json`
+  (107 questions total, covering all 26 CPGs).
+- Added bootstrap 95% CIs, checkpoint resume, retry logic, and CLI flags
+  to `eval_answer_quality.py`.
+- Ran full eval on expanded set: ctx_prec 0.738, ans_rel 0.723, faith 0.806.
+- Recorded results in eval register (suite `va-cpg-nomic-answer-quality-v2`).
+
+See `session-summaries/2026-08-22-eval-convergence-phase5-expanded-dataset.md`.
+
+## What landed earlier (2026-08-22, afternoon)
 
 Phase 3 wrap-up: full Ragas answer-quality evals on chunk configs.
-
-- Ran full Ragas evals (context_precision, answer_relevancy, faithfulness)
-  on 512/64 and 1024/0 chunk configs to break the MRR tie with 512/0.
-- 512/0 confirmed as winner: best answer_relevancy (0.735), competitive
-  faithfulness (0.854), Pareto-optimal on the two-axis scatter.
-- Created `scripts/import_nomic_sweep_results.py` and imported all sweep
-  results into the eval register (suite: `va-cpg-nomic-chunking-sweep`).
-- Created `/eval-report` skill at `.claude/skills/eval-report/` for
-  standardized Pareto front comparison reports.
-- Final report at `eval/reports/va-cpg-chunk-sweep-final.png`.
-- Baseline metrics now available for refine-tool epic Phase 5.
-
-## What landed earlier (2026-08-21, afternoon)
-
-Made the Nomic switch official and ran the chunk sweep:
-
-- Updated `ingest_va_cpg.py` to use Nomic v1.5 as the production
-  embedding model (was PubMedBERT). Production active index is
-  `idx_va_cpg_nomic_v1` (512/0, 6,500 chunks).
-- Added `--chunk-tokens` and `--overlap-tokens` flags to the
-  alt-embedding script for sweep flexibility.
-- Ran 4-config chunk sweep with Nomic: 256/0, 512/0, 512/64, 1024/0.
-  All achieve 100% hit_rate@5. MRR: 512/64 and 1024/0 tie at 0.967,
-  256/0 and 512/0 at 0.911. Results in
-  `eval/va_cpg_chunking_sweep/sweep_results.json`.
-- Scored faithfulness for Nomic raw: 0.854 (raw), 0.813 (rewrite).
-  Results in `eval/rewrite_lift/runs/embed-nomic-faithful/`.
-- Fixed all Postgres connection strings across the project from
-  `localhost` to `127.0.0.1` to avoid IPv4/IPv6 ambiguity when
-  `oc port-forward` runs alongside Podman containers.
-- Updated docs: table references in onboarding journey.
-- Added `Faithfulness` metric permanently to `eval_answer_quality.py`.
-
-## What landed earlier (2026-08-21, morning)
-
-Embedding model comparison (Runs 7-8) completed. Nomic v1.5 dominates
-PubMedBERT on all metrics. Nomic raw (no reranking) is Pareto-optimal:
-0.822 ctx_precision, 0.740 answer_relevancy. Adding hybrid_0.3 reranking
-pushes ctx_precision to 0.839 but costs -5.2pts answer_relevancy.
-Switched VA CPG active index to Nomic. Drafted data owner and ops
-onboarding guides.
-
-See `session-summaries/2026-08-21-eval-convergence-embedding-comparison.md`.
-
-**Prior session (2026-08-20, evening):** Hybrid scoring (E8) resolved the
-answer_relevancy trade-off. hybrid_alpha_03 is the new best reranking
-config. See `session-summaries/2026-08-20-eval-convergence-hybrid-scoring.md`.
-
-**Prior session (2026-08-20, morning):** Phase 1 complete. Answer-quality
-eval pipeline built. Five eval runs (Runs 1-5). Cross-encoder reranking
-+12.1% context_precision. See `session-summaries/2026-08-20-eval-convergence-reranking.md`.
+512/0 confirmed as winner. Pareto report at
+`eval/reports/va-cpg-chunk-sweep-final.png`.
 
 ## Watch out for
 
-- **Nomic batch_size on MPS:** nomic-embed-text-v1.5 OOM'd at batch_size=32
-  on Apple Silicon. Use batch_size=8 for 256- and 512-token chunks. For
-  1024-token chunks, use batch_size=2. At query time the adapter only
-  embeds one query at a time so this doesn't affect retrieval.
-- **jina-embeddings-v3:** failed to load with current transformers version
-  (`AttributeError: 'XLMRobertaLoRA' has no attribute
-  'all_tied_weights_keys'`). Would need a transformers upgrade or pinned
-  revision to test.
-- Ragas "1 generation instead of 3" warnings appeared consistently in
-  Runs 6-7. Consistent across all embedding models, so unlikely to bias
-  the comparison.
+- **gpt-oss-120b HAProxy timeout:** ~60s idle timeout on the OpenShift
+  route. Use streaming for any request that might take longer. The
+  generation script and eval pipeline already handle this.
+- **Nomic batch_size on MPS:** use batch_size=8 for 512-token chunks,
+  batch_size=2 for 1024-token chunks.
+- **Faithfulness NaN rate:** 12% of queries (13/107) produced NaN
+  faithfulness scores in the v2 run. Bootstrap CIs exclude NaN values.
+  May need investigation if the rate increases.
+- **Ragas "1 generation instead of 3" warnings:** consistent across all
+  runs, unlikely to bias comparisons.
 - gpt-oss-120b sandbox cluster may be reprovisioned. If the endpoint
   changes, update the eval scripts.
 
 ## If blocked
 
-- If Ragas still doesn't work with any available LLM, fall back to a
-  custom LLM-as-judge implementation.
 - If EvalHub isn't ready, run sweeps locally with a shell script wrapper
-  around the eval script.
+  around the eval script (slow but functional).
+- If gpt-oss-120b becomes unreliable, consider a local scoring LLM
+  (Ollama with a capable model).
