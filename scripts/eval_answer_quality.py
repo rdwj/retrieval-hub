@@ -71,12 +71,18 @@ EVAL_SEED = 42
 TARGET_QUERY_COUNT = 30
 
 SLUG_TO_KEYWORDS: dict[str, list[str]] = {
+    "asthma": ["asthma"],
+    "bipolar": ["bipolar"],
+    "ckd": ["kidney disease", "chronic kidney"],
+    "cmi": ["multisymptom illness", "chronic multisymptom"],
     "copd": ["obstructive pulmonary"],
     "diabetes": ["diabetes"],
     "headache": ["headache"],
     "hypertension": ["hypertension"],
     "insomnia-osa": ["insomnia", "sleep apnea"],
+    "lipids": ["lipid", "cardiovascular disease risk"],
     "lower-back-pain": ["back pain"],
+    "lower-limb-amputation": ["lower limb amputation"],
     "mdd": ["depressive disorder"],
     "mtbi": ["brain injury"],
     "obesity": ["obesity", "overweight"],
@@ -84,10 +90,13 @@ SLUG_TO_KEYWORDS: dict[str, list[str]] = {
     "osteoarthritis": ["osteoarthritis"],
     "pregnancy": ["pregnancy"],
     "ptsd": ["ptsd"],
+    "schizophrenia": ["psychosis", "schizophrenia"],
     "stroke": ["stroke"],
     "sud": ["substance use"],
     "suicide-risk": ["suicide"],
+    "tinnitus": ["tinnitus"],
     "tobacco": ["tobacco"],
+    "upper-limb-amputation": ["upper limb amputation"],
 }
 
 ANSWER_SYSTEM_PROMPT = (
@@ -98,13 +107,36 @@ ANSWER_SYSTEM_PROMPT = (
 )
 
 
-def _load_eval_queries(qa_path: Path) -> list[dict]:
+def _bootstrap_ci(
+    scores: list[float],
+    n_resamples: int = 1000,
+    ci: float = 0.95,
+    seed: int = EVAL_SEED,
+) -> tuple[float, float]:
+    import numpy as np
+    rng = np.random.RandomState(seed)
+    arr = np.array([s for s in scores if not (isinstance(s, float) and (s != s))])
+    if len(arr) < 2:
+        return (float("nan"), float("nan"))
+    means = [float(rng.choice(arr, size=len(arr), replace=True).mean())
+             for _ in range(n_resamples)]
+    alpha = (1 - ci) / 2
+    lo = float(np.percentile(means, 100 * alpha))
+    hi = float(np.percentile(means, 100 * (1 - alpha)))
+    return (round(lo, 4), round(hi, 4))
+
+
+def _load_eval_queries(qa_path: Path, target_count: int = 0) -> list[dict]:
     data = json.loads(qa_path.read_text(encoding="utf-8"))
     questions = data["questions"]
+    rng = random.Random(EVAL_SEED)
+    if target_count <= 0:
+        selected = list(questions)
+        rng.shuffle(selected)
+        return selected
     lay = [q for q in questions if q["language_register"] == "lay"]
     clinical = [q for q in questions if q["language_register"] == "clinical"]
-    rng = random.Random(EVAL_SEED)
-    clinical_needed = max(0, TARGET_QUERY_COUNT - len(lay))
+    clinical_needed = max(0, target_count - len(lay))
     clinical_sample = rng.sample(clinical, min(clinical_needed, len(clinical)))
     selected = lay + clinical_sample
     rng.shuffle(selected)
@@ -124,6 +156,7 @@ def _config_fingerprint(
     semantic_context: dict | None,
     rewriter_llm_model: str,
     answer_llm_model: str,
+    query_count: int,
     refine_strategy: str | None = None,
     refine_window: int | None = None,
 ) -> str:
@@ -139,7 +172,7 @@ def _config_fingerprint(
             "answer_llm": answer_llm_model,
             "top_k": TOP_K,
             "eval_seed": EVAL_SEED,
-            "query_count": TARGET_QUERY_COUNT,
+            "query_count": query_count,
             "refine_strategy": refine_strategy,
             "refine_window": refine_window,
         },
@@ -168,9 +201,32 @@ async def _stage_retrieve(
     metadata: RewriterMetadata,
     semantic_context: SemanticContext | None,
     vectors_db_url: str,
+    checkpoint_path: Path | None = None,
 ) -> list[dict]:
     results = []
+    done_ids: set[str] = set()
+    if checkpoint_path and checkpoint_path.exists():
+        results = json.loads(checkpoint_path.read_text())
+        done_ids = {r["query_id"] for r in results}
+        logger.info("retrieve checkpoint: %d queries already done", len(done_ids))
+
+    def _serialize_hits(hits):
+        return [
+            {
+                "text": h.text,
+                "score": h.score,
+                "doc_title": h.doc_title,
+                "doc_url": h.doc_url,
+                "doc_section": h.doc_section,
+                "chunk_index": h.chunk_index,
+                "chunk_id": h.chunk_id,
+            }
+            for h in hits
+        ]
+
     for i, q in enumerate(eval_queries):
+        if q["id"] in done_ids:
+            continue
         logger.info("[%d/%d] retrieve %s", i + 1, len(eval_queries), q["id"])
 
         with session_factory() as session:
@@ -179,9 +235,23 @@ async def _stage_retrieve(
                 session=session, top_k=TOP_K, vectors_db_url=vectors_db_url,
             )
 
-            rewrite_result = await rewriter.rewrite(
-                q["question"], metadata, semantic_context=semantic_context,
-            )
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    rewrite_result = await rewriter.rewrite(
+                        q["question"], metadata, semantic_context=semantic_context,
+                    )
+                    break
+                except Exception as exc:
+                    if attempt < max_retries - 1:
+                        wait = min(2 ** attempt * 5, 60)
+                        logger.warning(
+                            "rewrite failed for %s (attempt %d/%d): %s, retrying in %ds...",
+                            q["id"], attempt + 1, max_retries, exc, wait,
+                        )
+                        await asyncio.sleep(wait)
+                    else:
+                        raise
 
             all_rewrite_hits = []
             for rq in rewrite_result.queries:
@@ -192,20 +262,6 @@ async def _stage_retrieve(
                 all_rewrite_hits.extend(hits)
 
         deduped = _deduplicate_results(all_rewrite_hits)[:TOP_K]
-
-        def _serialize_hits(hits):
-            return [
-                {
-                    "text": h.text,
-                    "score": h.score,
-                    "doc_title": h.doc_title,
-                    "doc_url": h.doc_url,
-                    "doc_section": h.doc_section,
-                    "chunk_index": h.chunk_index,
-                    "chunk_id": h.chunk_id,
-                }
-                for h in hits
-            ]
 
         raw_hit = any(
             _chunk_matches_source(h.doc_title, q["cpg_slug"]) for h in raw_hits
@@ -226,6 +282,10 @@ async def _stage_retrieve(
             "rewrite_hit_rate": rewrite_hit,
             "rewrites": [rq.text for rq in rewrite_result.queries],
         })
+
+        if checkpoint_path and len(results) % 10 == 0:
+            checkpoint_path.write_text(json.dumps(results, indent=2) + "\n")
+            logger.info("retrieve checkpoint saved (%d/%d)", len(results), len(eval_queries))
 
     return results
 
@@ -518,9 +578,11 @@ def _print_summary(scores: dict, retrieval_data: list[dict], wall_time: float) -
 
     for condition in ("raw", "rewrite"):
         agg = scores[condition]["aggregate"]
+        per_query = scores[condition]["per_query"]
         print(f"\n  {condition.upper()} retrieval:")
         for mn in metric_names:
-            print(f"    {mn:<22} {agg[mn]:.3f}")
+            ci = _bootstrap_ci([pq[mn] for pq in per_query])
+            print(f"    {mn:<22} {agg[mn]:.3f}  [{ci[0]:.3f}, {ci[1]:.3f}]")
 
     print("\n  Delta (rewrite - raw):")
     for mn in metric_names:
@@ -558,8 +620,9 @@ def _print_summary(scores: dict, retrieval_data: list[dict], wall_time: float) -
 async def _run(args: argparse.Namespace) -> int:
     wall_start = time.monotonic()
 
-    eval_queries = _load_eval_queries(QA_DATASET_PATH)
-    logger.info("loaded %d eval queries", len(eval_queries))
+    qa_path = Path(args.qa_dataset)
+    eval_queries = _load_eval_queries(qa_path, target_count=args.query_count)
+    logger.info("loaded %d eval queries from %s", len(eval_queries), qa_path)
 
     session_factory = make_session_factory(create_db_engine(args.db_url))
 
@@ -576,6 +639,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     fingerprint = _config_fingerprint(
         raw_rw, raw_sc, args.rewriter_llm_model, args.answer_llm_model,
+        query_count=len(eval_queries),
         refine_strategy=args.refine_strategy,
         refine_window=args.refine_window if args.refine_strategy else None,
     )
@@ -603,12 +667,18 @@ async def _run(args: argparse.Namespace) -> int:
     }
     config_path.write_text(json.dumps(run_config, indent=2) + "\n")
 
-    # Stage 1: Retrieve
+    # Stage 1: Retrieve (with checkpoint resume)
+    retrieval_complete = False
     if retrieval_path.exists() and not args.force:
-        logger.info("stage 1 (retrieve): using cached %s", retrieval_path)
-        retrieval_data = json.loads(retrieval_path.read_text())
-    else:
-        logger.info("stage 1 (retrieve): running...")
+        cached = json.loads(retrieval_path.read_text())
+        if len(cached) >= len(eval_queries):
+            logger.info("stage 1 (retrieve): using cached %s (%d queries)", retrieval_path, len(cached))
+            retrieval_data = cached
+            retrieval_complete = True
+        else:
+            logger.info("stage 1 (retrieve): resuming from checkpoint (%d/%d done)", len(cached), len(eval_queries))
+
+    if not retrieval_complete:
         async with LlmClient(
             base_url=args.rewriter_llm_url, model=args.rewriter_llm_model,
         ) as rewriter_llm:
@@ -620,6 +690,7 @@ async def _run(args: argparse.Namespace) -> int:
                 metadata=metadata,
                 semantic_context=semantic,
                 vectors_db_url=args.vectors_db_url,
+                checkpoint_path=retrieval_path,
             )
         retrieval_path.write_text(json.dumps(retrieval_data, indent=2) + "\n")
         logger.info("stage 1 complete, wrote %s", retrieval_path)
@@ -672,12 +743,23 @@ async def _run(args: argparse.Namespace) -> int:
 
     wall_time = time.monotonic() - wall_start
 
+    def _agg_with_ci(condition: str) -> dict:
+        agg = scores[condition]["aggregate"]
+        per_query = scores[condition]["per_query"]
+        result = {}
+        for mn in agg:
+            result[mn] = agg[mn]
+            result[f"{mn}_ci"] = list(
+                _bootstrap_ci([pq[mn] for pq in per_query])
+            )
+        return result
+
     summary = {
         "config": run_config,
         "date": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "wall_time_seconds": round(wall_time, 1),
-        "raw": scores["raw"]["aggregate"],
-        "rewrite": scores["rewrite"]["aggregate"],
+        "raw": _agg_with_ci("raw"),
+        "rewrite": _agg_with_ci("rewrite"),
         "delta": {
             mn: round(
                 scores["rewrite"]["aggregate"][mn]
@@ -718,6 +800,10 @@ def main() -> int:
                         "When set, inserts a refine stage. Default: disabled.")
     parser.add_argument("--refine-window", type=int, default=2,
                         help="Window size for the adjacent refine strategy. Default: 2")
+    parser.add_argument("--qa-dataset", default=str(QA_DATASET_PATH),
+                        help=f"Path to QA dataset JSON. Default: {QA_DATASET_PATH}")
+    parser.add_argument("--query-count", type=int, default=0,
+                        help="Number of queries to sample (0 = use all). Default: 0")
     parser.add_argument("--run-dir", default=None,
                         help="Explicit run directory. Default: auto-generated from config hash.")
     parser.add_argument("--max-workers", type=int, default=2,
