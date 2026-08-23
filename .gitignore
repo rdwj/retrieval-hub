@@ -94,6 +94,10 @@ logs/
 tmp/
 temp/
 
+# Eval run artifacts (large intermediate data)
+eval/rewrite_lift/runs/
+eval/va_cpg_chunking_sweep/
+
 # Step 4 ingestion caches
 .model_cache/
 .hf_cache/
