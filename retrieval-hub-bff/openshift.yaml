@@ -53,41 +53,38 @@ spec:
           protocol: TCP
         env:
         - name: RETRIEVAL_HUB_DB_URL
-          value: "postgresql+psycopg://retrievalhub:retrievalhub@retrieval-hub-pg:5432/retrievalhub"
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-pg
+              key: RETRIEVAL_HUB_DB_URL
         - name: RETRIEVAL_HUB_VECTORS_DB_URL
-          value: "postgresql+psycopg://retrievalhub:retrievalhub@retrieval-hub-pg:5432/retrievalhub_vectors"
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-pg
+              key: RETRIEVAL_HUB_VECTORS_DB_URL
         - name: MCP_PUBLIC_URL
           value: "https://retrieval-hub-mcp-retrieval-hub.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/mcp"
         - name: LLM_ENDPOINT_URL
           value: "http://gpt-oss-120b-direct.gpt-oss-120b-model.svc:8080/v1/chat/completions"
-        - name: SENTENCE_TRANSFORMERS_HOME
-          value: /opt/app-root/src/.model_cache
-        - name: HF_HOME
-          value: /opt/app-root/src/.model_cache
-        volumeMounts:
-        - name: model-cache
-          mountPath: /opt/app-root/src/.model_cache
         resources:
           requests:
-            memory: 1Gi
+            memory: 512Mi
             cpu: 500m
           limits:
-            memory: 2Gi
+            memory: 1Gi
             cpu: "2"
         livenessProbe:
-          tcpSocket:
+          httpGet:
+            path: /api/health
             port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /api/health
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
-      volumes:
-      - name: model-cache
-        persistentVolumeClaim:
-          claimName: retrieval-hub-bff-model-cache
 ---
 apiVersion: v1
 kind: Service

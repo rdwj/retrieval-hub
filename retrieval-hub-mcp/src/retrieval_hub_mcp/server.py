@@ -98,6 +98,40 @@ def get_catalog_session() -> Session:
 
 
 # ---------------------------------------------------------------------------
+# Health endpoint
+# ---------------------------------------------------------------------------
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    """Verify DB connectivity and model registry state."""
+    from sqlalchemy import text
+    from starlette.responses import JSONResponse
+
+    from retrieval_hub.models.model_endpoint import ModelEndpoint
+
+    checks = {}
+    try:
+        session = get_catalog_session()
+        try:
+            session.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+
+            count = session.query(ModelEndpoint).count()
+            checks["model_registry"] = f"{count} endpoint(s)"
+            if count == 0:
+                checks["model_registry"] = "empty"
+        finally:
+            session.close()
+    except Exception as exc:
+        checks["database"] = str(exc)
+        return JSONResponse({"status": "unhealthy", "checks": checks}, status_code=503)
+
+    status = "ok" if checks.get("model_registry") != "empty" else "degraded"
+    return JSONResponse({"status": status, "checks": checks})
+
+
+# ---------------------------------------------------------------------------
 # GitHub file fetch
 # ---------------------------------------------------------------------------
 
