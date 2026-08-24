@@ -1,0 +1,43 @@
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: retrieval-hub-evalhub
+  labels:
+    app: retrieval-hub-evalhub
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: retrieval-hub-evalhub:latest
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  resources:
+    limits:
+      memory: 4Gi
+      cpu: "2"
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: retrieval-hub-evalhub
+  labels:
+    app: retrieval-hub-evalhub
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: evalhub-model-cache
+  labels:
+    app: retrieval-hub-evalhub
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

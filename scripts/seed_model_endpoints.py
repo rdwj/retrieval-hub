@@ -39,6 +39,10 @@ MODELS = [
         "model_name": "NeuML/pubmedbert-base-embeddings",
         "endpoint_url": "http://retrieval-hub-embedding.retrieval-hub.svc.cluster.local:8080",
     },
+    {
+        "model_name": "nomic-ai/nomic-embed-text-v1.5",
+        "endpoint_url": "http://retrieval-hub-embedding-nomic.retrieval-hub.svc.cluster.local:8080",
+    },
 ]
 
 

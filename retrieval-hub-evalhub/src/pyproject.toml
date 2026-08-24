@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "evalhub-runner"
+version = "0.1.0"
+description = "EvalHub runner — packages eval_answer_quality.py as a cluster Job"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = [
+    "retrieval-hub",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["evalhub_runner"]

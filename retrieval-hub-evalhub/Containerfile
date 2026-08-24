@@ -1,0 +1,24 @@
+FROM registry.redhat.io/ubi9/python-311:latest
+
+WORKDIR /opt/app-root/src
+
+COPY requirements-deploy.txt .
+RUN pip install --no-cache-dir -r requirements-deploy.txt
+
+COPY --chown=1001:0 core-lib/ ./core-lib/
+RUN pip install --no-cache-dir ./core-lib/
+
+COPY --chown=1001:0 evalhub-runner/ ./evalhub-runner/
+RUN pip install --no-cache-dir ./evalhub-runner/
+
+COPY --chown=1001:0 scripts/eval_answer_quality.py ./scripts/
+COPY --chown=1001:0 eval/qa_dataset_v2.json ./eval/
+COPY --chown=1001:0 prompts/ ./prompts/
+
+RUN find . -name "*.py" -exec chmod 644 {} \;
+
+ENV PYTHONPATH=/opt/app-root/src/scripts
+
+USER 1001
+
+CMD ["python", "-m", "evalhub_runner"]

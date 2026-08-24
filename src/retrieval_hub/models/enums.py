@@ -111,6 +111,7 @@ class ExecutionBackend(StrEnum):
 
     LLAMASTACK = "llamastack"
     NATIVE = "native"
+    EVALHUB = "evalhub"
 
 
 class MlflowSyncState(StrEnum):

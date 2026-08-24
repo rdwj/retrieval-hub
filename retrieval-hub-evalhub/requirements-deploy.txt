@@ -1,0 +1,20 @@
+# Core library dependencies
+sqlalchemy>=2.0,<3.0
+alembic>=1.13
+pydantic>=2.6,<3.0
+psycopg[binary]>=3.1,<4.0
+httpx>=0.27
+tiktoken>=0.7
+beautifulsoup4>=4.12
+markdownify>=0.13
+pypdf>=4.3
+pgvector>=0.3
+numpy>=1.26,<3.0
+
+# LLM client (Ragas uses the openai SDK)
+openai>=1.30
+
+# Ragas scoring (uses hosted PubMedBERT via OpenAIEmbeddings)
+ragas>=0.2
+langchain-community>=0.2
+langchain-openai>=0.3
