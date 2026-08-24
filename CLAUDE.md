@@ -1,5 +1,17 @@
 # RetrievalHub — Project Instructions
 
+## General Rules
+
+### Resources
+
+Be resource-conscious. If we are downloading something big, plan to use it
+again rather than needing to re-download it. If you need anything like an LLM,
+embedding model, rerank model, big dataset, etc., look to see if we already
+have it before trying to create it again. This far along in the project,
+chances are we have it. Don't hold to a pattern that made sense for an older
+version of a script or dependency if that part of the app has moved on past
+that dependency.
+
 ## Lessons Learned
 
 ### Embedding model dependencies must be explicit in container requirements
