@@ -42,6 +42,8 @@ from retrieval_hub.models.enums import (
 )
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session as SASession
+
     from retrieval_hub.models.recipe import RecipeVersion
 
 
@@ -164,8 +166,17 @@ class Source(Base):
         cascade="all, delete-orphan",
     )
 
-    def transition_to(self, new_status: SourceStatus) -> None:
+    def transition_to(
+        self,
+        new_status: SourceStatus,
+        *,
+        session: SASession | None = None,
+        actor: str | None = None,
+    ) -> None:
         """Move the source to ``new_status`` if the transition is allowed.
+
+        When *session* is provided, an audit record is written for the
+        status change (but not committed -- the caller owns the transaction).
 
         Raises ``InvalidStateTransitionError`` if the transition is not in the
         catalog.md state graph.
@@ -178,7 +189,22 @@ class Source(Base):
                 f"Cannot transition source {self.slug!r} from {self.status} to {new_status}. "
                 f"Allowed: {sorted(allowed)}"
             )
+        old_status = self.status
         self.status = new_status
+        if session is not None:
+            from retrieval_hub.audit import write_audit_record
+
+            write_audit_record(
+                session,
+                action="source.status_changed",
+                source_id=self.id,
+                actor=actor,
+                details={
+                    "slug": self.slug,
+                    "old_status": old_status.value,
+                    "new_status": new_status.value,
+                },
+            )
 
 
 # ---------------------------------------------------------------------------

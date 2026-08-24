@@ -23,6 +23,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from retrieval_hub.audit import write_audit_record
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, SamplePrompt, Source
 from retrieval_hub.models.enums import (
     AccessVisibility,
@@ -145,6 +146,13 @@ def register_document_source(
         session.add(source)
         session.flush()  # populate source.id
         created_source = True
+        write_audit_record(
+            session,
+            action="source.created",
+            source_id=source.id,
+            actor=triggered_by,
+            details={"slug": slug, "status": str(SourceStatus.CURATED)},
+        )
         logger.info("register.created_source slug=%s id=%s", slug, source.id)
     else:
         source.name = name
@@ -154,6 +162,13 @@ def register_document_source(
             source.usage_rules = usage_rules
         source.updated_at = now
         source.updated_by = triggered_by
+        write_audit_record(
+            session,
+            action="source.updated",
+            source_id=source.id,
+            actor=triggered_by,
+            details={"slug": slug},
+        )
         logger.info("register.updated_source slug=%s id=%s", slug, source.id)
 
     # --- RecipeVersion ------------------------------------------------
