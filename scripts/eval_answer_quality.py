@@ -44,7 +44,7 @@ from retrieval_hub.schemas.semantic import SemanticContext
 
 logger = logging.getLogger("eval_answer_quality")
 
-SOURCE_SLUG = "va-cpg-clinical-guidelines"
+DEFAULT_SOURCE_SLUG = "va-cpg-clinical-guidelines"
 QA_DATASET_PATH = Path("eval/autorag/qa_dataset_draft.json")
 DEFAULT_RUN_DIR = Path("eval/rewrite_lift/runs")
 
@@ -196,6 +196,7 @@ def _deduplicate_results(results: list) -> list:
 async def _stage_retrieve(
     eval_queries: list[dict],
     *,
+    source_slug: str,
     session_factory,
     rewriter: RewriterService,
     metadata: RewriterMetadata,
@@ -231,7 +232,7 @@ async def _stage_retrieve(
 
         with session_factory() as session:
             raw_hits = query(
-                SOURCE_SLUG, q["question"],
+                source_slug, q["question"],
                 session=session, top_k=TOP_K, vectors_db_url=vectors_db_url,
             )
 
@@ -256,7 +257,7 @@ async def _stage_retrieve(
             all_rewrite_hits = []
             for rq in rewrite_result.queries:
                 hits = query(
-                    SOURCE_SLUG, rq.text,
+                    source_slug, rq.text,
                     session=session, top_k=TOP_K, vectors_db_url=vectors_db_url,
                 )
                 all_rewrite_hits.extend(hits)
@@ -297,6 +298,7 @@ def _refine_hits(
     hits: list[dict],
     question: str,
     *,
+    source_slug: str,
     refine_strategy: str,
     refine_window: int,
     session,
@@ -314,7 +316,7 @@ def _refine_hits(
 
         try:
             refine_output = refine(
-                SOURCE_SLUG,
+                source_slug,
                 doc_title=doc_title,
                 chunk_index=chunk_index,
                 query_text=question,
@@ -358,6 +360,7 @@ def _refine_hits(
 def _stage_refine(
     retrieval_data: list[dict],
     *,
+    source_slug: str,
     refine_strategy: str,
     refine_window: int,
     session_factory,
@@ -371,6 +374,7 @@ def _stage_refine(
         with session_factory() as session:
             raw_refined = _refine_hits(
                 item["raw_hits"], item["question"],
+                source_slug=source_slug,
                 refine_strategy=refine_strategy,
                 refine_window=refine_window,
                 session=session,
@@ -378,6 +382,7 @@ def _stage_refine(
             )
             rewrite_refined = _refine_hits(
                 item["rewrite_hits"], item["question"],
+                source_slug=source_slug,
                 refine_strategy=refine_strategy,
                 refine_window=refine_window,
                 session=session,
@@ -461,6 +466,7 @@ def _stage_score(
     *,
     scoring_llm_url: str,
     scoring_llm_model: str,
+    db_url: str,
     run_dir: Path,
     max_workers: int = 2,
 ) -> dict:
@@ -475,7 +481,6 @@ def _stage_score(
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-    from langchain_community.embeddings import HuggingFaceEmbeddings
     from openai import OpenAI
     from ragas import EvaluationDataset, SingleTurnSample, evaluate
     from ragas.llms import llm_factory
@@ -496,10 +501,25 @@ def _stage_score(
         client.chat.completions.create = _patched_create
 
     llm = llm_factory(scoring_llm_model, client=client, max_tokens=8192)
-    embeddings = HuggingFaceEmbeddings(
-        model_name="NeuML/pubmedbert-base-embeddings",
-        cache_folder=".model_cache",
-    )
+
+    scoring_embed_model = "NeuML/pubmedbert-base-embeddings"
+    from retrieval_hub.model_registry import try_resolve_endpoint
+    embed_endpoint = try_resolve_endpoint(db_url, scoring_embed_model)
+    if embed_endpoint:
+        from langchain_openai import OpenAIEmbeddings
+        embeddings = OpenAIEmbeddings(
+            model=scoring_embed_model,
+            openai_api_base=f"{embed_endpoint}/v1",
+            openai_api_key="not-needed",
+        )
+        logger.info("Ragas embeddings: remote %s at %s", scoring_embed_model, embed_endpoint)
+    else:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+        embeddings = HuggingFaceEmbeddings(
+            model_name=scoring_embed_model,
+            cache_folder=".model_cache",
+        )
+        logger.info("Ragas embeddings: local %s", scoring_embed_model)
     ragas_run_config = RunConfig(max_workers=max_workers, timeout=600)
 
     def _build_samples(condition: str) -> list[SingleTurnSample]:
@@ -624,12 +644,13 @@ async def _run(args: argparse.Namespace) -> int:
     eval_queries = _load_eval_queries(qa_path, target_count=args.query_count)
     logger.info("loaded %d eval queries from %s", len(eval_queries), qa_path)
 
+    source_slug = args.source_slug
     session_factory = make_session_factory(create_db_engine(args.db_url))
 
     with session_factory() as session:
-        source = session.query(Source).filter(Source.slug == SOURCE_SLUG).one_or_none()
+        source = session.query(Source).filter(Source.slug == source_slug).one_or_none()
         if source is None:
-            logger.error("Source %r not found", SOURCE_SLUG)
+            logger.error("Source %r not found", source_slug)
             return 1
         raw_rw = source.rewriter_metadata
         raw_sc = source.semantic_context
@@ -655,7 +676,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     run_config = {
         "fingerprint": fingerprint,
-        "source_slug": SOURCE_SLUG,
+        "source_slug": source_slug,
         "rewriter_llm": args.rewriter_llm_model,
         "answer_llm": args.answer_llm_model,
         "scoring_llm": args.scoring_llm_model,
@@ -685,6 +706,7 @@ async def _run(args: argparse.Namespace) -> int:
             rewriter = RewriterService(rewriter_llm)
             retrieval_data = await _stage_retrieve(
                 eval_queries,
+                source_slug=source_slug,
                 session_factory=session_factory,
                 rewriter=rewriter,
                 metadata=metadata,
@@ -708,6 +730,7 @@ async def _run(args: argparse.Namespace) -> int:
             )
             retrieval_data = _stage_refine(
                 retrieval_data,
+                source_slug=source_slug,
                 refine_strategy=args.refine_strategy,
                 refine_window=args.refine_window,
                 session_factory=session_factory,
@@ -735,6 +758,7 @@ async def _run(args: argparse.Namespace) -> int:
         answer_data,
         scoring_llm_url=args.scoring_llm_url,
         scoring_llm_model=args.scoring_llm_model,
+        db_url=args.db_url,
         run_dir=run_dir,
         max_workers=args.max_workers,
     )
@@ -778,6 +802,8 @@ async def _run(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source-slug", default=DEFAULT_SOURCE_SLUG,
+                        help=f"Source slug to evaluate. Default: {DEFAULT_SOURCE_SLUG}")
     parser.add_argument("--db-url", default=DEFAULT_DB_URL,
                         help=f"Catalog DB URL. Default: {DEFAULT_DB_URL}")
     parser.add_argument("--vectors-db-url", default=DEFAULT_VECTORS_DB_URL,
