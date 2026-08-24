@@ -62,8 +62,6 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     "RetrievalHub",
-    cache_ttl=3600,
-    cache_scope="public",
 )
 
 # ---------------------------------------------------------------------------
