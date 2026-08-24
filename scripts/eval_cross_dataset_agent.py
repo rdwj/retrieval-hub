@@ -38,6 +38,13 @@ DEFAULT_MCP_URL = "http://127.0.0.1:8000/mcp"
 DEFAULT_MODEL = "claude-sonnet-5"
 MAX_TOOL_RESULT_LOG = 500
 
+# Claude 5 family models reject the temperature parameter.
+_NO_TEMPERATURE_PREFIXES = ("claude-sonnet-5", "claude-opus-5")
+
+
+def _supports_temperature(model: str) -> bool:
+    return not model.startswith(_NO_TEMPERATURE_PREFIXES)
+
 # Tool definitions matching the MCP server's signatures.
 TOOLS = [
     {
@@ -220,8 +227,7 @@ async def run_question(
             tools=TOOLS,
             messages=messages,
         )
-        # Claude 5 family models don't support temperature; older models do.
-        if not model.startswith("claude-sonnet-5") and not model.startswith("claude-opus-5"):
+        if _supports_temperature(model):
             create_kwargs["temperature"] = 0.0
         response = await client.messages.create(**create_kwargs)
 
@@ -474,8 +480,35 @@ async def async_main(args: argparse.Namespace) -> int:
             # Anthropic client.
             client = anthropic.AsyncAnthropic()
 
+            # Verify the model is available before running the full eval.
+            logger.info("Probing model availability: %s", args.model)
+            try:
+                probe_kwargs: dict = dict(
+                    model=args.model,
+                    max_tokens=16,
+                    messages=[{"role": "user", "content": "Say ok."}],
+                )
+                if _supports_temperature(args.model):
+                    probe_kwargs["temperature"] = 0.0
+                probe_resp = await client.messages.create(**probe_kwargs)
+                logger.info(
+                    "Model probe succeeded (%d input, %d output tokens)",
+                    probe_resp.usage.input_tokens,
+                    probe_resp.usage.output_tokens,
+                )
+            except anthropic.NotFoundError:
+                logger.error(
+                    "Model %s returned 404 — it may be deprecated. "
+                    "Use a current alias (e.g. claude-sonnet-5).",
+                    args.model,
+                )
+                return 1
+            except anthropic.APIError as exc:
+                logger.error("Model probe failed: %s", exc)
+                return 1
+
             # Write config before running questions.
-            uses_temperature = not (args.model.startswith("claude-sonnet-5") or args.model.startswith("claude-opus-5"))
+            uses_temperature = _supports_temperature(args.model)
             config = {
                 "prompt_file": str(prompt_path),
                 "prompt_version": prompt_version,
