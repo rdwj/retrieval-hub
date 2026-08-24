@@ -6,7 +6,6 @@ from retrieval_hub.audit import write_audit_record
 from retrieval_hub.models.audit import AuditRecord
 from retrieval_hub.models.enums import SourceStatus
 from retrieval_hub.models.identity import Identity
-
 from tests.conftest import make_source
 
 
