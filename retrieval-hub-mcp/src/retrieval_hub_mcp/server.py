@@ -33,10 +33,16 @@ from retrieval_hub.retrieval.api import (
     resolve_chunk_id,
 )
 from retrieval_hub.retrieval.api import (
+    multi_query as retrieval_multi_query,
+)
+from retrieval_hub.retrieval.api import (
     query as retrieval_query,
 )
 from retrieval_hub.retrieval.api import (
     refine as retrieval_refine,
+)
+from retrieval_hub.retrieval.api import (
+    rrf_merge,
 )
 from retrieval_hub.rewriter import LlmClient, RewriterService
 from retrieval_hub.rewriter.schemas import RewriteResult
@@ -50,6 +56,7 @@ from retrieval_hub_mcp.schemas import (
     RewrittenQueryInfo,
     SourceDetail,
     SourceHealth,
+    SourceRetrievalMetadata,
     SourceSummary,
     UsageRules,
 )
@@ -427,6 +434,25 @@ async def describe_source(
         session.close()
 
 
+def _parse_source_slugs(source: str, session: Session) -> list[str]:
+    """Parse the source parameter into a list of slugs.
+
+    Supports:
+    - Single slug: "va-cpg"
+    - Comma-separated: "va-cpg,pubmed-hypertension"
+    - Wildcard: "*" (all queryable sources)
+    """
+    if source.strip() == "*":
+        sources = (
+            session.query(Source)
+            .filter(Source.active_physical_index_id.isnot(None))
+            .all()
+        )
+        return [s.slug for s in sources]
+    slugs = [s.strip() for s in source.split(",") if s.strip()]
+    return slugs
+
+
 @mcp.tool(
     annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
     tags={"retrieval"},
@@ -454,6 +480,13 @@ async def retrieve(
     authored by the data owner.  These ride with every retrieval so the
     consuming agent always sees the obligations that come with this data.
 
+    The ``source`` parameter accepts a single slug, comma-separated slugs
+    (e.g., ``"va-cpg,pubmed-hypertension"``), or ``"*"`` to search all
+    queryable sources.  Multi-source queries merge results using Reciprocal
+    Rank Fusion (RRF) -- scores represent rank-based fusion, not raw cosine
+    similarity.  Per-source metadata (embedding model, usage rules) is in
+    ``per_source_metadata``.
+
     Parameters:
         query: Natural-language search query.
         source: Source slug (from ``list_sources``).
@@ -469,53 +502,98 @@ async def retrieve(
             retrieval quality.
     """
     try:
-        source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
+        slugs = _parse_source_slugs(source, session)
 
+        # file_path only works with single-source
         if file_path is not None:
+            if len(slugs) != 1:
+                raise ToolError(
+                    "file_path requires a single source slug, not multiple sources or '*'."
+                )
+            source_obj = session.query(Source).filter(Source.slug == slugs[0]).one_or_none()
             return await _retrieve_file(
-                source_slug=source,
+                source_slug=slugs[0],
                 source_obj=source_obj,
                 file_path=file_path,
                 ref=ref,
                 session=session,
             )
 
-        rewritten_queries_info = None
-        query_texts = [query]
+        # Single-source: existing code path (unchanged behavior)
+        if len(slugs) == 1:
+            source_obj = session.query(Source).filter(Source.slug == slugs[0]).one_or_none()
 
-        if not no_rewrite and _should_rewrite(source_obj):
-            try:
-                rewrite_result = await _rewrite_query(query, source_obj)
-                rewritten_queries_info = [
-                    RewrittenQueryInfo(
-                        text=q.text,
-                        intent=q.intent,
-                        confidence=q.confidence,
+            rewritten_queries_info = None
+            query_texts = [query]
+
+            if not no_rewrite and _should_rewrite(source_obj):
+                try:
+                    rewrite_result = await _rewrite_query(query, source_obj)
+                    rewritten_queries_info = [
+                        RewrittenQueryInfo(
+                            text=q.text,
+                            intent=q.intent,
+                            confidence=q.confidence,
+                        )
+                        for q in rewrite_result.queries
+                    ]
+                    query_texts.extend(q.text for q in rewrite_result.queries)
+                except Exception:
+                    logger.warning(
+                        "Rewriter failed for source=%s, falling back to raw query",
+                        source,
+                        exc_info=True,
                     )
-                    for q in rewrite_result.queries
-                ]
-                query_texts.extend(q.text for q in rewrite_result.queries)
-            except Exception:
-                logger.warning(
-                    "Rewriter failed for source=%s, falling back to raw query",
-                    source,
-                    exc_info=True,
+
+            all_results = []
+            for qt in query_texts:
+                all_results.extend(
+                    retrieval_query(
+                        source_slug=slugs[0],
+                        query_text=qt,
+                        session=session,
+                        top_k=top_k,
+                    )
                 )
 
-        all_results = []
-        for qt in query_texts:
-            all_results.extend(
-                retrieval_query(
-                    source_slug=source,
-                    query_text=qt,
-                    session=session,
-                    top_k=top_k,
+            deduped = _deduplicate_hits(all_results, top_k)
+
+            request_id = deduped[0].request_id if deduped else ""
+
+            hits = [
+                RetrievalHit(
+                    chunk_id=r.chunk_id,
+                    text=r.text,
+                    score=r.score,
+                    doc_title=r.doc_title,
+                    doc_url=r.doc_url,
+                    doc_section=r.doc_section,
+                    chunk_index=r.chunk_index,
+                    source_slug=getattr(r, "source_slug", None) or None,
                 )
+                for r in deduped
+            ]
+
+            embedding_model = _resolve_embedding_model(source_obj, session)
+
+            return _build_response(
+                hits,
+                source_obj,
+                request_id=request_id,
+                rewritten_queries=rewritten_queries_info,
+                embedding_model=embedding_model,
             )
 
-        deduped = _deduplicate_hits(all_results, top_k)
+        # Multi-source: federated search with RRF
+        per_source = retrieval_multi_query(
+            source_slugs=slugs,
+            query_text=query,
+            session=session,
+            top_k=top_k,
+        )
+        merged = rrf_merge(per_source, top_k=top_k)
 
-        request_id = deduped[0].request_id if deduped else ""
+        request_id = merged[0].request_id if merged else str(uuid.uuid4())
 
         hits = [
             RetrievalHit(
@@ -526,18 +604,29 @@ async def retrieve(
                 doc_url=r.doc_url,
                 doc_section=r.doc_section,
                 chunk_index=r.chunk_index,
+                source_slug=r.source_slug,
             )
-            for r in deduped
+            for r in merged
         ]
 
-        embedding_model = _resolve_embedding_model(source_obj, session)
+        # Build per-source metadata
+        per_source_meta: dict[str, SourceRetrievalMetadata] = {}
+        for slug in slugs:
+            src = session.query(Source).filter(Source.slug == slug).one_or_none()
+            if src is None:
+                continue
+            emb_model = _resolve_embedding_model(src, session)
+            usage_rules, data_freshness = _extract_usage(src)
+            per_source_meta[slug] = SourceRetrievalMetadata(
+                embedding_model=emb_model,
+                usage_rules=usage_rules,
+                data_freshness=data_freshness,
+            )
 
-        return _build_response(
-            hits,
-            source_obj,
+        return RetrievalResponse(
             request_id=request_id,
-            rewritten_queries=rewritten_queries_info,
-            embedding_model=embedding_model,
+            hits=hits,
+            per_source_metadata=per_source_meta if per_source_meta else None,
         )
     except ModelUnavailableError as exc:
         raise ToolError(

@@ -19,9 +19,11 @@ from retrieval_hub_mcp.schemas import (
     RetrievalHit,
     RetrievalResponse,
     SourceDetail,
+    SourceRetrievalMetadata,
     SourceSummary,
 )
 from retrieval_hub_mcp.server import (
+    _parse_source_slugs,
     _resolve_embedding_model,
     _resolve_refine_strategy,
     describe_source,
@@ -1576,3 +1578,370 @@ def test_resolve_embedding_model_no_embedding_in_recipe():
     session.query.side_effect = mock_query
 
     assert _resolve_embedding_model(source, session) is None
+
+
+# ---------------------------------------------------------------------------
+# _parse_source_slugs
+# ---------------------------------------------------------------------------
+
+
+def test_parse_source_slugs_single():
+    """Single slug returns a one-element list without touching the session."""
+    session = MagicMock()
+    assert _parse_source_slugs("va-cpg", session) == ["va-cpg"]
+    session.query.assert_not_called()
+
+
+def test_parse_source_slugs_comma_separated():
+    """Comma-separated slugs are split and stripped."""
+    session = MagicMock()
+    result = _parse_source_slugs("va-cpg, pubmed-hypertension , aircraft", session)
+    assert result == ["va-cpg", "pubmed-hypertension", "aircraft"]
+    session.query.assert_not_called()
+
+
+def test_parse_source_slugs_star():
+    """'*' queries all sources with active physical indexes."""
+    from retrieval_hub.models import Source as SModel
+
+    source_a = _make_source(slug="src-a", active_physical_index_id="pi-a")
+    source_b = _make_source(slug="src-b", active_physical_index_id="pi-b")
+
+    session = MagicMock()
+    q = MagicMock()
+    q.filter.return_value = q
+    q.all.return_value = [source_a, source_b]
+    session.query.return_value = q
+
+    result = _parse_source_slugs("*", session)
+    assert set(result) == {"src-a", "src-b"}
+    session.query.assert_called_once_with(SModel)
+
+
+# ---------------------------------------------------------------------------
+# retrieve — multi-source federated search
+# ---------------------------------------------------------------------------
+
+
+def _make_multi_source_session(sources, *, rv_map=None):
+    """Build a mock session for multi-source retrieve tests.
+
+    Handles the per-slug Source lookups in the per_source_metadata loop
+    and the PhysicalIndex/RecipeVersion lookups from _resolve_embedding_model.
+
+    Parameters:
+        sources: list of source SimpleNamespace objects
+        rv_map: optional dict of slug -> RecipeVersion; if None, uses a
+                default RecipeVersion with model="test-model" for all sources
+    """
+    from retrieval_hub.models import PhysicalIndex as PIModel
+    from retrieval_hub.models import RecipeVersion as RVModel
+    from retrieval_hub.models import Source as SModel
+
+    pi = _make_physical_index()
+    if rv_map is None:
+        rv_default = _make_recipe_version(
+            content={"embedding": {"model": "test-model"}},
+        )
+        rv_map = {s.slug: rv_default for s in sources}
+
+    slug_to_source = {s.slug: s for s in sources}
+    source_iter = iter(sources)
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model is SModel:
+            q = MagicMock()
+
+            def _filter(*args, **kwargs):
+                fq = MagicMock()
+                # Each Source filter().one_or_none() returns next source
+                src = next(source_iter, None)
+                fq.one_or_none.return_value = src
+                # .all() is used by _parse_source_slugs("*")
+                fq.all.return_value = list(sources)
+                return fq
+
+            q.filter = _filter
+            return q
+        if model is PIModel:
+            return _MockQuery(pi)
+        if model is RVModel:
+            # Return the recipe version that matches the current source.
+            # Since _resolve_embedding_model is called once per source in
+            # slug order, we cycle through rv_map values in source order.
+            q = MagicMock()
+
+            def _rv_filter(*args, **kwargs):
+                fq = MagicMock()
+                # Pop the first remaining rv
+                slug = next(iter(rv_map))
+                fq.one_or_none.return_value = rv_map.pop(slug, None)
+                return fq
+
+            q.filter = _rv_filter
+            return q
+        return _MockQuery(None)
+
+    session.query.side_effect = mock_query
+    return session
+
+
+@pytest.mark.asyncio
+async def test_retrieve_multi_source_comma_separated():
+    """Comma-separated source slugs trigger federated search with RRF merge."""
+    hit_a = SimpleNamespace(
+        chunk_id="a1", text="Source A hit", score=1 / 61,
+        doc_title="Doc A", doc_url="https://a.com",
+        doc_section="Sec 1", chunk_index=0, source_slug="src-a",
+        request_id="req-1",
+    )
+    hit_b = SimpleNamespace(
+        chunk_id="b1", text="Source B hit", score=1 / 61,
+        doc_title="Doc B", doc_url="https://b.com",
+        doc_section="Sec 2", chunk_index=0, source_slug="src-b",
+        request_id="req-1",
+    )
+
+    source_a = _make_source(slug="src-a", name="Source A")
+    source_b = _make_source(slug="src-b", name="Source B")
+    session = _make_multi_source_session([source_a, source_b])
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_multi_query",
+        return_value={"src-a": [hit_a], "src-b": [hit_b]},
+    ), patch(
+        "retrieval_hub_mcp.server.rrf_merge",
+        return_value=[hit_a, hit_b],
+    ):
+        resp = await retrieve(
+            query="test query",
+            source="src-a,src-b",
+            top_k=5,
+            session=session,
+        )
+
+    assert isinstance(resp, RetrievalResponse)
+    assert len(resp.hits) == 2
+    assert resp.hits[0].source_slug == "src-a"
+    assert resp.hits[1].source_slug == "src-b"
+    # Multi-source: top-level fields are null, metadata in per_source_metadata
+    assert resp.embedding_model is None
+    assert resp.usage_rules is None
+    assert resp.per_source_metadata is not None
+    assert "src-a" in resp.per_source_metadata
+    assert "src-b" in resp.per_source_metadata
+
+
+@pytest.mark.asyncio
+async def test_retrieve_star_queries_all():
+    """'*' source resolves to all queryable sources via _parse_source_slugs."""
+    source_a = _make_source(slug="src-a", active_physical_index_id="pi-a")
+    source_b = _make_source(slug="src-b", active_physical_index_id="pi-b")
+
+    hit = SimpleNamespace(
+        chunk_id="c1", text="hit", score=1 / 61,
+        doc_title="Doc", doc_url="https://x.com",
+        doc_section=None, chunk_index=0, source_slug="src-a",
+        request_id="req-1",
+    )
+
+    # For "*", _parse_source_slugs queries Source with active_physical_index filter.
+    # Then the per_source_metadata loop queries Source again for each slug.
+    # Total Source queries: 1 (parse) + 2 (metadata loop) = 3 filter() calls.
+    all_sources = [source_a, source_b]
+    source_iter = iter([source_a, source_b])  # for metadata loop
+
+    from retrieval_hub.models import PhysicalIndex as PIModel
+    from retrieval_hub.models import RecipeVersion as RVModel
+    from retrieval_hub.models import Source as SModel
+
+    pi = _make_physical_index()
+    rv = _make_recipe_version(content={"embedding": {"model": "test-model"}})
+
+    session = MagicMock()
+    filter_call_count = [0]
+
+    def mock_query(model):
+        if model is SModel:
+            q = MagicMock()
+
+            def _filter(*args, **kwargs):
+                filter_call_count[0] += 1
+                fq = MagicMock()
+                if filter_call_count[0] == 1:
+                    # First filter call: _parse_source_slugs("*")
+                    fq.all.return_value = all_sources
+                else:
+                    # Subsequent calls: per_source_metadata loop
+                    fq.one_or_none.return_value = next(source_iter, None)
+                return fq
+
+            q.filter = _filter
+            return q
+        if model is PIModel:
+            return _MockQuery(pi)
+        if model is RVModel:
+            return _MockQuery(rv)
+        return _MockQuery(None)
+
+    session.query.side_effect = mock_query
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_multi_query",
+        return_value={"src-a": [hit], "src-b": []},
+    ) as mock_mq, patch(
+        "retrieval_hub_mcp.server.rrf_merge",
+        return_value=[hit],
+    ):
+        resp = await retrieve(
+            query="test",
+            source="*",
+            top_k=5,
+            session=session,
+        )
+
+    # multi_query should have been called with both slugs
+    mock_mq.assert_called_once()
+    called_slugs = mock_mq.call_args[1]["source_slugs"]
+    assert set(called_slugs) == {"src-a", "src-b"}
+    assert isinstance(resp, RetrievalResponse)
+    assert resp.per_source_metadata is not None
+
+
+@pytest.mark.asyncio
+async def test_retrieve_single_source_still_works():
+    """A single source slug (no commas) uses the existing single-source path."""
+    mock_results = [_make_retrieval_result()]
+    source = _make_source()
+    session = _make_retrieve_session(source)
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_query",
+        return_value=mock_results,
+    ) as mock_q:
+        resp = await retrieve(
+            query="test query",
+            source="test-source",
+            top_k=5,
+            session=session,
+        )
+
+    # Single source uses retrieval_query, not retrieval_multi_query
+    mock_q.assert_called_once()
+    assert isinstance(resp, RetrievalResponse)
+    assert len(resp.hits) == 1
+    assert resp.embedding_model == "test-embed-model"
+    # per_source_metadata is None for single source
+    assert resp.per_source_metadata is None
+
+
+@pytest.mark.asyncio
+async def test_retrieve_multi_source_per_source_metadata():
+    """Multi-source response carries per-source usage_rules and embedding_model."""
+    source_a = _make_source(
+        slug="src-a",
+        name="Source A",
+        usage_rules={
+            "citation": "Cite source A",
+            "data_freshness": {
+                "source_name": "Source A",
+                "last_refreshed": "2026-01-01",
+            },
+        },
+    )
+    source_b = _make_source(
+        slug="src-b",
+        name="Source B",
+        usage_rules={"citation": "Cite source B"},
+    )
+
+    rv_a = _make_recipe_version(content={"embedding": {"model": "model-a"}})
+    rv_b = _make_recipe_version(content={"embedding": {"model": "model-b"}})
+
+    session = _make_multi_source_session(
+        [source_a, source_b],
+        rv_map={"src-a": rv_a, "src-b": rv_b},
+    )
+
+    hit = SimpleNamespace(
+        chunk_id="c1", text="hit", score=1 / 61,
+        doc_title="Doc", doc_url="https://x.com",
+        doc_section=None, chunk_index=0, source_slug="src-a",
+        request_id="req-1",
+    )
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_multi_query",
+        return_value={"src-a": [hit], "src-b": []},
+    ), patch(
+        "retrieval_hub_mcp.server.rrf_merge",
+        return_value=[hit],
+    ):
+        resp = await retrieve(
+            query="test",
+            source="src-a,src-b",
+            top_k=5,
+            session=session,
+        )
+
+    assert resp.per_source_metadata is not None
+    meta_a = resp.per_source_metadata.get("src-a")
+    assert meta_a is not None
+    assert isinstance(meta_a, SourceRetrievalMetadata)
+    assert meta_a.embedding_model == "model-a"
+    assert meta_a.usage_rules is not None
+    assert meta_a.usage_rules.citation == "Cite source A"
+    assert meta_a.data_freshness is not None
+    assert meta_a.data_freshness.last_refreshed == "2026-01-01"
+
+    meta_b = resp.per_source_metadata.get("src-b")
+    assert meta_b is not None
+    assert meta_b.embedding_model == "model-b"
+    assert meta_b.usage_rules is not None
+    assert meta_b.usage_rules.citation == "Cite source B"
+    # Source B has no data_freshness
+    assert meta_b.data_freshness is None
+
+
+@pytest.mark.asyncio
+async def test_retrieve_file_path_rejects_multi_source():
+    """file_path with comma-separated sources raises ToolError."""
+    session = MagicMock()
+    # _parse_source_slugs for "src-a,src-b" does not query the session,
+    # but file_path guard checks len(slugs) before touching session further.
+
+    with pytest.raises(ToolError, match="file_path requires a single source"):
+        await retrieve(
+            query="unused",
+            source="src-a,src-b",
+            file_path="some/file.py",
+            session=session,
+        )
+
+
+@pytest.mark.asyncio
+async def test_retrieve_multi_source_empty_merge():
+    """Multi-source with no results from any source returns empty hits."""
+    source_a = _make_source(slug="src-a")
+    source_b = _make_source(slug="src-b")
+    session = _make_multi_source_session([source_a, source_b])
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_multi_query",
+        return_value={"src-a": [], "src-b": []},
+    ), patch(
+        "retrieval_hub_mcp.server.rrf_merge",
+        return_value=[],
+    ):
+        resp = await retrieve(
+            query="obscure query",
+            source="src-a,src-b",
+            top_k=5,
+            session=session,
+        )
+
+    assert isinstance(resp, RetrievalResponse)
+    assert len(resp.hits) == 0
+    assert resp.request_id  # should still have a UUID

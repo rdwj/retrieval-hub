@@ -55,6 +55,7 @@ class RetrievalHit(BaseModel):
     doc_url: str
     doc_section: str | None = None
     chunk_index: int | None = None
+    source_slug: str | None = None
 
 
 class UsageRules(BaseModel):
@@ -78,6 +79,14 @@ class DataFreshness(BaseModel):
     last_refreshed: str | None = None
     refresh_cadence: str | None = None
     staleness_note: str | None = None
+
+
+class SourceRetrievalMetadata(BaseModel):
+    """Per-source metadata for multi-source retrieve responses."""
+
+    embedding_model: str | None = None
+    usage_rules: UsageRules | None = None
+    data_freshness: DataFreshness | None = None
 
 
 class RewrittenQueryInfo(BaseModel):
@@ -137,6 +146,11 @@ class RetrievalResponse(BaseModel):
     ``embedding_model`` identifies which model produced the similarity
     scores.  Scores reflect the combination of embedding model, corpus,
     and query, so they are not comparable across separate retrieve calls.
+
+    For multi-source queries (comma-separated slugs or ``"*"``), top-level
+    ``embedding_model``, ``usage_rules``, and ``data_freshness`` are null.
+    Per-source metadata is in ``per_source_metadata``, keyed by source slug.
+    Each hit carries ``source_slug`` indicating its origin.
     """
 
     request_id: str
@@ -144,4 +158,5 @@ class RetrievalResponse(BaseModel):
     embedding_model: str | None = None
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None
+    per_source_metadata: dict[str, SourceRetrievalMetadata] | None = None
     rewritten_queries: list[RewrittenQueryInfo] | None = None

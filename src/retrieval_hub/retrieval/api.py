@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,7 @@ class RetrievalResult:
     physical_index_id: str
     recipe_version: int
     request_id: str
+    source_slug: str = ""
 
 
 @dataclass(frozen=True)
@@ -199,11 +200,12 @@ def query(
         effective_request_id,
     )
 
-    return adapter.retrieve(
+    results = adapter.retrieve(
         query_text,
         top_k=top_k,
         request_id=effective_request_id,
     )
+    return [replace(r, source_slug=source_slug) for r in results]
 
 
 def refine(
@@ -326,3 +328,56 @@ def resolve_chunk_id(
         )
 
     return row["doc_title"] or "", row["chunk_index"]
+
+
+def rrf_merge(
+    per_source_results: dict[str, list[RetrievalResult]],
+    *,
+    k: int = 60,
+    top_k: int = 10,
+) -> list[RetrievalResult]:
+    """Merge ranked lists from multiple sources using Reciprocal Rank Fusion.
+
+    Each source's results are ranked by their original score (highest first).
+    The RRF score for each hit is 1/(k + rank), where rank is 1-based.
+    Hits are keyed by (source_slug, chunk_id) -- no cross-source dedup.
+    """
+    merged: list[RetrievalResult] = []
+    for source_slug, results in per_source_results.items():
+        for rank, result in enumerate(results, start=1):
+            rrf_score = 1.0 / (k + rank)
+            merged.append(replace(result, score=rrf_score, source_slug=source_slug))
+    merged.sort(key=lambda r: r.score, reverse=True)
+    return merged[:top_k]
+
+
+def multi_query(
+    source_slugs: list[str],
+    query_text: str,
+    *,
+    session: Session,
+    top_k: int = 10,
+    vectors_db_url: str | None = None,
+    request_id: str | None = None,
+) -> dict[str, list[RetrievalResult]]:
+    """Query multiple sources and return per-source results.
+
+    Calls ``query()`` for each source slug. Sources that fail with
+    ``SourceNotQueryableError`` are logged and skipped (the source may
+    have been deactivated between listing and querying).
+    """
+    effective_request_id = request_id or str(uuid.uuid4())
+    results: dict[str, list[RetrievalResult]] = {}
+    for slug in source_slugs:
+        try:
+            results[slug] = query(
+                slug,
+                query_text,
+                session=session,
+                top_k=top_k,
+                vectors_db_url=vectors_db_url,
+                request_id=effective_request_id,
+            )
+        except SourceNotQueryableError:
+            logger.warning("multi_query: skipping unqueryable source %s", slug)
+    return results
