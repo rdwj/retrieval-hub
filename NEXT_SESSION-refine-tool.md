@@ -1,12 +1,24 @@
 # Next Session — refine-tool
 
-## Next: #34 — Federated multi-source retrieve
+## Next: Epic complete
 
-Build federated search: a single retrieve call that searches across
-multiple sources, normalizes scores across different embedding models,
-and returns a merged ranked list. The 4 existing sources use 3 different
-embedding models (Nomic, PubMedBERT, Snowflake Arctic), which makes
-this a good testbed for cross-model score normalization.
+All tool ergonomics items (#32–#35) and refine phases (1–5) are closed.
+See session summaries for details on each phase.
+
+## What landed this session (2026-08-26, eleventh session)
+
+Federated multi-source retrieve (#34). See below.
+
+- `9952f7e` — `rrf_merge()` and `multi_query()` in core retrieval API.
+  `source` parameter accepts comma-separated slugs or `"*"` for all
+  queryable sources. Results merged using Reciprocal Rank Fusion (RRF),
+  which is model-agnostic — uses rank position, not raw cosine scores.
+  Per-source metadata (embedding model, usage rules, data freshness)
+  returned in `per_source_metadata` dict.
+- Deployed to `gpt-oss-120b` cluster (build #10). Verified end-to-end
+  via mcp-test-mcp: multi-source query across va-cpg + pubmed returns
+  interleaved results with correct RRF scores and per-source metadata.
+- 397 tests (345 core + 52 MCP), all green.
 
 1. **Core retrieval API (`src/retrieval_hub/retrieval/api.py`)**
    Add a `multi_query()` function (or extend `query()`) that accepts
@@ -119,18 +131,17 @@ halved, answer_relevancy and faithfulness slightly worse). Section
 eval skipped. The refine tool is valuable for human exploration,
 not automated RAG augmentation.
 
-### #34 Multi-source retrieve
+### ~~#34 Multi-source retrieve~~ — Done
 
-Search across sources in one call. Sequenced after the aircraft
-maintenance ingestion (data-products epic Phase 4) — urgency increases
-with source count. Could be pulled forward with the existing 4 sources
-if Phase 5 remains blocked.
+Implemented with RRF score normalization (`9952f7e`). Deployed to
+`gpt-oss-120b` (build #10). The source parameter accepts comma-separated
+slugs or `"*"`, fully backward compatible.
 
 ## Tool ergonomics backlog (from exercise-tools pass)
 
 - ~~#32 Score calibration~~ — Closed (`c3eb259`).
 - ~~#33 Stable chunk identifiers~~ — Closed (`62f46e4`).
-- **#34** Multi-source retrieve — after aircraft data ingestion.
+- ~~#34 Multi-source retrieve~~ — Closed (`9952f7e`).
 - ~~#35 describe_source recipe_content~~ — Closed (`2026fe0`).
 
 ## Watch out for
