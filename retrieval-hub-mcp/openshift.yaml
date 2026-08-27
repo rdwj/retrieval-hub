@@ -68,6 +68,12 @@ spec:
             secretKeyRef:
               name: retrieval-hub-pg
               key: RETRIEVAL_HUB_VECTORS_DB_URL
+        - name: RETRIEVAL_HUB_AUTH_JWKS_URI
+          value: "http://retrieval-hub-auth:8080/.well-known/jwks.json"
+        - name: RETRIEVAL_HUB_AUTH_ISSUER
+          value: "retrieval-hub-auth"
+        - name: RETRIEVAL_HUB_AUTH_AUDIENCE
+          value: "retrieval-hub"
         resources:
           requests:
             memory: 512Mi

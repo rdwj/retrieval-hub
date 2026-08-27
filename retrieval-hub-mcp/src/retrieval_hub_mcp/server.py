@@ -1,11 +1,12 @@
 """RetrievalHub MCP server — catalog browsing and retrieval over MCP.
 
-Exposes four read-only tools:
+Exposes five read-only tools:
 
-* ``list_sources``   — browse the catalog of queryable sources
+* ``list_sources``    — browse the catalog of queryable sources
 * ``describe_source`` — full metadata for one source (prompts, counts)
-* ``retrieve``       — semantic search against a source's physical index
-* ``refine``         — expand context around a previously retrieved chunk
+* ``retrieve``        — semantic search against a source's physical index
+* ``refine``          — expand context around a previously retrieved chunk
+* ``request_access``  — guidance for requesting access to a restricted source
 """
 
 from __future__ import annotations
@@ -26,11 +27,14 @@ from retrieval_hub.db.engine import create_db_engine, make_session_factory
 from retrieval_hub.model_registry import ModelUnavailableError
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, SamplePrompt, Source
 from retrieval_hub.models.enums import SourceStatus
+from retrieval_hub.models.identity import Identity
+from retrieval_hub.policy.access import can_access
 from retrieval_hub.retrieval.api import (
     SourceNotFoundError,
     SourceNotQueryableError,
     UnsupportedFamilyError,
     resolve_chunk_id,
+    rrf_merge,
 )
 from retrieval_hub.retrieval.api import (
     multi_query as retrieval_multi_query,
@@ -41,12 +45,10 @@ from retrieval_hub.retrieval.api import (
 from retrieval_hub.retrieval.api import (
     refine as retrieval_refine,
 )
-from retrieval_hub.retrieval.api import (
-    rrf_merge,
-)
 from retrieval_hub.rewriter import LlmClient, RewriterService
 from retrieval_hub.rewriter.schemas import RewriteResult
 from retrieval_hub.schemas.rewriter import RewriterMetadata
+from retrieval_hub_mcp.auth import get_current_identity
 from retrieval_hub_mcp.schemas import (
     DataFreshness,
     RefineHit,
@@ -64,11 +66,26 @@ from retrieval_hub_mcp.schemas import (
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# FastMCP application
+# FastMCP application (with optional JWT auth)
 # ---------------------------------------------------------------------------
+
+_auth_jwks_uri = os.environ.get("RETRIEVAL_HUB_AUTH_JWKS_URI")
+_auth_issuer = os.environ.get("RETRIEVAL_HUB_AUTH_ISSUER", "retrieval-hub-auth")
+_auth_audience = os.environ.get("RETRIEVAL_HUB_AUTH_AUDIENCE", "retrieval-hub")
+
+_auth_provider = None
+if _auth_jwks_uri:
+    from fastmcp.server.auth.providers.jwt import JWTVerifier
+
+    _auth_provider = JWTVerifier(
+        jwks_uri=_auth_jwks_uri,
+        issuer=_auth_issuer,
+        audience=_auth_audience,
+    )
 
 mcp = FastMCP(
     "RetrievalHub",
+    auth=_auth_provider,
 )
 
 # ---------------------------------------------------------------------------
@@ -300,6 +317,35 @@ def _deduplicate_hits(
 
 
 # ---------------------------------------------------------------------------
+# Access control helpers
+# ---------------------------------------------------------------------------
+
+
+def _check_source_access(
+    identity: Identity | None,
+    source: Source | None,
+    action: str,
+) -> None:
+    """Raise ``ToolError`` if the identity cannot perform ``action`` on ``source``.
+
+    Round 1: access decisions are based on identity kind, groups, and source
+    visibility only. Scope-based enforcement (e.g., requiring ``sources.query``
+    to call retrieve) is deferred to a future iteration.
+
+    When auth is disabled (identity is None) or the source is None (will be
+    handled by downstream not-found logic), all access is allowed.
+    """
+    if identity is None or source is None:
+        return
+    if not can_access(identity, source, action):
+        raise ToolError(
+            f"Access denied: you do not have permission to {action} source "
+            f"{source.slug!r}. Use the request_access tool for guidance on "
+            f"how to obtain access."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 
@@ -318,6 +364,7 @@ async def list_sources(
     source family, lifecycle status, and document count.
     """
     try:
+        identity = get_current_identity()
         sources = (
             session.query(Source)
             .filter(Source.status.in_([SourceStatus.CURATED, SourceStatus.PUBLISHED]))
@@ -326,6 +373,9 @@ async def list_sources(
 
         results: list[SourceSummary] = []
         for s in sources:
+            if identity is not None and not can_access(identity, s, "list"):
+                continue
+
             doc_count = None
             if s.active_physical_index_id:
                 pi = (
@@ -365,11 +415,13 @@ async def describe_source(
     counts, and ownership information.  Use the slug from ``list_sources``.
     """
     try:
+        identity = get_current_identity()
         source = session.query(Source).filter(Source.slug == slug).one_or_none()
         if source is None:
             raise ToolError(
                 f"No source with slug {slug!r}. Use list_sources to see available sources."
             )
+        _check_source_access(identity, source, "read")
 
         doc_count = None
         chunk_count = None
@@ -434,13 +486,17 @@ async def describe_source(
         session.close()
 
 
-def _parse_source_slugs(source: str, session: Session) -> list[str]:
+def _parse_source_slugs(
+    source: str,
+    session: Session,
+    identity: Identity | None = None,
+) -> list[str]:
     """Parse the source parameter into a list of slugs.
 
     Supports:
     - Single slug: "va-cpg"
     - Comma-separated: "va-cpg,pubmed-hypertension"
-    - Wildcard: "*" (all queryable sources)
+    - Wildcard: "*" (all queryable sources the caller can access)
     """
     if source.strip() == "*":
         sources = (
@@ -448,6 +504,8 @@ def _parse_source_slugs(source: str, session: Session) -> list[str]:
             .filter(Source.active_physical_index_id.isnot(None))
             .all()
         )
+        if identity is not None:
+            sources = [s for s in sources if can_access(identity, s, "query")]
         return [s.slug for s in sources]
     slugs = [s.strip() for s in source.split(",") if s.strip()]
     return slugs
@@ -502,7 +560,8 @@ async def retrieve(
             retrieval quality.
     """
     try:
-        slugs = _parse_source_slugs(source, session)
+        identity = get_current_identity()
+        slugs = _parse_source_slugs(source, session, identity)
 
         # file_path only works with single-source
         if file_path is not None:
@@ -511,6 +570,7 @@ async def retrieve(
                     "file_path requires a single source slug, not multiple sources or '*'."
                 )
             source_obj = session.query(Source).filter(Source.slug == slugs[0]).one_or_none()
+            _check_source_access(identity, source_obj, "query")
             return await _retrieve_file(
                 source_slug=slugs[0],
                 source_obj=source_obj,
@@ -522,6 +582,7 @@ async def retrieve(
         # Single-source: existing code path (unchanged behavior)
         if len(slugs) == 1:
             source_obj = session.query(Source).filter(Source.slug == slugs[0]).one_or_none()
+            _check_source_access(identity, source_obj, "query")
 
             rewritten_queries_info = None
             query_texts = [query]
@@ -584,7 +645,13 @@ async def retrieve(
                 embedding_model=embedding_model,
             )
 
-        # Multi-source: federated search with RRF
+        # Multi-source: check access on each explicit slug
+        if identity is not None:
+            for slug_item in slugs:
+                src = session.query(Source).filter(Source.slug == slug_item).one_or_none()
+                if src is not None:
+                    _check_source_access(identity, src, "query")
+
         per_source = retrieval_multi_query(
             source_slugs=slugs,
             query_text=query,
@@ -903,6 +970,8 @@ async def refine(
             metadata — you can pass empty/zero values for those fields.
     """
     try:
+        identity = get_current_identity()
+
         if chunk_id is not None:
             try:
                 doc_title, chunk_index = resolve_chunk_id(
@@ -915,6 +984,7 @@ async def refine(
                 ) from exc
 
         source_obj = session.query(Source).filter(Source.slug == source).one_or_none()
+        _check_source_access(identity, source_obj, "query")
 
         effective_strategy, effective_max_tokens, effective_window, effective_min_score = _resolve_refine_strategy(
             source_obj, strategy, max_context_tokens, window,
@@ -996,5 +1066,64 @@ async def refine(
         raise ToolError(
             f"Source {source!r} uses a family that is not yet supported for refinement."
         ) from exc
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# request_access
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
+    tags={"catalog"},
+)
+async def request_access(
+    slug: str,
+    session: Session = Depends(get_catalog_session),
+) -> dict:
+    """Explain how to request access to a restricted source.
+
+    Returns structured guidance including the source's visibility policy,
+    required groups, owner team, and contact information. For public
+    sources, confirms that no special access is needed.
+    """
+    try:
+        source = session.query(Source).filter(Source.slug == slug).one_or_none()
+        if source is None:
+            raise ToolError(
+                f"No source with slug {slug!r}. Use list_sources to see available sources."
+            )
+
+        access = source.access or {}
+        visibility = access.get("visibility", "public")
+        allowed_groups = access.get("allowed_groups", [])
+        owner_team = source.owner_team
+        contacts: list[str] = []
+        if hasattr(source, "owner_info") and source.owner_info:
+            contacts = source.owner_info.get("contacts", [])
+
+        if visibility == "public":
+            return {
+                "source": slug,
+                "visibility": "public",
+                "message": (
+                    "This source is publicly accessible to all authenticated users. "
+                    "No special access request is needed."
+                ),
+            }
+
+        return {
+            "source": slug,
+            "visibility": visibility,
+            "required_groups": allowed_groups,
+            "owner_team": owner_team,
+            "contacts": contacts,
+            "guidance": (
+                "This source has restricted access. Contact the owner team "
+                "to request membership in one of the required groups."
+            ),
+        }
     finally:
         session.close()

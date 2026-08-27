@@ -1,0 +1,108 @@
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: retrieval-hub-auth
+  labels:
+    app: retrieval-hub-auth
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: retrieval-hub-auth:latest
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  resources:
+    limits:
+      memory: 2Gi
+      cpu: "1"
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: retrieval-hub-auth
+  labels:
+    app: retrieval-hub-auth
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retrieval-hub-auth
+  labels:
+    app: retrieval-hub-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retrieval-hub-auth
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub-auth
+    spec:
+      containers:
+      - name: retrieval-hub-auth
+        image: retrieval-hub-auth:latest
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        env:
+        - name: RETRIEVAL_HUB_AUTH_DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-auth
+              key: DB_URL
+        - name: RETRIEVAL_HUB_AUTH_ISSUER
+          value: "retrieval-hub-auth"
+        - name: RETRIEVAL_HUB_AUTH_AUDIENCE
+          value: "retrieval-hub"
+        - name: RETRIEVAL_HUB_AUTH_SIGNING_KEY_PATH
+          value: "/etc/retrieval-hub-auth/keys/signing.pem"
+        - name: RETRIEVAL_HUB_AUTH_GENERATE_EPHEMERAL_KEYS_IF_MISSING
+          value: "false"
+        volumeMounts:
+        - name: signing-key
+          mountPath: /etc/retrieval-hub-auth/keys
+          readOnly: true
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 100m
+          limits:
+            memory: 256Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: signing-key
+        secret:
+          secretName: retrieval-hub-auth-signing-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retrieval-hub-auth
+  labels:
+    app: retrieval-hub-auth
+spec:
+  selector:
+    app: retrieval-hub-auth
+  ports:
+  - port: 8080
+    targetPort: 8000
+    protocol: TCP
