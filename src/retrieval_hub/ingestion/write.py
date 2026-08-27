@@ -144,3 +144,14 @@ def count_rows(vectors_db_url: str, table: str) -> int:
             cur.execute(f"SELECT COUNT(*) FROM {table}")
             result = cur.fetchone()
     return int(result[0]) if result else 0
+
+
+def drop_table(vectors_db_url: str, table: str) -> None:
+    """Drop a pgvector index table if it exists."""
+    import psycopg
+
+    with psycopg.connect(_psycopg_url(vectors_db_url)) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+        conn.commit()
+    logger.info("write.drop_table table=%s", table)

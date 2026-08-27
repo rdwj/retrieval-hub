@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-"""Generate Q/A pairs from VA CPG source documents using gpt-oss-120b.
+"""Generate Q/A pairs from source documents using an OpenAI-compatible LLM.
 
-Reads clinician-summary.md files from the VA CPG corpus and generates
-evaluation questions with ground-truth answers, targeting under-represented
-CPGs and categories.
+Discovers .md, .txt, and .html files in a corpus directory and generates
+evaluation questions with ground-truth answers. Supports any retrieval-hub
+source via --source-slug and --family flags.
 
 Usage:
-    python scripts/generate_qa_pairs.py
-    python scripts/generate_qa_pairs.py --dry-run
-    python scripts/generate_qa_pairs.py --output eval/autorag/qa_generated.json
+    python scripts/generate_qa_pairs.py --source-slug va-cpg --data-dir ~/corpus/va-cpg
+    python scripts/generate_qa_pairs.py --source-slug my-source --family document --num-pairs 30
+    python scripts/generate_qa_pairs.py --source-slug va-cpg --dry-run
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import re
 import sys
 import time
@@ -33,7 +34,7 @@ DEFAULT_LLM_URL = (
     ".apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/v1"
 )
 DEFAULT_LLM_MODEL = "/mnt/models"
-DEFAULT_OUTPUT = Path("eval/autorag/qa_generated.json")
+DEFAULT_OUTPUT_TEMPLATE = "eval/{source_slug}/qa_generated.json"
 DEFAULT_EXISTING = Path("eval/autorag/qa_dataset_draft.json")
 
 GENERATION_TARGETS = [
@@ -62,19 +63,7 @@ GENERATION_TARGETS = [
     ("opioids", "pain", "pain/opioids/clinician-summary.md", 3),
 ]
 
-SYSTEM_PROMPT = """\
-You are a clinical evaluation dataset creator. Given a VA/DoD Clinical Practice \
-Guideline (CPG) summary, generate evaluation questions with ground-truth answers.
-
-Requirements:
-- Each question must be answerable from the provided text
-- Answers must quote or closely paraphrase specific text from the source
-- Include the source section name (heading) where the answer is found
-- Generate a mix of query types: factoid, treatment, procedure, differential, eligibility
-- For "lay" register: use patient-friendly language, avoid medical jargon, \
-phrase as a patient might ask their doctor
-- For "clinical" register: use clinical terminology as a provider would
-
+_JSON_FORMAT_INSTRUCTIONS = """
 Return a JSON object with a single key "questions" containing an array of objects. \
 Each object must have exactly these fields:
 - "question": the question text (string)
@@ -85,12 +74,77 @@ Each object must have exactly these fields:
 
 Return ONLY the JSON object, no other text."""
 
+_REGISTER_INSTRUCTIONS = """\
+- For "lay" register: use plain language, avoid jargon, phrase as a non-expert \
+might ask
+- For "clinical" register: use domain terminology as a practitioner would"""
 
-def _make_user_prompt(source_text: str, num_questions: int, slug: str) -> str:
+SYSTEM_PROMPTS: dict[str, str] = {
+    "clinical_document": (
+        "You are a clinical domain expert. Generate question/answer pairs from "
+        "the following clinical documentation for {source_name}.\n\n"
+        "Requirements:\n"
+        "- Each question must be answerable from the provided text\n"
+        "- Answers must quote or closely paraphrase specific text from the source\n"
+        "- Include the source section name (heading) where the answer is found\n"
+        "- Generate a mix of query types: factoid, treatment, procedure, "
+        "differential, eligibility\n"
+        f"{_REGISTER_INSTRUCTIONS}\n"
+        f"{_JSON_FORMAT_INSTRUCTIONS}"
+    ),
+    "document": (
+        "You are a knowledge base expert. Generate question/answer pairs from "
+        "the following documentation for {source_name}.\n\n"
+        "Requirements:\n"
+        "- Each question must be answerable from the provided text\n"
+        "- Answers must quote or closely paraphrase specific text from the source\n"
+        "- Include the source section name (heading) where the answer is found\n"
+        "- Generate a mix of query types: factoid, treatment, procedure, "
+        "differential, eligibility\n"
+        f"{_REGISTER_INSTRUCTIONS}\n"
+        f"{_JSON_FORMAT_INSTRUCTIONS}"
+    ),
+    "technical_document": (
+        "You are a technical documentation expert. Generate question/answer "
+        "pairs from the following technical documentation for {source_name}.\n\n"
+        "Requirements:\n"
+        "- Each question must be answerable from the provided text\n"
+        "- Answers must quote or closely paraphrase specific text from the source\n"
+        "- Include the source section name (heading) where the answer is found\n"
+        "- Generate a mix of query types: factoid, treatment, procedure, "
+        "differential, eligibility\n"
+        f"{_REGISTER_INSTRUCTIONS}\n"
+        f"{_JSON_FORMAT_INSTRUCTIONS}"
+    ),
+    "code": (
+        "You are a software engineering expert. Generate question/answer pairs "
+        "about the following code from {source_name}.\n\n"
+        "Requirements:\n"
+        "- Each question must be answerable from the provided text\n"
+        "- Answers must quote or closely paraphrase specific text from the source\n"
+        "- Include the source section name (heading or file section) where the "
+        "answer is found\n"
+        "- Generate a mix of query types: factoid, treatment, procedure, "
+        "differential, eligibility\n"
+        f"{_REGISTER_INSTRUCTIONS}\n"
+        f"{_JSON_FORMAT_INSTRUCTIONS}"
+    ),
+}
+
+VALID_FAMILIES = tuple(SYSTEM_PROMPTS.keys())
+
+
+def _make_user_prompt(
+    source_text: str,
+    num_questions: int,
+    slug: str,
+    source_name: str,
+    category: str,
+) -> str:
     n_clinical = num_questions // 2
     n_lay = num_questions - n_clinical
     return (
-        f"Below is the clinician summary for the VA/DoD CPG on {slug}.\n\n"
+        f"Below is documentation from {source_name} on {category}/{slug}.\n\n"
         f"Generate exactly {num_questions} evaluation questions: "
         f"{n_clinical} in clinical register and {n_lay} in lay register.\n\n"
         f"Distribute across query types (factoid, treatment, procedure, "
@@ -126,17 +180,23 @@ def _generate_for_cpg(
     source_text: str,
     slug: str,
     num_questions: int,
+    *,
+    system_prompt: str,
+    source_name: str,
+    category: str,
     max_retries: int = 3,
 ) -> list[dict]:
-    """Generate Q/A pairs for a single CPG. Returns parsed question dicts."""
-    user_prompt = _make_user_prompt(source_text, num_questions, slug)
+    """Generate Q/A pairs for a single document. Returns parsed question dicts."""
+    user_prompt = _make_user_prompt(
+        source_text, num_questions, slug, source_name, category,
+    )
 
     for attempt in range(max_retries):
         try:
             stream = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.7,
@@ -195,47 +255,76 @@ def _generate_for_cpg(
     return []
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--corpus-dir", type=Path, default=DEFAULT_CORPUS_DIR,
-        help=f"VA CPG extracted corpus directory. Default: {DEFAULT_CORPUS_DIR}",
-    )
-    parser.add_argument(
-        "--llm-url", default=DEFAULT_LLM_URL,
-        help="LLM endpoint base URL (OpenAI-compatible /v1).",
-    )
-    parser.add_argument(
-        "--llm-model", default=DEFAULT_LLM_MODEL,
-        help=f"LLM model name. Default: {DEFAULT_LLM_MODEL}",
-    )
-    parser.add_argument(
-        "--output", type=Path, default=DEFAULT_OUTPUT,
-        help=f"Output JSON path. Default: {DEFAULT_OUTPUT}",
-    )
-    parser.add_argument(
-        "--existing-dataset", type=Path, default=DEFAULT_EXISTING,
-        help=f"Existing QA dataset to check for ID continuity. Default: {DEFAULT_EXISTING}",
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Show generation plan without making LLM calls.",
-    )
-    parser.add_argument(
-        "--log-level", default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-    )
-    args = parser.parse_args()
+def _discover_documents(data_dir: Path) -> list[tuple[str, str, str]]:
+    """Walk *data_dir* for .md, .txt, .html files.
 
-    logging.basicConfig(
-        level=args.log_level,
-        format="%(asctime)s %(levelname)-5s %(name)s: %(message)s",
-    )
+    Returns a sorted list of ``(slug, category, relative_path)`` tuples.
+    *slug* is the file stem; *category* is the first path component (or
+    ``"general"`` for files directly in *data_dir*).
+    """
+    extensions = {".md", ".txt", ".html"}
+    targets: list[tuple[str, str, str]] = []
+    for path in sorted(data_dir.rglob("*")):
+        if path.is_file() and path.suffix in extensions:
+            rel = path.relative_to(data_dir)
+            parts = rel.parts
+            slug = path.stem
+            category = parts[0] if len(parts) > 1 else "general"
+            targets.append((slug, category, str(rel)))
+    return targets
+
+
+def _build_generation_targets(
+    data_dir: Path,
+    source_slug: str,
+    num_pairs: int,
+) -> list[tuple[str, str, str, int]]:
+    """Build generation targets from directory discovery or backward-compat fallback.
+
+    For the original VA CPG source with its default corpus directory, the
+    hardcoded ``GENERATION_TARGETS`` list is returned so that existing
+    workflows produce identical output.
+    """
+    va_slugs = {"va-cpg", "va-cpg-clinical-guidelines"}
+    if source_slug in va_slugs and data_dir == DEFAULT_CORPUS_DIR:
+        return list(GENERATION_TARGETS)
+
+    docs = _discover_documents(data_dir)
+    if not docs:
+        logger.warning("no documents found in %s", data_dir)
+        return []
+
+    per_doc = max(1, math.ceil(num_pairs / len(docs)))
+    return [(slug, cat, rel, per_doc) for slug, cat, rel in docs]
+
+
+def generate_pairs(
+    data_dir: Path,
+    source_slug: str,
+    source_name: str,
+    family: str,
+    num_pairs: int,
+    llm_url: str,
+    llm_model: str,
+    output_path: Path,
+    existing_dataset_path: Path | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """Generate QA pairs from documents in *data_dir*.
+
+    Returns the output dataset dict (also written to *output_path*).
+    """
+    targets = _build_generation_targets(data_dir, source_slug, num_pairs)
+    if not targets:
+        logger.error("no generation targets for source %s", source_slug)
+        return {"metadata": {}, "questions": []}
 
     # Determine starting ID from existing dataset
-    start_id = 51
-    if args.existing_dataset.exists():
-        existing = json.loads(args.existing_dataset.read_text(encoding="utf-8"))
+    start_id = 1
+    if existing_dataset_path and existing_dataset_path.exists():
+        existing = json.loads(
+            existing_dataset_path.read_text(encoding="utf-8"),
+        )
         max_id = max(
             int(q["id"].lstrip("q")) for q in existing["questions"]
         )
@@ -245,36 +334,40 @@ def main() -> int:
             len(existing["questions"]), max_id, start_id,
         )
 
-    # Compute plan
-    total_planned = sum(t[3] for t in GENERATION_TARGETS)
+    total_planned = sum(t[3] for t in targets)
     logger.info(
-        "generation plan: %d CPGs, %d total questions",
-        len(GENERATION_TARGETS), total_planned,
+        "generation plan: %d documents, %d total questions",
+        len(targets), total_planned,
     )
 
-    if args.dry_run:
+    if dry_run:
         print(f"\nDry run — would generate {total_planned} questions:\n")
-        for slug, category, path, n in GENERATION_TARGETS:
-            src = args.corpus_dir / path
+        for slug, category, path, n in targets:
+            src = data_dir / path
             exists = src.exists()
-            print(f"  {slug:<25} {category:<18} n={n}  source={'OK' if exists else 'MISSING'}")
+            print(
+                f"  {slug:<25} {category:<18} n={n}  "
+                f"source={'OK' if exists else 'MISSING'}"
+            )
         print()
-        return 0
+        return {"metadata": {}, "questions": []}
+
+    system_prompt = SYSTEM_PROMPTS[family].format(source_name=source_name)
 
     client = OpenAI(
         api_key="local",
-        base_url=args.llm_url,
+        base_url=llm_url,
         http_client=httpx.Client(timeout=httpx.Timeout(300.0, connect=30.0)),
     )
     all_questions: list[dict] = []
     current_id = start_id
-    stats = {"generated": 0, "validated": 0, "skipped": 0, "failed_cpgs": 0}
+    stats = {"generated": 0, "validated": 0, "skipped": 0, "failed_docs": 0}
 
-    for slug, category, rel_path, num in GENERATION_TARGETS:
-        src_path = args.corpus_dir / rel_path
+    for slug, category, rel_path, num in targets:
+        src_path = data_dir / rel_path
         if not src_path.exists():
             logger.error("source file missing: %s", src_path)
-            stats["failed_cpgs"] += 1
+            stats["failed_docs"] += 1
             continue
 
         source_text = src_path.read_text(encoding="utf-8")
@@ -291,11 +384,14 @@ def main() -> int:
         )
 
         raw_questions = _generate_for_cpg(
-            client, args.llm_model, source_text, slug, num,
+            client, llm_model, source_text, slug, num,
+            system_prompt=system_prompt,
+            source_name=source_name,
+            category=category,
         )
 
         if not raw_questions:
-            stats["failed_cpgs"] += 1
+            stats["failed_docs"] += 1
             continue
 
         stats["generated"] += len(raw_questions)
@@ -322,27 +418,33 @@ def main() -> int:
                     slug, q["question"],
                 )
 
-    # Write output
+    # Build output
     output_data = {
         "metadata": {
             "version": "generated-v1",
             "created": datetime.now(UTC).strftime("%Y-%m-%d"),
             "question_count": len(all_questions),
-            "description": "LLM-generated Q/A pairs for eval expansion",
-            "generator": "gpt-oss-120b",
-            "categories_covered": sorted(set(q["category"] for q in all_questions)),
-            "cpgs_covered": len(set(q["cpg_slug"] for q in all_questions)),
+            "source_slug": source_slug,
+            "family": family,
+            "description": f"LLM-generated Q/A pairs for {source_name}",
+            "categories_covered": sorted(
+                set(q["category"] for q in all_questions),
+            ),
+            "docs_covered": len(set(q["cpg_slug"] for q in all_questions)),
         },
         "questions": all_questions,
     }
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(output_data, indent=2) + "\n", encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(output_data, indent=2) + "\n", encoding="utf-8",
+    )
 
     logger.info(
-        "done: %d generated, %d validated, %d skipped, %d failed CPGs => %d written to %s",
+        "done: %d generated, %d validated, %d skipped, %d failed docs "
+        "=> %d written to %s",
         stats["generated"], stats["validated"], stats["skipped"],
-        stats["failed_cpgs"], len(all_questions), args.output,
+        stats["failed_docs"], len(all_questions), output_path,
     )
 
     # Print distribution summary
@@ -353,6 +455,82 @@ def main() -> int:
     print(f"  By category: {dict(sorted(cats.items()))}")
     print(f"  By register: {dict(sorted(regs.items()))}")
 
+    return output_data
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--source-slug", required=True,
+        help="Source slug being onboarded (e.g. 'va-cpg', 'my-docs').",
+    )
+    parser.add_argument(
+        "--source-name", default=None,
+        help="Human-readable source name for prompts. "
+        "Defaults to title-cased slug.",
+    )
+    parser.add_argument(
+        "--family", default="document", choices=VALID_FAMILIES,
+        help="Document family (controls system prompt). Default: document.",
+    )
+    parser.add_argument(
+        "--num-pairs", type=int, default=20,
+        help="Total number of QA pairs to generate. Default: 20.",
+    )
+    parser.add_argument(
+        "--corpus-dir", "--data-dir", type=Path, default=DEFAULT_CORPUS_DIR,
+        dest="data_dir",
+        help=f"Source corpus directory. Default: {DEFAULT_CORPUS_DIR}",
+    )
+    parser.add_argument(
+        "--llm-url", default=DEFAULT_LLM_URL,
+        help="LLM endpoint base URL (OpenAI-compatible /v1).",
+    )
+    parser.add_argument(
+        "--llm-model", default=DEFAULT_LLM_MODEL,
+        help=f"LLM model name. Default: {DEFAULT_LLM_MODEL}",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=None,
+        help="Output JSON path. Default: eval/<source-slug>/qa_generated.json",
+    )
+    parser.add_argument(
+        "--existing-dataset", type=Path, default=DEFAULT_EXISTING,
+        help=f"Existing QA dataset for ID continuity. Default: {DEFAULT_EXISTING}",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Show generation plan without making LLM calls.",
+    )
+    parser.add_argument(
+        "--log-level", default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=args.log_level,
+        format="%(asctime)s %(levelname)-5s %(name)s: %(message)s",
+    )
+
+    source_name = args.source_name or args.source_slug.replace("-", " ").title()
+
+    output_path = args.output or Path(
+        DEFAULT_OUTPUT_TEMPLATE.format(source_slug=args.source_slug),
+    )
+
+    generate_pairs(
+        data_dir=args.data_dir,
+        source_slug=args.source_slug,
+        source_name=source_name,
+        family=args.family,
+        num_pairs=args.num_pairs,
+        llm_url=args.llm_url,
+        llm_model=args.llm_model,
+        output_path=output_path,
+        existing_dataset_path=args.existing_dataset,
+        dry_run=args.dry_run,
+    )
     return 0
 
 

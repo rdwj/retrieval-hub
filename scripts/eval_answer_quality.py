@@ -1,4 +1,4 @@
-"""End-to-end answer-quality eval for the VA CPG source.
+"""End-to-end answer-quality eval for any RetrievalHub source.
 
 Three-stage pipeline with per-stage caching:
   1. Retrieve — raw + rewritten retrieval (cached if config unchanged)
@@ -7,17 +7,25 @@ Three-stage pipeline with per-stage caching:
 
 Usage:
 
-    # Full run (all three stages)
-    python scripts/eval_answer_quality.py
+    # Full run (all three stages) — source-slug and qa-dataset are required
+    python scripts/eval_answer_quality.py \\
+        --source-slug my-source \\
+        --qa-dataset path/to/qa_dataset.json
 
-    # Re-score only (skip retrieve + generate if cached)
-    python scripts/eval_answer_quality.py
+    # VA CPG with backward-compatible defaults for keywords and system prompt
+    python scripts/eval_answer_quality.py \\
+        --source-slug va-cpg-clinical-guidelines \\
+        --qa-dataset eval/autorag/qa_dataset_draft.json
+
+    # Custom keywords file and system prompt
+    python scripts/eval_answer_quality.py \\
+        --source-slug my-source \\
+        --qa-dataset data/qa.json \\
+        --keywords-file data/keywords.json \\
+        --system-prompt "You are a helpful assistant. Answer using the context."
 
     # Force re-run all stages
-    python scripts/eval_answer_quality.py --force
-
-    # Use a specific run directory
-    python scripts/eval_answer_quality.py --run-dir eval/rewrite_lift/runs/my-run
+    python scripts/eval_answer_quality.py --source-slug my-source --qa-dataset qa.json --force
 """
 
 from __future__ import annotations
@@ -44,8 +52,6 @@ from retrieval_hub.schemas.semantic import SemanticContext
 
 logger = logging.getLogger("eval_answer_quality")
 
-DEFAULT_SOURCE_SLUG = "va-cpg-clinical-guidelines"
-QA_DATASET_PATH = Path("eval/autorag/qa_dataset_draft.json")
 DEFAULT_RUN_DIR = Path("eval/rewrite_lift/runs")
 
 DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
@@ -99,12 +105,19 @@ SLUG_TO_KEYWORDS: dict[str, list[str]] = {
     "upper-limb-amputation": ["upper limb amputation"],
 }
 
-ANSWER_SYSTEM_PROMPT = (
+_VA_CPG_SYSTEM_PROMPT = (
     "You are a clinical reference assistant with access to VA/DoD Clinical "
     "Practice Guidelines. Answer the user's question using ONLY the provided "
     "context. If the context does not contain enough information to answer "
     "fully, say so. Cite the guideline name when possible. Be concise."
 )
+
+_GENERIC_SYSTEM_PROMPT_TEMPLATE = (
+    "You are a reference assistant with access to the {source_name} knowledge "
+    "base. Answer questions based on the retrieved context."
+)
+
+_VA_CPG_SLUG = "va-cpg-clinical-guidelines"
 
 
 def _bootstrap_ci(
@@ -143,10 +156,21 @@ def _load_eval_queries(qa_path: Path, target_count: int = 0) -> list[dict]:
     return selected
 
 
-def _chunk_matches_source(doc_title: str, cpg_slug: str) -> bool:
-    keywords = SLUG_TO_KEYWORDS.get(cpg_slug)
+def _chunk_matches_source(
+    doc_title: str,
+    cpg_slug: str,
+    keywords_map: dict[str, list[str]] | None = None,
+) -> bool:
+    """Check whether a chunk's doc_title matches a source-specific keyword list.
+
+    When *keywords_map* is None, validation is skipped and the function
+    always returns True (any chunk is considered a match).
+    """
+    if keywords_map is None:
+        return True
+    keywords = keywords_map.get(cpg_slug)
     if not keywords:
-        return False
+        return True
     title_lower = doc_title.lower()
     return any(kw in title_lower for kw in keywords)
 
@@ -203,6 +227,7 @@ async def _stage_retrieve(
     semantic_context: SemanticContext | None,
     vectors_db_url: str,
     checkpoint_path: Path | None = None,
+    keywords_map: dict[str, list[str]] | None = None,
 ) -> list[dict]:
     results = []
     done_ids: set[str] = set()
@@ -265,10 +290,12 @@ async def _stage_retrieve(
         deduped = _deduplicate_results(all_rewrite_hits)[:TOP_K]
 
         raw_hit = any(
-            _chunk_matches_source(h.doc_title, q["cpg_slug"]) for h in raw_hits
+            _chunk_matches_source(h.doc_title, q["cpg_slug"], keywords_map)
+            for h in raw_hits
         )
         rewrite_hit = any(
-            _chunk_matches_source(h.doc_title, q["cpg_slug"]) for h in deduped
+            _chunk_matches_source(h.doc_title, q["cpg_slug"], keywords_map)
+            for h in deduped
         )
 
         results.append({
@@ -405,6 +432,7 @@ async def _stage_generate(
     retrieval_data: list[dict],
     *,
     answer_llm: LlmClient,
+    system_prompt: str,
 ) -> list[dict]:
     results = []
     for i, item in enumerate(retrieval_data):
@@ -414,7 +442,7 @@ async def _stage_generate(
         raw_context = "\n\n".join(h["text"] for h in item[raw_hits_key])
         raw_answer = await answer_llm.chat(
             [
-                {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": (
                     f"Context:\n{raw_context}\n\n"
                     f"Question: {item['question']}"
@@ -428,7 +456,7 @@ async def _stage_generate(
         rewrite_context = "\n\n".join(h["text"] for h in item[rewrite_hits_key])
         rewrite_answer = await answer_llm.chat(
             [
-                {"role": "system", "content": ANSWER_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": (
                     f"Context:\n{rewrite_context}\n\n"
                     f"Question: {item['question']}"
@@ -469,12 +497,15 @@ def _stage_score(
     db_url: str,
     run_dir: Path,
     max_workers: int = 2,
+    score_batch_size: int = 10,
 ) -> dict:
-    """Score with Ragas, checkpointing each condition to disk.
+    """Score with Ragas, checkpointing per-batch to JSONL for resumability.
 
-    Scores the raw and rewrite conditions independently.  Each condition's
-    results are saved to ``{run_dir}/scores_{condition}.json`` as soon as
-    they complete, so a killed run preserves the finished condition.
+    Scores in batches of ``score_batch_size`` queries.  After each batch,
+    per-query results are appended to ``scores_{condition}.jsonl``.  On
+    resume, completed query IDs are loaded from the JSONL and skipped.
+    Once all queries are scored, the legacy ``scores_{condition}.json``
+    is written for backward compatibility.
     """
     _stub_vertexai()
 
@@ -522,62 +553,116 @@ def _stage_score(
         logger.info("Ragas embeddings: local %s", scoring_embed_model)
     ragas_run_config = RunConfig(max_workers=max_workers, timeout=600)
 
-    def _build_samples(condition: str) -> list[SingleTurnSample]:
+    def _build_sample(item: dict, condition: str) -> SingleTurnSample:
         refined_key = f"{condition}_refined_hits"
-        hits_key = refined_key if refined_key in answer_data[0] else f"{condition}_hits"
+        hits_key = refined_key if refined_key in item else f"{condition}_hits"
         answer_key = f"{condition}_answer"
-        return [
-            SingleTurnSample(
-                user_input=item["question"],
-                retrieved_contexts=[h["text"] for h in item[hits_key]],
-                response=item[answer_key],
-                reference=item["reference_answer"],
-            )
-            for item in answer_data
-        ]
+        return SingleTurnSample(
+            user_input=item["question"],
+            retrieved_contexts=[h["text"] for h in item[hits_key]],
+            response=item[answer_key],
+            reference=item["reference_answer"],
+        )
+
+    def _load_jsonl_checkpoint(path: Path) -> list[dict]:
+        if not path.exists():
+            return []
+        rows = []
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+        return rows
+
+    def _append_jsonl(path: Path, rows: list[dict]) -> None:
+        with open(path, "a") as f:
+            for row in rows:
+                f.write(json.dumps(row) + "\n")
 
     metrics = [ContextPrecision(), AnswerRelevancy(), Faithfulness()]
+    metric_names = [m.name for m in metrics]
     results = {}
 
     for condition in ("raw", "rewrite"):
-        checkpoint_path = run_dir / f"scores_{condition}.json"
+        final_path = run_dir / f"scores_{condition}.json"
+        jsonl_path = run_dir / f"scores_{condition}.jsonl"
 
-        if checkpoint_path.exists():
+        if final_path.exists():
             logger.info(
-                "scoring %s condition: using checkpoint %s",
-                condition, checkpoint_path,
+                "scoring %s condition: using completed checkpoint %s",
+                condition, final_path,
             )
-            results[condition] = json.loads(checkpoint_path.read_text())
+            results[condition] = json.loads(final_path.read_text())
             continue
 
-        logger.info("scoring %s condition (%d workers)...", condition, max_workers)
-        samples = _build_samples(condition)
-        dataset = EvaluationDataset(samples=samples)
-        ragas_result = evaluate(
-            dataset=dataset, metrics=metrics,
-            llm=llm, embeddings=embeddings,
-            run_config=ragas_run_config,
-        )
-        df = ragas_result.to_pandas()
+        completed = _load_jsonl_checkpoint(jsonl_path)
+        done_ids = {r["query_id"] for r in completed}
+        if done_ids:
+            logger.info(
+                "scoring %s condition: resuming from checkpoint (%d/%d done)",
+                condition, len(done_ids), len(answer_data),
+            )
 
-        metric_names = [m.name for m in metrics]
-        per_query = []
-        for idx, item in enumerate(answer_data):
-            row = {
-                "query_id": item["query_id"],
-                "language_register": item["language_register"],
-                "cpg_slug": item["cpg_slug"],
-            }
+        remaining = [
+            (i, item) for i, item in enumerate(answer_data)
+            if item["query_id"] not in done_ids
+        ]
+
+        if remaining:
+            logger.info(
+                "scoring %s condition: %d remaining (%d workers, batch_size=%d)...",
+                condition, len(remaining), max_workers, score_batch_size,
+            )
+
+        for batch_start in range(0, len(remaining), score_batch_size):
+            batch = remaining[batch_start:batch_start + score_batch_size]
+            batch_indices, batch_items = zip(*batch)
+
+            samples = [_build_sample(item, condition) for item in batch_items]
+            dataset = EvaluationDataset(samples=samples)
+            ragas_result = evaluate(
+                dataset=dataset, metrics=metrics,
+                llm=llm, embeddings=embeddings,
+                run_config=ragas_run_config,
+            )
+            df = ragas_result.to_pandas()
+
+            batch_rows = []
+            for j, item in enumerate(batch_items):
+                row = {
+                    "query_id": item["query_id"],
+                    "language_register": item["language_register"],
+                    "cpg_slug": item["cpg_slug"],
+                }
+                for mn in metric_names:
+                    row[mn] = float(df.iloc[j][mn])
+                batch_rows.append(row)
+
+            _append_jsonl(jsonl_path, batch_rows)
+            completed.extend(batch_rows)
+            logger.info(
+                "scoring %s: batch checkpoint saved (%d/%d scored)",
+                condition, len(done_ids) + len(completed), len(answer_data),
+            )
+
+        all_per_query = completed
+        id_to_row = {r["query_id"]: r for r in all_per_query}
+        per_query_ordered = [id_to_row[item["query_id"]] for item in answer_data if item["query_id"] in id_to_row]
+
+        valid_scores = {mn: [] for mn in metric_names}
+        for r in per_query_ordered:
             for mn in metric_names:
-                row[mn] = float(df.iloc[idx][mn])
-            per_query.append(row)
+                v = r.get(mn)
+                if v is not None and v == v:
+                    valid_scores[mn].append(v)
+        agg = {
+            mn: sum(vs) / len(vs) if vs else float("nan")
+            for mn, vs in valid_scores.items()
+        }
 
-        agg = {mn: float(df[mn].mean()) for mn in metric_names}
-        condition_result = {"aggregate": agg, "per_query": per_query}
-
-        checkpoint_path.write_text(json.dumps(condition_result, indent=2) + "\n")
-        logger.info("scoring %s condition complete, checkpoint saved", condition)
-
+        condition_result = {"aggregate": agg, "per_query": per_query_ordered}
+        final_path.write_text(json.dumps(condition_result, indent=2) + "\n")
+        logger.info("scoring %s condition complete, final checkpoint saved", condition)
         results[condition] = condition_result
 
     return results
@@ -645,6 +730,26 @@ async def _run(args: argparse.Namespace) -> int:
     logger.info("loaded %d eval queries from %s", len(eval_queries), qa_path)
 
     source_slug = args.source_slug
+
+    # Resolve keywords map
+    keywords_map: dict[str, list[str]] | None = None
+    if args.keywords_file:
+        keywords_map = json.loads(Path(args.keywords_file).read_text(encoding="utf-8"))
+        logger.info("loaded keywords from %s (%d slugs)", args.keywords_file, len(keywords_map))
+    elif source_slug == _VA_CPG_SLUG:
+        keywords_map = SLUG_TO_KEYWORDS
+        logger.info("using built-in VA CPG keywords map")
+
+    # Resolve system prompt
+    source_name = args.source_name or source_slug.replace("-", " ").title()
+    if args.system_prompt:
+        system_prompt = args.system_prompt
+    elif source_slug == _VA_CPG_SLUG:
+        system_prompt = _VA_CPG_SYSTEM_PROMPT
+    else:
+        system_prompt = _GENERIC_SYSTEM_PROMPT_TEMPLATE.format(source_name=source_name)
+    logger.info("system prompt: %.80s...", system_prompt)
+
     session_factory = make_session_factory(create_db_engine(args.db_url))
 
     with session_factory() as session:
@@ -713,6 +818,7 @@ async def _run(args: argparse.Namespace) -> int:
                 semantic_context=semantic,
                 vectors_db_url=args.vectors_db_url,
                 checkpoint_path=retrieval_path,
+                keywords_map=keywords_map,
             )
         retrieval_path.write_text(json.dumps(retrieval_data, indent=2) + "\n")
         logger.info("stage 1 complete, wrote %s", retrieval_path)
@@ -748,7 +854,9 @@ async def _run(args: argparse.Namespace) -> int:
         async with LlmClient(
             base_url=args.answer_llm_url, model=args.answer_llm_model,
         ) as answer_llm:
-            answer_data = await _stage_generate(retrieval_data, answer_llm=answer_llm)
+            answer_data = await _stage_generate(
+                retrieval_data, answer_llm=answer_llm, system_prompt=system_prompt,
+            )
         answers_path.write_text(json.dumps(answer_data, indent=2) + "\n")
         logger.info("stage 2 complete, wrote %s", answers_path)
 
@@ -761,6 +869,7 @@ async def _run(args: argparse.Namespace) -> int:
         db_url=args.db_url,
         run_dir=run_dir,
         max_workers=args.max_workers,
+        score_batch_size=args.score_batch_size,
     )
     scores_path.write_text(json.dumps(scores, indent=2) + "\n")
     logger.info("stage 3 complete, wrote %s", scores_path)
@@ -800,10 +909,69 @@ async def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+def build_eval_args(
+    source_slug: str,
+    qa_dataset: str,
+    *,
+    db_url: str = DEFAULT_DB_URL,
+    vectors_db_url: str = DEFAULT_VECTORS_DB_URL,
+    rewriter_llm_url: str = DEFAULT_REWRITER_LLM_URL,
+    rewriter_llm_model: str = DEFAULT_REWRITER_LLM_MODEL,
+    answer_llm_url: str = DEFAULT_ANSWER_LLM_URL,
+    answer_llm_model: str = DEFAULT_ANSWER_LLM_MODEL,
+    scoring_llm_url: str = DEFAULT_SCORING_LLM_URL,
+    scoring_llm_model: str = DEFAULT_SCORING_LLM_MODEL,
+    refine_strategy: str | None = None,
+    refine_window: int = 2,
+    keywords_file: str | None = None,
+    system_prompt: str | None = None,
+    source_name: str | None = None,
+    query_count: int = 0,
+    run_dir: str | None = None,
+    max_workers: int = 2,
+    score_batch_size: int = 10,
+    force: bool = False,
+    log_level: str = "INFO",
+) -> argparse.Namespace:
+    """Build an argparse.Namespace for programmatic invocation of ``_run()``.
+
+    This lets callers (e.g. ``onboard_source.py``) drive the eval pipeline
+    without shelling out or duplicating arg construction::
+
+        args = build_eval_args("my-source", "path/to/qa.json", db_url=db_url)
+        result = asyncio.run(_run(args))
+    """
+    return argparse.Namespace(
+        source_slug=source_slug,
+        qa_dataset=qa_dataset,
+        db_url=db_url,
+        vectors_db_url=vectors_db_url,
+        rewriter_llm_url=rewriter_llm_url,
+        rewriter_llm_model=rewriter_llm_model,
+        answer_llm_url=answer_llm_url,
+        answer_llm_model=answer_llm_model,
+        scoring_llm_url=scoring_llm_url,
+        scoring_llm_model=scoring_llm_model,
+        refine_strategy=refine_strategy,
+        refine_window=refine_window,
+        keywords_file=keywords_file,
+        system_prompt=system_prompt,
+        source_name=source_name,
+        query_count=query_count,
+        run_dir=run_dir,
+        max_workers=max_workers,
+        score_batch_size=score_batch_size,
+        force=force,
+        log_level=log_level,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-slug", default=DEFAULT_SOURCE_SLUG,
-                        help=f"Source slug to evaluate. Default: {DEFAULT_SOURCE_SLUG}")
+    parser.add_argument("--source-slug", required=True,
+                        help="Source slug to evaluate (required).")
+    parser.add_argument("--qa-dataset", required=True,
+                        help="Path to QA dataset JSON (required).")
     parser.add_argument("--db-url", default=DEFAULT_DB_URL,
                         help=f"Catalog DB URL. Default: {DEFAULT_DB_URL}")
     parser.add_argument("--vectors-db-url", default=DEFAULT_VECTORS_DB_URL,
@@ -826,14 +994,25 @@ def main() -> int:
                         "When set, inserts a refine stage. Default: disabled.")
     parser.add_argument("--refine-window", type=int, default=2,
                         help="Window size for the adjacent refine strategy. Default: 2")
-    parser.add_argument("--qa-dataset", default=str(QA_DATASET_PATH),
-                        help=f"Path to QA dataset JSON. Default: {QA_DATASET_PATH}")
+    parser.add_argument("--keywords-file", default=None,
+                        help="Path to a JSON file mapping CPG slugs to keyword lists "
+                        "for chunk-source validation. Format: {\"slug\": [\"kw1\", ...]}. "
+                        "When absent, falls back to built-in VA CPG keywords if the source "
+                        "slug is va-cpg-clinical-guidelines, otherwise skips keyword validation.")
+    parser.add_argument("--system-prompt", default=None,
+                        help="Custom system prompt for answer generation. When absent, "
+                        "uses a VA CPG-specific prompt for that source or a generic default.")
+    parser.add_argument("--source-name", default=None,
+                        help="Human-readable source name for the generic system prompt. "
+                        "Default: title-cased version of --source-slug.")
     parser.add_argument("--query-count", type=int, default=0,
                         help="Number of queries to sample (0 = use all). Default: 0")
     parser.add_argument("--run-dir", default=None,
                         help="Explicit run directory. Default: auto-generated from config hash.")
     parser.add_argument("--max-workers", type=int, default=2,
                         help="Parallel workers for Ragas scoring. Default: 2")
+    parser.add_argument("--score-batch-size", type=int, default=10,
+                        help="Queries per Ragas scoring batch. Checkpoints after each batch. Default: 10")
     parser.add_argument("--force", action="store_true",
                         help="Force re-run all stages (ignore cache).")
     parser.add_argument("--log-level", default="INFO",
