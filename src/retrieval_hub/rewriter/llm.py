@@ -81,12 +81,14 @@ class LlmClient:
 
         try:
             data = resp.json()
-            content: str = data["choices"][0]["message"]["content"]
+            content: str | None = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, ValueError) as exc:
             raise LlmError(
                 f"Unexpected LLM response structure: {resp.text[:500]}"
             ) from exc
 
+        if content is None:
+            content = ""
         logger.debug("llm.chat response_length=%d", len(content))
         return content
 
