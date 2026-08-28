@@ -15,11 +15,12 @@ infrastructure into an onboarding workflow.
   service OpenShift manifests. #30 closed. See `session-summaries/
   2026-08-27-self-serve-onboarding-auth-and-pipeline.md`.
 
-- **Phase 2 (Onboarding pipeline): Code complete, not yet proven.**
-  `pipeline.py` generic ingestion, generalized `generate_qa_pairs.py` and
-  `eval_answer_quality.py`, `onboard_source.py` orchestrator. Dry-run
-  verified. Needs an end-to-end proving run against real databases with
-  real embedding/LLM calls.
+- **Phase 2 (Onboarding pipeline): Mostly proven.** Fixed 6 bugs
+  blocking end-to-end execution. Ingestion (3 configs), QA generation
+  (156 questions), and retrieval all working against cluster databases.
+  Eval paused at answer generation (30/156) due to LLM contention.
+  Retrieval and ingestion results cached; eval can be resumed.
+  See `session-summaries/2026-08-27-self-serve-onboarding-proving-run.md`.
 
 ## Remaining epic phases
 
@@ -80,23 +81,27 @@ with eval baseline. Onboarding pipeline successfully onboards at least one.
 
 ## Next session
 
-**Focus: Phase 2 proving run + Phase 3b (process family).**
-
-Phase 3b is the best candidate for the proving run because the raw data
-already exists (`retrieval-hub-data-sources/aircraft-maintenance/`), the
-document family is already supported by the pipeline, and it exercises the
-onboarding workflow end-to-end. If the pipeline works for aircraft SBs as
-flat documents first, re-modeling as structured procedures is a follow-on.
+**Focus: Complete Phase 2 proving run + deploy fixes + start Phase 3b.**
 
 **Planned work:**
-1. Run `onboard_source.py --slug aircraft-sb-test --data-dir
-   ~/Developer/retrieval-hub-data-sources/aircraft-maintenance/ --family
-   technical_document` end-to-end. Fix any issues.
-2. Verify the registered source is queryable via the MCP server.
-3. Start the ProcessAdapter for re-modeling aircraft SBs as structured
-   procedures (the "process" family).
+1. Resume eval answer generation for `aircraft-sb-test` (retrieval.json
+   cached; just needs LLM time for answers + Ragas scoring). Run all 3
+   configs to get summary.json files. Set model registry endpoint to
+   `http://127.0.0.1:8180` and port-forward the nomic embedding service.
+2. Run winner selection and promotion (the final pipeline steps).
+3. Deploy MCP server with the bug fixes: technical_document adapter,
+   unhealthy-model fallback, LLM None content handling.
+4. Verify `aircraft-sb-test` is queryable via the deployed MCP server.
+5. Fix QA generation overshoot: `_build_generation_targets()` generates
+   1 question per document regardless of `--num-qa-pairs`. Should
+   distribute the requested count across a subset of documents.
+6. Start Phase 3b: ProcessAdapter for structured procedure navigation.
 
-**Stretch:** Begin Phase 3a (tabular) design decisions.
+**Infrastructure notes for resuming eval:**
+- Port-forward DB: `scripts/port_forward_cluster_pg.sh` (5434→catalog, 5433→vectors)
+- Port-forward embedding: `oc port-forward --context=gpt-oss-120b -n retrieval-hub svc/retrieval-hub-embedding-nomic 8180:8080`
+- Set model registry: `UPDATE model_endpoint SET endpoint_url='http://127.0.0.1:8180', status='healthy' WHERE model_name='nomic-ai/nomic-embed-text-v1.5'`
+- Run eval: use the inline Python script pattern from the proving run session, with `logging.basicConfig()` configured
 
 ## Open issues this epic addresses
 
