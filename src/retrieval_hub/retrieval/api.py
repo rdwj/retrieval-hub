@@ -21,7 +21,12 @@ from sqlalchemy.orm import Session
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.adapters.document import DocumentAdapter
-from retrieval_hub.model_registry import ModelNotFoundError, resolve_model
+from retrieval_hub.model_registry import (
+    ModelEndpoint,
+    ModelNotFoundError,
+    ModelUnavailableError,
+    resolve_model,
+)
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 from retrieval_hub.models.enums import SourceFamily
 
@@ -86,6 +91,19 @@ def _resolve_embedding_endpoint(
         return None
     try:
         return resolve_model(session, model_name)
+    except ModelUnavailableError:
+        from sqlalchemy import select
+
+        ep = session.execute(
+            select(ModelEndpoint).where(ModelEndpoint.model_name == model_name)
+        ).scalar_one_or_none()
+        if ep and ep.endpoint_url:
+            logger.warning(
+                "Model %r is marked unhealthy; using endpoint anyway",
+                model_name,
+            )
+            return ep.endpoint_url
+        return None
     except ModelNotFoundError:
         recipe_endpoint = embedding.get("endpoint")
         if recipe_endpoint:
@@ -108,6 +126,7 @@ def _build_adapter(
     if source.family in (
         SourceFamily.DOCUMENT,
         SourceFamily.CLINICAL_DOCUMENT,
+        SourceFamily.TECHNICAL_DOCUMENT,
         SourceFamily.CODE,
     ):
         return DocumentAdapter(
@@ -119,7 +138,7 @@ def _build_adapter(
         )
     raise UnsupportedFamilyError(
         f"No adapter implementation for family {source.family!r} yet. "
-        f"Supported families: document, clinical_document, code."
+        f"Supported families: document, clinical_document, technical_document, code."
     )
 
 

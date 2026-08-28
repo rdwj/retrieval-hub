@@ -101,16 +101,33 @@ def _load_documents(data_dir: Path) -> list[FetchedDocument]:
     return docs
 
 
+def _is_bioc_format(data: Any) -> bool:
+    """Check if parsed JSON matches BioC collection structure."""
+    if isinstance(data, dict) and "documents" in data:
+        return True
+    if isinstance(data, list) and data and isinstance(data[0], dict) and "documents" in data[0]:
+        return True
+    return False
+
+
 def _load_bioc_documents(data_dir: Path) -> list[tuple[Any, str]]:
     """Load BioC JSON files from data_dir.
 
-    Returns list of (parsed_json, filename) tuples.
+    Returns list of (parsed_json, filename) tuples.  Only includes files
+    that match the BioC collection format (dict or list with a
+    ``"documents"`` key).
     """
     results = []
     for json_path in sorted(data_dir.rglob("*.json")):
         if json_path.stem.lower() in _SKIP_STEMS:
             continue
         data = json.loads(json_path.read_text(encoding="utf-8"))
+        if not _is_bioc_format(data):
+            logger.debug(
+                "pipeline._load_bioc_documents skip_non_bioc file=%s",
+                json_path.name,
+            )
+            continue
         results.append((data, json_path.stem))
     logger.info("pipeline._load_bioc_documents dir=%s count=%d", data_dir, len(results))
     return results
