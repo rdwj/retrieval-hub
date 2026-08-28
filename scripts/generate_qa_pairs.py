@@ -294,8 +294,13 @@ def _build_generation_targets(
         logger.warning("no documents found in %s", data_dir)
         return []
 
-    per_doc = max(1, math.ceil(num_pairs / len(docs)))
-    return [(slug, cat, rel, per_doc) for slug, cat, rel in docs]
+    if len(docs) <= num_pairs:
+        per_doc = max(1, math.ceil(num_pairs / len(docs)))
+        return [(slug, cat, rel, per_doc) for slug, cat, rel in docs]
+
+    import random
+    sampled = random.sample(docs, num_pairs)
+    return [(slug, cat, rel, 1) for slug, cat, rel in sampled]
 
 
 def generate_pairs(
