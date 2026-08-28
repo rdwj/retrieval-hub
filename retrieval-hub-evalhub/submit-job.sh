@@ -25,6 +25,7 @@ REFINE_STRATEGY=""
 REFINE_WINDOW="2"
 QUERY_COUNT="0"
 MAX_WORKERS="4"
+SCORE_BATCH_SIZE="10"
 FORCE="false"
 LOG_LEVEL="INFO"
 
@@ -38,6 +39,7 @@ for arg in "$@"; do
         --refine-window=*)    REFINE_WINDOW="${arg#--refine-window=}" ;;
         --query-count=*)      QUERY_COUNT="${arg#--query-count=}" ;;
         --max-workers=*)      MAX_WORKERS="${arg#--max-workers=}" ;;
+        --score-batch-size=*) SCORE_BATCH_SIZE="${arg#--score-batch-size=}" ;;
         --force)              FORCE="true" ;;
         --log-level=*)        LOG_LEVEL="${arg#--log-level=}" ;;
         *) echo "Unknown option: $arg"; exit 1 ;;
@@ -70,7 +72,7 @@ metadata:
     evalhub-run: "$RUN_ID"
 spec:
   backoffLimit: 1
-  activeDeadlineSeconds: 43200
+  activeDeadlineSeconds: 172800
   template:
     metadata:
       labels:
@@ -109,6 +111,8 @@ spec:
           value: "$MAX_WORKERS"
         - name: EVALHUB_FORCE
           value: "$FORCE"
+        - name: EVALHUB_SCORE_BATCH_SIZE
+          value: "$SCORE_BATCH_SIZE"
         - name: EVALHUB_LOG_LEVEL
           value: "$LOG_LEVEL"
         resources:
@@ -123,8 +127,8 @@ spec:
           mountPath: /opt/app-root/src/runs
       volumes:
       - name: run-data
-        emptyDir:
-          sizeLimit: 1Gi
+        persistentVolumeClaim:
+          claimName: evalhub-run-data
 EOF
 
 echo ""

@@ -29,6 +29,7 @@ DEFAULTS = {
     "qa_dataset": "eval/qa_dataset_v2.json",
     "query_count": "0",
     "max_workers": "2",
+    "score_batch_size": "10",
     "source_slug": "va-cpg-clinical-guidelines",
     "run_id": "",
     "sweep_id": "manual",
@@ -65,6 +66,7 @@ def _build_args() -> argparse.Namespace:
         query_count=int(_env("query_count")),
         run_dir=run_dir,
         max_workers=int(_env("max_workers")),
+        score_batch_size=int(_env("score_batch_size")),
         force=_env("force").lower() in ("true", "1", "yes"),
         log_level=_env("log_level"),
     )

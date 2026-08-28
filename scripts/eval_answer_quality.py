@@ -616,7 +616,7 @@ def _stage_score(
 
         for batch_start in range(0, len(remaining), score_batch_size):
             batch = remaining[batch_start:batch_start + score_batch_size]
-            batch_indices, batch_items = zip(*batch)
+            batch_indices, batch_items = zip(*batch, strict=True)
 
             samples = [_build_sample(item, condition) for item in batch_items]
             dataset = EvaluationDataset(samples=samples)
