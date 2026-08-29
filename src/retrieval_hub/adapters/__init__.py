@@ -10,5 +10,6 @@ from __future__ import annotations
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.adapters.document import DocumentAdapter
+from retrieval_hub.adapters.process import ProcessAdapter
 
-__all__ = ["DocumentAdapter", "SourceAdapter"]
+__all__ = ["DocumentAdapter", "ProcessAdapter", "SourceAdapter"]

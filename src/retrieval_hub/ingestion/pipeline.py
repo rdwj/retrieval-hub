@@ -35,6 +35,7 @@ from retrieval_hub.models.enums import SourceFamily
 logger = logging.getLogger(__name__)
 
 _DOCUMENT_FAMILIES = {"document", "clinical_document", "technical_document"}
+_PROCESS_FAMILIES = {"process"}
 _CODE_FAMILIES = {"code"}
 
 _FILE_EXTENSIONS = {
@@ -49,6 +50,7 @@ _FAMILY_ENUM_MAP: dict[str, SourceFamily] = {
     "document": SourceFamily.DOCUMENT,
     "clinical_document": SourceFamily.CLINICAL_DOCUMENT,
     "technical_document": SourceFamily.TECHNICAL_DOCUMENT,
+    "process": SourceFamily.PROCESS,
     "code": SourceFamily.CODE,
 }
 
@@ -247,10 +249,11 @@ def ingest(
     owner_contacts = owner_contacts or []
     table_name = _make_table_name(slug, table_suffix)
 
-    if family not in _DOCUMENT_FAMILIES and family not in _CODE_FAMILIES:
+    all_families = _DOCUMENT_FAMILIES | _PROCESS_FAMILIES | _CODE_FAMILIES
+    if family not in all_families:
         raise ValueError(
             f"Unsupported family {family!r}. "
-            f"Supported: {sorted(_DOCUMENT_FAMILIES | _CODE_FAMILIES)}"
+            f"Supported: {sorted(all_families)}"
         )
 
     # --- Stage 1-4: Load, parse, normalize, chunk ---
@@ -288,6 +291,25 @@ def ingest(
                     overlap_tokens=overlap_tokens,
                 )
                 chunks.extend(doc_chunks)
+
+    elif family in _PROCESS_FAMILIES:
+        from retrieval_hub.ingestion.chunking.procedure import chunk_procedure_document
+
+        fetched = _load_documents(data_dir)
+        doc_count = len(fetched)
+        for doc in fetched:
+            parsed = parse_document(doc)
+            normalized = normalize_document(parsed)
+            if normalized is None:
+                logger.warning("pipeline.ingest skip_short_doc title=%s", doc.title)
+                doc_count -= 1
+                continue
+            doc_chunks = chunk_procedure_document(
+                normalized,
+                chunk_tokens=chunk_tokens,
+                overlap_tokens=overlap_tokens,
+            )
+            chunks.extend(doc_chunks)
 
     elif family in _CODE_FAMILIES:
         code_files = _load_code_files(data_dir)

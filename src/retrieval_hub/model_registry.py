@@ -82,10 +82,12 @@ def update_model_status(
 def try_resolve_endpoint(db_url: str, model_name: str) -> str | None:
     """Try to resolve a model endpoint from the registry.
 
-    Returns the endpoint URL if the model is registered and healthy/unknown.
-    Returns None if the model is not registered (local embedding fallback).
-    Raises ModelUnavailableError if the model is registered but unhealthy.
+    Returns the endpoint URL if the model is registered (regardless of
+    health status).  Returns None if the model is not registered (local
+    embedding fallback).
     """
+    from sqlalchemy import select
+
     from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
 
     engine = create_db_engine(db_url)
@@ -95,6 +97,16 @@ def try_resolve_endpoint(db_url: str, model_name: str) -> str | None:
             url = resolve_model(session, model_name)
             logger.info("Resolved %s -> %s from model registry", model_name, url)
             return url
+        except ModelUnavailableError:
+            ep = session.execute(
+                select(ModelEndpoint).where(ModelEndpoint.model_name == model_name)
+            ).scalar_one_or_none()
+            if ep and ep.endpoint_url:
+                logger.warning(
+                    "Model %s is marked unhealthy; using endpoint anyway", model_name,
+                )
+                return ep.endpoint_url
+            return None
         except ModelNotFoundError:
             logger.info("Model %s not in registry, using local embedding", model_name)
             return None

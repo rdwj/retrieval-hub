@@ -40,6 +40,7 @@ SUPPORTED_FAMILIES = {
     "document",
     "clinical_document",
     "technical_document",
+    "process",
     "code",
 }
 

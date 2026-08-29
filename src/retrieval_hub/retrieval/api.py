@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.adapters.document import DocumentAdapter
+from retrieval_hub.adapters.process import ProcessAdapter
 from retrieval_hub.model_registry import (
     ModelEndpoint,
     ModelNotFoundError,
@@ -123,6 +124,14 @@ def _build_adapter(
     embedding_endpoint: str | None = None,
 ) -> SourceAdapter:
     """Return the right adapter instance for the source's family."""
+    if source.family == SourceFamily.PROCESS:
+        return ProcessAdapter(
+            source=source,
+            physical_index=physical_index,
+            recipe_version=recipe_version,
+            vectors_db_url=vectors_db_url,
+            embedding_endpoint=embedding_endpoint,
+        )
     if source.family in (
         SourceFamily.DOCUMENT,
         SourceFamily.CLINICAL_DOCUMENT,
@@ -138,7 +147,8 @@ def _build_adapter(
         )
     raise UnsupportedFamilyError(
         f"No adapter implementation for family {source.family!r} yet. "
-        f"Supported families: document, clinical_document, technical_document, code."
+        f"Supported families: document, clinical_document, technical_document, "
+        f"code, process."
     )
 
 
