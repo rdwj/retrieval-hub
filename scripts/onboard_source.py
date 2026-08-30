@@ -1,10 +1,10 @@
 """Self-serve source onboarding pipeline.
 
-Takes raw data and a minimal config, runs a parameter sweep over chunk
-configurations, evaluates each candidate, and registers the winning config
-as a CURATED source with an eval baseline.
+Takes raw data and a minimal config, ingests the corpus, and registers it
+as a CURATED source. Optionally runs a parameter sweep with QA generation
+and Ragas evaluation to select the best chunk configuration.
 
-Usage::
+Quick onboarding (minutes)::
 
     python scripts/onboard_source.py \\
         --slug my-source \\
@@ -12,8 +12,29 @@ Usage::
         --family document \\
         --name "My Source" \\
         --description "Short description" \\
-        --db-url postgres://... \\
-        --vectors-db-url postgres://...
+        --skip-eval
+
+Full eval sweep (hours — requires LLM endpoint for QA gen + scoring)::
+
+    python scripts/onboard_source.py \\
+        --slug my-source \\
+        --data-dir ./my-data/ \\
+        --family document \\
+        --name "My Source" \\
+        --description "Short description" \\
+        --num-qa-pairs 20
+
+The full sweep ingests 3 chunk configs (256/0, 512/0, 512/64), generates
+QA pairs from the source documents, runs Ragas evaluation (context
+precision, answer relevancy, faithfulness) on each config, selects the
+winner, and drops the losers. This process is thorough but expensive:
+it requires an LLM endpoint for QA generation and Ragas scoring, and
+each config's eval takes 1-3 hours depending on corpus size and LLM
+throughput.
+
+For most new datasets, --skip-eval is recommended. Use the full sweep
+when establishing a quality baseline for a high-value source or when
+comparing chunk strategies.
 """
 
 from __future__ import annotations
@@ -320,14 +341,28 @@ async def run(args: argparse.Namespace) -> None:
         print(f"  {ext}: {count}")
 
     if args.dry_run:
-        print("\n[dry-run] Would run ingestion with configs:")
-        for config in CANDIDATE_CONFIGS:
-            print(f"  chunk_tokens={config['chunk_tokens']} "
-                  f"overlap={config['overlap_tokens']}")
-        print(f"\n[dry-run] Would generate {args.num_qa_pairs} QA pairs")
-        print("[dry-run] Would run eval on each config and select winner")
+        if args.skip_eval:
+            print("\n[dry-run] Would ingest with default config (512/0)")
+        else:
+            print("\n[dry-run] Would run ingestion with configs:")
+            for config in CANDIDATE_CONFIGS:
+                print(f"  chunk_tokens={config['chunk_tokens']} "
+                      f"overlap={config['overlap_tokens']}")
+            print(f"\n[dry-run] Would generate {args.num_qa_pairs} QA pairs")
+            print("[dry-run] Would run eval on each config and select winner")
         return
 
+    # -- Fast path: skip-eval mode --
+    if args.skip_eval:
+        default_config = {"chunk_tokens": 512, "overlap_tokens": 0}
+        print(f"\nIngesting {args.slug} (skip-eval, config 512/0)...")
+        result = _run_ingestion(args, default_config)
+        print(f"  Ingested (source_id={result['source_id'][:8]}...)")
+        print(f"\n  Source is now CURATED and queryable as '{args.slug}'")
+        print("  (No eval baseline — run without --skip-eval for quality metrics)")
+        return
+
+    # -- Full eval sweep --
     # Step 3: Run ingestion with candidate configs
     print(f"\nIngesting {args.slug} with {len(CANDIDATE_CONFIGS)} candidate configs...")
     ingestion_results = []
@@ -395,6 +430,8 @@ def main() -> None:
     parser.add_argument("--llm-model", default=DEFAULT_LLM_MODEL, help="LLM model name")
     parser.add_argument("--answer-llm-url", default=None, help="Answer LLM URL (default: --llm-url)")
     parser.add_argument("--answer-llm-model", default=None, help="Answer LLM model")
+    parser.add_argument("--skip-eval", action="store_true",
+                        help="Ingest with default config (512/0) only, skip QA gen and eval")
     parser.add_argument("--force", action="store_true", help="Force re-run all stages")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
     parser.add_argument("--log-level", default="INFO", help="Log level")
