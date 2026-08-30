@@ -117,7 +117,7 @@ def test_try_resolve_endpoint_not_found(db_url: str) -> None:
 
 
 def test_try_resolve_endpoint_unhealthy(session: Session, db_url: str) -> None:
-    """try_resolve_endpoint raises ModelUnavailableError for unhealthy model."""
+    """try_resolve_endpoint returns endpoint URL for unhealthy model (fallback)."""
     make_model_endpoint(
         session,
         model_name="resolve/unhealthy",
@@ -126,5 +126,5 @@ def test_try_resolve_endpoint_unhealthy(session: Session, db_url: str) -> None:
     )
     session.commit()
 
-    with pytest.raises(ModelUnavailableError):
-        try_resolve_endpoint(db_url, "resolve/unhealthy")
+    url = try_resolve_endpoint(db_url, "resolve/unhealthy")
+    assert url == "http://unhealthy:8000"

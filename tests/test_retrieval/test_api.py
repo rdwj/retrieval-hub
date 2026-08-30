@@ -86,8 +86,8 @@ def test_resolve_embedding_endpoint_unhealthy_model(session):
     rv = _make_recipe_version(
         {"embedding": {"model": "test/embed-v1"}}
     )
-    with pytest.raises(ModelUnavailableError):
-        _resolve_embedding_endpoint(session, rv)
+    url = _resolve_embedding_endpoint(session, rv)
+    assert url == "http://registry:8000"
 
 
 # ---------------------------------------------------------------------------
