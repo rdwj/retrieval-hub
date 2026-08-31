@@ -50,7 +50,9 @@ from retrieval_hub.rewriter.schemas import RewriteResult
 from retrieval_hub.schemas.rewriter import RewriterMetadata
 from retrieval_hub_mcp.auth import get_current_identity
 from retrieval_hub_mcp.schemas import (
+    ChunkConfig,
     DataFreshness,
+    EvalBaseline,
     RefineHit,
     RefineResponse,
     RetrievalHit,
@@ -425,6 +427,8 @@ async def describe_source(
 
         doc_count = None
         chunk_count = None
+        eval_baseline = None
+        chunk_config_data = None
         if source.active_physical_index_id:
             pi = (
                 session.query(PhysicalIndex)
@@ -433,8 +437,13 @@ async def describe_source(
             )
             if pi:
                 doc_count = pi.document_count
-                if pi.build_metadata and "chunk_count" in pi.build_metadata:
-                    chunk_count = pi.build_metadata["chunk_count"]
+                if pi.build_metadata:
+                    if "chunk_count" in pi.build_metadata:
+                        chunk_count = pi.build_metadata["chunk_count"]
+                    if "eval_baseline" in pi.build_metadata:
+                        eval_baseline = EvalBaseline(**pi.build_metadata["eval_baseline"])
+                    if "chunk_config" in pi.build_metadata:
+                        chunk_config_data = ChunkConfig(**pi.build_metadata["chunk_config"])
 
         prompts = session.query(SamplePrompt).filter(SamplePrompt.source_id == source.id).all()
         sample_prompts = [
@@ -481,6 +490,8 @@ async def describe_source(
             chunk_count=chunk_count,
             sample_prompts=sample_prompts,
             health=health,
+            eval_baseline=eval_baseline,
+            chunk_config=chunk_config_data,
         )
     finally:
         session.close()

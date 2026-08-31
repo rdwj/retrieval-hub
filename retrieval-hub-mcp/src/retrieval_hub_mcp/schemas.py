@@ -21,6 +21,23 @@ class SourceSummary(BaseModel):
     document_count: int | None = None
 
 
+class EvalBaseline(BaseModel):
+    """Quality metrics from the eval sweep that selected this index."""
+
+    context_precision: float
+    answer_relevancy: float
+    faithfulness: float | None = None
+    num_queries: int
+    date: str
+
+
+class ChunkConfig(BaseModel):
+    """Chunk configuration used to build this index."""
+
+    chunk_tokens: int
+    overlap_tokens: int
+
+
 class SourceDetail(BaseModel):
     """Full metadata for a single source, returned by ``describe_source``."""
 
@@ -35,6 +52,8 @@ class SourceDetail(BaseModel):
     chunk_count: int | None = None
     sample_prompts: list[dict] | None = None
     health: SourceHealth | None = None
+    eval_baseline: EvalBaseline | None = None
+    chunk_config: ChunkConfig | None = None
 
 
 class SourceHealth(BaseModel):

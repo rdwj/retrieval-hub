@@ -63,6 +63,7 @@ SUPPORTED_FAMILIES = {
     "technical_document",
     "process",
     "code",
+    "tabular",
 }
 
 DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"
@@ -106,7 +107,7 @@ def _validate_slug(slug: str) -> None:
 def _discover_documents(data_dir: Path) -> dict[str, int]:
     """Walk data_dir and report file counts by extension."""
     counts: dict[str, int] = {}
-    for ext in (".md", ".txt", ".html", ".htm", ".pdf", ".json", ".py"):
+    for ext in (".md", ".txt", ".html", ".htm", ".pdf", ".json", ".jsonl", ".py"):
         files = list(data_dir.rglob(f"*{ext}"))
         if files:
             counts[ext] = len(files)
@@ -243,10 +244,32 @@ def _select_winner(
     return winner[2], winner[3]
 
 
+def _write_chunk_config_to_index(
+    args: argparse.Namespace,
+    physical_index_id: str,
+    config: dict[str, int],
+) -> None:
+    """Write chunk config into the physical index's build_metadata."""
+    from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
+    from retrieval_hub.models import PhysicalIndex
+
+    engine = create_db_engine(args.db_url)
+    factory = make_session_factory(engine)
+    with session_scope(factory) as session:
+        pi = session.query(PhysicalIndex).filter(PhysicalIndex.id == physical_index_id).one()
+        meta = pi.build_metadata or {}
+        meta["chunk_config"] = {
+            "chunk_tokens": config["chunk_tokens"],
+            "overlap_tokens": config["overlap_tokens"],
+        }
+        pi.build_metadata = meta
+
+
 def _promote_winner(
     args: argparse.Namespace,
     winner_config: dict[str, int],
     all_configs: list[dict[str, int]],
+    winner_summary: dict[str, Any] | None = None,
 ) -> None:
     """Repoint the source to the winning index and drop losers."""
     from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
@@ -267,6 +290,21 @@ def _promote_winner(
         )
         if pi:
             source.active_physical_index_id = pi.id
+            meta = pi.build_metadata or {}
+            meta["chunk_config"] = {
+                "chunk_tokens": winner_config["chunk_tokens"],
+                "overlap_tokens": winner_config["overlap_tokens"],
+            }
+            if winner_summary and "raw" in winner_summary:
+                raw = winner_summary["raw"]
+                meta["eval_baseline"] = {
+                    "context_precision": raw.get("context_precision", 0.0),
+                    "answer_relevancy": raw.get("answer_relevancy", 0.0),
+                    "faithfulness": raw.get("faithfulness"),
+                    "num_queries": winner_summary.get("config", {}).get("query_count", 0),
+                    "date": winner_summary.get("date", ""),
+                }
+            pi.build_metadata = meta
             logger.info("Promoted index %s for source %s", winner_table, args.slug)
 
     for config in all_configs:
@@ -357,6 +395,7 @@ async def run(args: argparse.Namespace) -> None:
         default_config = {"chunk_tokens": 512, "overlap_tokens": 0}
         print(f"\nIngesting {args.slug} (skip-eval, config 512/0)...")
         result = _run_ingestion(args, default_config)
+        _write_chunk_config_to_index(args, result["physical_index_id"], default_config)
         print(f"  Ingested (source_id={result['source_id'][:8]}...)")
         print(f"\n  Source is now CURATED and queryable as '{args.slug}'")
         print("  (No eval baseline — run without --skip-eval for quality metrics)")
@@ -398,7 +437,7 @@ async def run(args: argparse.Namespace) -> None:
     winner_config, winner_summary = _select_winner(eval_results)
 
     # Step 7: Promote winner
-    _promote_winner(args, winner_config, CANDIDATE_CONFIGS)
+    _promote_winner(args, winner_config, CANDIDATE_CONFIGS, winner_summary)
 
     # Step 8: Report
     _print_report(winner_config, winner_summary, eval_results, args.slug)
