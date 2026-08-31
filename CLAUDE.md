@@ -130,3 +130,34 @@ port-forward the cluster PostgreSQL and run the UPDATEs directly.
 text or embedding model change? If only metadata columns changed, write
 SQL UPDATEs. Reserve re-ingestion for changes to chunking boundaries,
 chunk text, or the embedding model.
+
+### TEI CPU has a memory leak under sustained batch embedding
+
+The Hugging Face Text Embeddings Inference (TEI) container on CPU
+(`ghcr.io/huggingface/text-embeddings-inference:cpu-latest`) accumulates
+memory over hundreds of consecutive embedding requests and never releases
+it. Even at 32Gi, the nomic-embed-text-v1.5 pod OOMs every ~25 minutes
+under batch ingestion load.
+
+The production embedding endpoint is designed for query-time use (single
+texts), not batch ingestion of thousands of chunks. For batch ingestion,
+the resilience approach is:
+
+1. Set `embedding_batch_size=2` in the pipeline (small batches)
+2. Use 10 retries with exponential backoff (catches pod restarts)
+3. Add `RemoteProtocolError` and HTTP 429 to the retry catch list
+4. Run a self-healing port-forward watchdog (auto-reconnects when
+   the pod restarts during `oc port-forward`)
+5. Keep the pod memory at 32Gi with `--max-client-batch-size 8`
+
+This lets the pipeline survive repeated pod OOM restarts. Long-term
+fix: either swap TEI for vLLM (better memory management) or add
+checkpointed embedding to the pipeline (save intermediate vectors,
+resume after crash).
+
+**How to apply:** When running batch ingestion against the cluster
+embedding endpoint, expect pod restarts. Use the watchdog port-forward
+script at `/tmp/pf-watchdog.sh` (created during sessions) alongside
+ingestion. If the ingestion fails after exhausting 10 retries, restart
+it — no data is written to the vectors DB until all chunks are embedded,
+so a fresh run is safe.
