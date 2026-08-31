@@ -44,7 +44,7 @@ DEFAULT_DIMENSION = 768
 DEFAULT_MODEL_CACHE_DIR = ".model_cache"
 
 _REMOTE_TIMEOUT_S = 120.0
-_REMOTE_MAX_RETRIES = 3
+_REMOTE_MAX_RETRIES = 10
 _REMOTE_BACKOFF_BASE_S = 1.0
 
 
@@ -75,7 +75,7 @@ def _remote_embed(
             with httpx.Client(timeout=timeout) as client:
                 resp = client.post(url, json=payload)
 
-            if resp.status_code >= 500:
+            if resp.status_code >= 500 or resp.status_code == 429:
                 last_err = httpx.HTTPStatusError(
                     f"Server error {resp.status_code}",
                     request=resp.request,
@@ -92,7 +92,7 @@ def _remote_embed(
             items = sorted(body["data"], key=lambda d: d["index"])
             return [item["embedding"] for item in items]
 
-        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError) as exc:
             last_err = exc
             if attempt < _REMOTE_MAX_RETRIES:
                 _backoff_sleep(attempt)
@@ -207,10 +207,19 @@ class ChunkEmbedder:
         if self._backend == "remote":
             prefixed = self._apply_prefix(texts)
             all_vectors: list[list[float]] = []
+            batch_num = 0
             for i in range(0, len(prefixed), self.batch_size):
                 batch = prefixed[i : i + self.batch_size]
                 vecs = _remote_embed(self._endpoint, self.model_name, batch)
                 all_vectors.extend(vecs)
+                batch_num += 1
+                if i + self.batch_size < len(prefixed):
+                    # Periodic cooldown to prevent TEI memory buildup
+                    if batch_num % 50 == 0:
+                        logger.info("embed.cooldown after %d batches", batch_num)
+                        time.sleep(5.0)
+                    else:
+                        time.sleep(0.5)
             if self._remote_dim is None and all_vectors:
                 self._remote_dim = len(all_vectors[0])
             return all_vectors

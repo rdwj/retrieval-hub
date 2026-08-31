@@ -10,6 +10,8 @@ Supported families:
   for markdown / text / HTML / PDF files, parse via Docling / BS4, chunk with
   the token-fixed chunker.
 - ``code``: walk data_dir for ``.py`` files, chunk with the AST-aware chunker.
+- ``tabular``: read ``.jsonl`` files row-by-row, render each row as natural
+  language, one chunk per row.
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 _DOCUMENT_FAMILIES = {"document", "clinical_document", "technical_document"}
 _PROCESS_FAMILIES = {"process"}
 _CODE_FAMILIES = {"code"}
+_TABULAR_FAMILIES = {"tabular"}
 
 _FILE_EXTENSIONS = {
     ".md": "text/markdown",
@@ -52,6 +55,7 @@ _FAMILY_ENUM_MAP: dict[str, SourceFamily] = {
     "technical_document": SourceFamily.TECHNICAL_DOCUMENT,
     "process": SourceFamily.PROCESS,
     "code": SourceFamily.CODE,
+    "tabular": SourceFamily.TABULAR,
 }
 
 _SKIP_STEMS = frozenset({
@@ -204,6 +208,7 @@ def ingest(
     table_suffix: str = "v1",
     sample_prompts: list[tuple[str, str]] | None = None,
     usage_rules: dict[str, Any] | None = None,
+    embedding_batch_size: int = 2,
 ) -> RegistrationResult:
     """Run the full ingestion pipeline: data directory to registered source.
 
@@ -249,7 +254,7 @@ def ingest(
     owner_contacts = owner_contacts or []
     table_name = _make_table_name(slug, table_suffix)
 
-    all_families = _DOCUMENT_FAMILIES | _PROCESS_FAMILIES | _CODE_FAMILIES
+    all_families = _DOCUMENT_FAMILIES | _PROCESS_FAMILIES | _CODE_FAMILIES | _TABULAR_FAMILIES
     if family not in all_families:
         raise ValueError(
             f"Unsupported family {family!r}. "
@@ -319,6 +324,17 @@ def ingest(
             chunk_tokens=chunk_tokens,
         )
 
+    elif family in _TABULAR_FAMILIES:
+        from retrieval_hub.ingestion.chunking.tabular import chunk_tabular_data
+
+        chunks = chunk_tabular_data(
+            data_dir,
+            chunk_tokens=chunk_tokens,
+            overlap_tokens=overlap_tokens,
+            doc_title=slug,
+        )
+        doc_count = len(chunks)
+
     if not chunks:
         raise ValueError(
             f"No chunks produced from {data_dir}. Check that the directory "
@@ -338,6 +354,7 @@ def ingest(
         model_name=embedding_model,
         endpoint=embedding_endpoint,
         document_prefix=document_prefix,
+        batch_size=embedding_batch_size,
     )
     embeddings = embedder.embed_chunks(chunks)
     dimension = embedder.dimension
