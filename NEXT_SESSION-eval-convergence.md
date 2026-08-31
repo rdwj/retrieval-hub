@@ -1,36 +1,31 @@
 # Next Session — eval-convergence
 
-## Next: Phase 4 — Industry leaderboards and publication
+## Epic status: COMPLETE
 
-Research which retrieval/RAG leaderboards are relevant, understand their
-eval protocols, and position retrieval-hub's results for submission.
+All five phases are done. Phase 4 (leaderboards/publication) was surveyed
+on 2026-08-31 and closed as not relevant for now — details below.
 
-1. **Survey existing leaderboards**
-   MTEB, BEIR, MIRACL, domain-specific clinical NLP benchmarks (n2c2,
-   OHNLP, etc.). Identify which accept custom retrieval systems vs.
-   only embedding models.
+### Phase 4 disposition (2026-08-31)
 
-2. **Map our eval metrics to leaderboard protocols**
-   For leaderboards that accept retrieval systems: identify gaps (different
-   query formats, different corpora, different metrics).
+**Leaderboards:** No relevant leaderboard accepts custom retrieval system
+submissions on custom corpora. MTEB/BEIR are embedding-model-only. TREC
+RAG 2026 is the right shape but the deadline passed (Aug 8) and requires
+running against MS MARCO, not our own data. BioASQ evaluates over PubMed,
+not custom clinical corpora. CRAG and RAGBench evaluate LLMs or provide
+benchmark datasets, not submission slots.
 
-3. **Prepare a submission-ready eval run**
-   If a suitable leaderboard exists, prepare the data in their format.
+**Publication venues:** Nearest reachable targets are the 9th Clinical NLP
+Workshop (dates TBD, likely late 2026) and SIGIR 2027 (CFP ~Jan 2027).
+Both would accept a system paper. Decision: defer paper work until a
+concrete CFP with a reachable deadline appears.
 
-4. **Draft the arXiv paper**
-   Abstract and methods section using the accumulated eval register data.
-   The refine-strategy sweep results are the headline finding.
-
-**Session start protocol:**
-- Premise checks (~5 min):
-  - Databases up (`pg_isready -h 127.0.0.1 -p 5433` and `-p 5434`)
-  - Review eval register data: `SELECT * FROM eval_run ORDER BY completed_at DESC LIMIT 10;`
-  - Read the sweep results summary in `session-summaries/2026-08-26-eval-convergence-phase2-completion.md`
-- Rules with history:
-  - gpt-oss-120b reasoning off via `enable_thinking=False` in `extra_body`
-  - **Use 127.0.0.1 not localhost** for Postgres connections
-  - All embedding models resolve from the model registry — no local loading
-- Stop-and-ask before: submitting to external leaderboards; publishing drafts
+**What we have if we revisit:**
+- 107-query VA CPG dataset with bootstrap CIs (Phase 5)
+- 156-query aircraft-sb-test dataset (proving run, 2026-08-30)
+- Refine-strategy sweep: no-refine is Pareto winner
+- Chunk-size sweep: 512/64 winner on aircraft-sb-test
+- Full eval register in cluster Postgres
+- Per-batch JSONL checkpointing, PVC-backed, 48h deadlines
 
 ## Remaining epic phases
 
@@ -68,9 +63,9 @@ Completed 2026-08-22. Winner: 512/0 with Nomic v1.5.
 
 Completed 2026-08-22 (evening). 107-query dataset with bootstrap CIs.
 
-### Phase 4: Industry leaderboards and publication — NEXT
+### Phase 4: Industry leaderboards and publication — CLOSED
 
-See "Next" section above.
+No relevant leaderboard. Paper deferred to 2027 venues. See disposition above.
 
 ## What landed last session (2026-08-26/28)
 
