@@ -293,9 +293,10 @@ def make_identity(
     kind: str = "agent",
     groups: tuple[str, ...] = (),
     scopes: frozenset[str] = frozenset(),
+    email: str | None = None,
 ) -> Identity:
     """Build an ``Identity`` for policy tests."""
-    return Identity(sub=sub, kind=kind, groups=groups, scopes=scopes)  # type: ignore[arg-type]
+    return Identity(sub=sub, kind=kind, groups=groups, scopes=scopes, email=email)  # type: ignore[arg-type]
 
 
 # Re-export for convenience

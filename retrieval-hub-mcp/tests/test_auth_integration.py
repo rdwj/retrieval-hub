@@ -648,3 +648,97 @@ def test_get_current_identity_defaults(mock_get_token):
     assert identity.groups == ()
     assert identity.tenant == "default"
     assert identity.request_id is None
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth identity extraction
+# ---------------------------------------------------------------------------
+
+
+@patch("retrieval_hub_mcp.auth.get_access_token")
+def test_google_token_extracts_identity(mock_get_token):
+    """Google OAuth token produces a user Identity with email."""
+    mock_get_token.return_value = AccessToken(
+        token="google-opaque-token",
+        client_id="google-client",
+        scopes=["openid", "email", "profile"],
+        subject="112233445566",
+        claims={
+            "sub": "112233445566",
+            "email": "alice@redhat.com",
+            "email_verified": True,
+            "name": "Alice Smith",
+        },
+    )
+
+    identity = get_current_identity()
+    assert identity is not None
+    assert identity.sub == "google:112233445566"
+    assert identity.kind == "user"
+    assert identity.email == "alice@redhat.com"
+    assert identity.email_domain == "redhat.com"
+    assert identity.groups == ()
+    assert "openid" in identity.scopes
+
+
+@patch("retrieval_hub_mcp.auth.get_access_token")
+def test_google_token_rejects_non_redhat_domain(mock_get_token):
+    """Google OAuth rejects emails not from @redhat.com."""
+    mock_get_token.return_value = AccessToken(
+        token="google-opaque-token",
+        client_id="google-client",
+        scopes=["openid", "email"],
+        subject="999",
+        claims={
+            "sub": "999",
+            "email": "user@gmail.com",
+            "email_verified": True,
+        },
+    )
+
+    with pytest.raises(PermissionError, match="@redhat.com"):
+        get_current_identity()
+
+
+@patch("retrieval_hub_mcp.auth.get_access_token")
+def test_google_token_rejects_unverified_email(mock_get_token):
+    """Google OAuth rejects unverified email addresses."""
+    mock_get_token.return_value = AccessToken(
+        token="google-opaque-token",
+        client_id="google-client",
+        scopes=["openid", "email"],
+        subject="888",
+        claims={
+            "sub": "888",
+            "email": "alice@redhat.com",
+            "email_verified": False,
+        },
+    )
+
+    with pytest.raises(PermissionError, match="not verified"):
+        get_current_identity()
+
+
+@patch("retrieval_hub_mcp.auth.get_access_token")
+def test_jwt_token_still_works_with_google_support(mock_get_token):
+    """JWT tokens with rh_identity_kind still go through the JWT path."""
+    mock_get_token.return_value = AccessToken(
+        token="jwt-token",
+        client_id="my-agent",
+        scopes=["sources.read"],
+        subject="agent:my-agent",
+        claims={
+            "sub": "agent:my-agent",
+            "rh_identity_kind": "agent",
+            "rh_identity_groups": ["team-x"],
+            "rh_tenant": "acme",
+        },
+    )
+
+    identity = get_current_identity()
+    assert identity is not None
+    assert identity.sub == "agent:my-agent"
+    assert identity.kind == "agent"
+    assert identity.groups == ("team-x",)
+    assert identity.tenant == "acme"
+    assert identity.email is None

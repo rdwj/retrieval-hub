@@ -43,6 +43,31 @@ Open http://localhost:5173. The landing page has a guided tour that walks throug
 
 **[Systems index](docs/SYSTEMS.md)** lists every subsystem with its current status (Implemented, Skeleton, Design, or TBD) and links to the relevant design doc.
 
+## Try it with Claude Code
+
+The deployed MCP server is live and authenticated via Google OAuth. Any Red Hat employee can connect with their Google identity.
+
+```bash
+# Create a test directory
+mkdir test-retrieval-hub && cd test-retrieval-hub
+
+# Tell Claude to use the MCP server
+echo "For all questions in this project, use the retrieval-hub MCP server." > CLAUDE.md
+
+# Register the MCP server
+claude mcp add --transport http retrieval-hub \
+  https://retrieval-hub-mcp-retrieval-hub.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com/mcp
+
+# Start Claude
+claude
+```
+
+On first use, type `/mcp`, select `retrieval-hub`, and authenticate with your Red Hat Google account. Then ask a question that exercises the clinical guidelines corpus:
+
+> Tell me what you can about how to treat hypertension for a patient who presented with 140/85 for the 2nd time in a row. Pt is male 85 yo.
+
+Without the MCP server, Claude answers from its training data. With it, Claude calls `retrieve` against the VA Clinical Practice Guidelines and returns a sourced, guideline-grounded answer. Note the datasets it cites in the response.
+
 ## Quick start (full demo)
 
 End-to-end: start databases, ingest a corpus, query it, and run the MCP server. Requires Python 3.11+, [Podman](https://podman.io/), and [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html) (for the local dev playbooks).

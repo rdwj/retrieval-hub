@@ -74,6 +74,20 @@ spec:
           value: "retrieval-hub-auth"
         - name: RETRIEVAL_HUB_AUTH_AUDIENCE
           value: "retrieval-hub"
+        - name: RETRIEVAL_HUB_GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-google-oauth
+              key: RETRIEVAL_HUB_GOOGLE_CLIENT_ID
+              optional: true
+        - name: RETRIEVAL_HUB_GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-google-oauth
+              key: RETRIEVAL_HUB_GOOGLE_CLIENT_SECRET
+              optional: true
+        - name: RETRIEVAL_HUB_GOOGLE_BASE_URL
+          value: "https://retrieval-hub-mcp-retrieval-hub.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com"
         resources:
           requests:
             memory: 512Mi
@@ -115,7 +129,6 @@ metadata:
   labels:
     app: retrieval-hub-mcp
 spec:
-  path: /mcp
   to:
     kind: Service
     name: retrieval-hub-mcp

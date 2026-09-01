@@ -130,3 +130,114 @@ def test_curated_source_visible_to_agents(session: Session) -> None:
     )
     identity = make_identity(kind="agent")
     assert can_access(identity, src, "query") is True
+
+
+# ---------------------------------------------------------------------------
+# Email-based access control
+# ---------------------------------------------------------------------------
+
+
+def test_restricted_source_with_matching_email_allowed(session: Session) -> None:
+    """A restricted source allows callers whose email is in allowed_emails."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.RESTRICTED,
+        access={
+            "visibility": "restricted",
+            "allowed_emails": ["alice@redhat.com"],
+        },
+    )
+    identity = make_identity(
+        sub="google:123", kind="user", email="alice@redhat.com"
+    )
+    assert can_access(identity, src, "query") is True
+
+
+def test_restricted_source_with_non_matching_email_denied(session: Session) -> None:
+    """A restricted source denies callers whose email is not in allowed_emails."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.RESTRICTED,
+        access={
+            "visibility": "restricted",
+            "allowed_emails": ["alice@redhat.com"],
+        },
+    )
+    identity = make_identity(
+        sub="google:456", kind="user", email="bob@redhat.com"
+    )
+    assert can_access(identity, src, "query") is False
+
+
+def test_restricted_source_email_case_insensitive(session: Session) -> None:
+    """Email matching is case-insensitive."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.RESTRICTED,
+        access={
+            "visibility": "restricted",
+            "allowed_emails": ["Alice@RedHat.com"],
+        },
+    )
+    identity = make_identity(
+        sub="google:123", kind="user", email="ALICE@REDHAT.COM"
+    )
+    assert can_access(identity, src, "query") is True
+
+
+def test_restricted_source_email_or_group(session: Session) -> None:
+    """Either matching email OR matching group grants access."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.RESTRICTED,
+        access={
+            "visibility": "restricted",
+            "allowed_groups": ["team-a"],
+            "allowed_emails": ["alice@redhat.com"],
+        },
+    )
+    by_group = make_identity(kind="agent", groups=("team-a",))
+    assert can_access(by_group, src, "query") is True
+
+    by_email = make_identity(
+        sub="google:123", kind="user", email="alice@redhat.com"
+    )
+    assert can_access(by_email, src, "query") is True
+
+
+def test_restricted_source_no_allowed_emails_key(session: Session) -> None:
+    """A restricted source without allowed_emails uses only group-based access."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.RESTRICTED,
+        access={
+            "visibility": "restricted",
+            "allowed_groups": ["team-a"],
+        },
+    )
+    identity = make_identity(
+        sub="google:123", kind="user", email="alice@redhat.com"
+    )
+    assert can_access(identity, src, "query") is False
+
+
+def test_machine_identity_denied_for_email_only_restricted(
+    session: Session,
+) -> None:
+    """A machine identity (no email) is denied for a source with only allowed_emails."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.RESTRICTED,
+        access={
+            "visibility": "restricted",
+            "allowed_emails": ["alice@redhat.com"],
+        },
+    )
+    identity = make_identity(kind="agent")
+    assert can_access(identity, src, "query") is False

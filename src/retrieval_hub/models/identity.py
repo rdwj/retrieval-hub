@@ -31,6 +31,7 @@ class Identity:
     scopes: frozenset[str] = field(default_factory=frozenset)
     tenant: str = "default"
     request_id: str | None = None
+    email: str | None = None
 
     def has_scope(self, scope: str) -> bool:
         """Return True if the identity carries the given scope."""
@@ -39,3 +40,10 @@ class Identity:
     def in_group(self, group: str) -> bool:
         """Return True if the identity is a member of the given group."""
         return group in self.groups
+
+    @property
+    def email_domain(self) -> str | None:
+        """Extract the domain part of the email, or None."""
+        if self.email and "@" in self.email:
+            return self.email.rsplit("@", 1)[1].lower()
+        return None

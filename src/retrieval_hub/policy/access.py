@@ -47,6 +47,15 @@ def _allowed_groups(source: Source) -> list[str]:
     return [str(g) for g in groups]
 
 
+def _allowed_emails(source: Source) -> list[str]:
+    """Extract ``access.allowed_emails`` from a source row, defaulting to []."""
+    access = source.access or {}
+    emails = access.get("allowed_emails") or []
+    if not isinstance(emails, list):
+        return []
+    return [str(e).lower() for e in emails]
+
+
 def _visibility(source: Source) -> AccessVisibility:
     """Return the effective visibility for a source row.
 
@@ -93,8 +102,11 @@ def can_access(identity: Identity, source: Source, action: Action) -> bool:
         if _is_admin_user(identity):
             return True
         allowed = set(_allowed_groups(source))
-        if not allowed:
-            return False
-        return any(g in allowed for g in identity.groups)
+        if allowed and any(g in allowed for g in identity.groups):
+            return True
+        emails = _allowed_emails(source)
+        if emails and identity.email and identity.email.lower() in emails:
+            return True
+        return False
 
     return False

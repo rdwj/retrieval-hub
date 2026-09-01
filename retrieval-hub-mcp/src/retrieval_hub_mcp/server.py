@@ -68,22 +68,51 @@ from retrieval_hub_mcp.schemas import (
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# FastMCP application (with optional JWT auth)
+# FastMCP application (with optional auth)
 # ---------------------------------------------------------------------------
 
 _auth_jwks_uri = os.environ.get("RETRIEVAL_HUB_AUTH_JWKS_URI")
 _auth_issuer = os.environ.get("RETRIEVAL_HUB_AUTH_ISSUER", "retrieval-hub-auth")
 _auth_audience = os.environ.get("RETRIEVAL_HUB_AUTH_AUDIENCE", "retrieval-hub")
 
+_google_client_id = os.environ.get("RETRIEVAL_HUB_GOOGLE_CLIENT_ID")
+_google_client_secret = os.environ.get("RETRIEVAL_HUB_GOOGLE_CLIENT_SECRET")
+_google_base_url = os.environ.get("RETRIEVAL_HUB_GOOGLE_BASE_URL")
+
 _auth_provider = None
+
+_jwt_verifier = None
 if _auth_jwks_uri:
     from fastmcp.server.auth.providers.jwt import JWTVerifier
 
-    _auth_provider = JWTVerifier(
+    _jwt_verifier = JWTVerifier(
         jwks_uri=_auth_jwks_uri,
         issuer=_auth_issuer,
         audience=_auth_audience,
     )
+
+_google_provider = None
+if _google_client_id and _google_client_secret and _google_base_url:
+    from fastmcp.server.auth.providers.google import GoogleProvider
+
+    _google_provider = GoogleProvider(
+        client_id=_google_client_id,
+        client_secret=_google_client_secret,
+        base_url=_google_base_url,
+        required_scopes=["openid", "email", "profile"],
+    )
+
+if _google_provider and _jwt_verifier:
+    from fastmcp.server.auth import MultiAuth
+
+    _auth_provider = MultiAuth(
+        server=_google_provider,
+        verifiers=[_jwt_verifier],
+    )
+elif _google_provider:
+    _auth_provider = _google_provider
+elif _jwt_verifier:
+    _auth_provider = _jwt_verifier
 
 mcp = FastMCP(
     "RetrievalHub",
@@ -834,6 +863,7 @@ _FAMILY_DEFAULT_STRATEGY: dict[str, str] = {
     "document": "section",
     "clinical_document": "section",
     "code": "adjacent",
+    "graph": "graph_traverse_from_seed",
 }
 
 
@@ -1110,6 +1140,7 @@ async def request_access(
         access = source.access or {}
         visibility = access.get("visibility", "public")
         allowed_groups = access.get("allowed_groups", [])
+        allowed_emails = access.get("allowed_emails", [])
         owner_team = source.owner_team
         contacts: list[str] = []
         if hasattr(source, "owner_info") and source.owner_info:
@@ -1125,7 +1156,7 @@ async def request_access(
                 ),
             }
 
-        return {
+        result = {
             "source": slug,
             "visibility": visibility,
             "required_groups": allowed_groups,
@@ -1133,8 +1164,12 @@ async def request_access(
             "contacts": contacts,
             "guidance": (
                 "This source has restricted access. Contact the owner team "
-                "to request membership in one of the required groups."
+                "to request membership in one of the required groups, or "
+                "ask to have your email added to the allow-list."
             ),
         }
+        if allowed_emails:
+            result["allowed_emails"] = allowed_emails
+        return result
     finally:
         session.close()
