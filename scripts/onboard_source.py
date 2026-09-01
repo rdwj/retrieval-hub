@@ -64,6 +64,7 @@ SUPPORTED_FAMILIES = {
     "process",
     "code",
     "tabular",
+    "graph",
 }
 
 DEFAULT_DB_URL = "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub"

@@ -1086,6 +1086,7 @@ async def refine(
             chunks=chunks,
             truncated=output.truncated,
             total_section_chunks=output.total_chunks,
+            context=output.context,
             embedding_model=embedding_model,
             usage_rules=usage_rules,
             data_freshness=data_freshness,

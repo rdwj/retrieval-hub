@@ -147,6 +147,7 @@ class RefineResponse(BaseModel):
     chunks: list[RefineHit]
     truncated: bool = False
     total_section_chunks: int | None = None
+    context: str | None = None
     embedding_model: str | None = None
     usage_rules: UsageRules | None = None
     data_freshness: DataFreshness | None = None

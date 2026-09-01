@@ -10,7 +10,14 @@ from __future__ import annotations
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.adapters.document import DocumentAdapter
+from retrieval_hub.adapters.graph import GraphAdapter
 from retrieval_hub.adapters.process import ProcessAdapter
 from retrieval_hub.adapters.tabular import TabularAdapter
 
-__all__ = ["DocumentAdapter", "ProcessAdapter", "SourceAdapter", "TabularAdapter"]
+__all__ = [
+    "DocumentAdapter",
+    "GraphAdapter",
+    "ProcessAdapter",
+    "SourceAdapter",
+    "TabularAdapter",
+]

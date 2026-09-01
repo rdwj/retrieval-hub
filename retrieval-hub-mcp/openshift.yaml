@@ -88,6 +88,8 @@ spec:
               optional: true
         - name: RETRIEVAL_HUB_GOOGLE_BASE_URL
           value: "https://retrieval-hub-mcp-retrieval-hub.apps.cluster-z9hbt.z9hbt.sandbox1495.opentlc.com"
+        - name: MEMGRAPH_BOLT_URI
+          value: "bolt://memgraph:7687"
         resources:
           requests:
             memory: 512Mi

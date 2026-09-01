@@ -17,6 +17,7 @@ markdownify>=0.13
 pypdf>=4.3
 pgvector>=0.3
 numpy>=1.26,<3.0
+neo4j>=5.0,<7.0
 
 # --- MCP server deps ---
 fastmcp==4.0.0b1

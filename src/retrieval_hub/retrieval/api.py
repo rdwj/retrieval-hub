@@ -63,6 +63,7 @@ class RefineOutput:
     results: list[RetrievalResult]
     truncated: bool = False
     total_chunks: int | None = None
+    context: str | None = None
 
 
 class SourceNotFoundError(LookupError):
@@ -124,6 +125,16 @@ def _build_adapter(
     embedding_endpoint: str | None = None,
 ) -> SourceAdapter:
     """Return the right adapter instance for the source's family."""
+    if source.family == SourceFamily.GRAPH:
+        from retrieval_hub.adapters.graph import GraphAdapter
+
+        return GraphAdapter(
+            source=source,
+            physical_index=physical_index,
+            recipe_version=recipe_version,
+            vectors_db_url=vectors_db_url,
+            embedding_endpoint=embedding_endpoint,
+        )
     if source.family == SourceFamily.TABULAR:
         from retrieval_hub.adapters.tabular import TabularAdapter
 
@@ -158,7 +169,7 @@ def _build_adapter(
     raise UnsupportedFamilyError(
         f"No adapter implementation for family {source.family!r} yet. "
         f"Supported families: document, clinical_document, technical_document, "
-        f"code, process, tabular."
+        f"code, process, tabular, graph."
     )
 
 

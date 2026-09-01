@@ -12,12 +12,15 @@ Supported families:
 - ``code``: walk data_dir for ``.py`` files, chunk with the AST-aware chunker.
 - ``tabular``: read ``.jsonl`` files row-by-row, render each row as natural
   language, one chunk per row.
+- ``graph``: read ``nodes.tsv`` + ``edges.tsv``, write graph structure to
+  Memgraph, render entity descriptions as chunks for pgvector embedding.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +43,7 @@ _DOCUMENT_FAMILIES = {"document", "clinical_document", "technical_document"}
 _PROCESS_FAMILIES = {"process"}
 _CODE_FAMILIES = {"code"}
 _TABULAR_FAMILIES = {"tabular"}
+_GRAPH_FAMILIES = {"graph"}
 
 _FILE_EXTENSIONS = {
     ".md": "text/markdown",
@@ -56,6 +60,7 @@ _FAMILY_ENUM_MAP: dict[str, SourceFamily] = {
     "process": SourceFamily.PROCESS,
     "code": SourceFamily.CODE,
     "tabular": SourceFamily.TABULAR,
+    "graph": SourceFamily.GRAPH,
 }
 
 _SKIP_STEMS = frozenset({
@@ -209,6 +214,7 @@ def ingest(
     sample_prompts: list[tuple[str, str]] | None = None,
     usage_rules: dict[str, Any] | None = None,
     embedding_batch_size: int = 2,
+    renderer: str = "default",
 ) -> RegistrationResult:
     """Run the full ingestion pipeline: data directory to registered source.
 
@@ -254,7 +260,10 @@ def ingest(
     owner_contacts = owner_contacts or []
     table_name = _make_table_name(slug, table_suffix)
 
-    all_families = _DOCUMENT_FAMILIES | _PROCESS_FAMILIES | _CODE_FAMILIES | _TABULAR_FAMILIES
+    all_families = (
+        _DOCUMENT_FAMILIES | _PROCESS_FAMILIES | _CODE_FAMILIES
+        | _TABULAR_FAMILIES | _GRAPH_FAMILIES
+    )
     if family not in all_families:
         raise ValueError(
             f"Unsupported family {family!r}. "
@@ -334,6 +343,29 @@ def ingest(
             doc_title=slug,
         )
         doc_count = len(chunks)
+
+    elif family in _GRAPH_FAMILIES:
+        from retrieval_hub.ingestion.chunking.graph import chunk_graph_data
+        from retrieval_hub.ingestion.write_graph import write_graph_structure
+
+        memgraph_uri = os.environ.get(
+            "MEMGRAPH_BOLT_URI", "bolt://127.0.0.1:7687",
+        )
+        chunks, graph_nodes, graph_edges = chunk_graph_data(
+            data_dir,
+            source_slug=slug,
+            chunk_tokens=chunk_tokens,
+            renderer=renderer,
+        )
+        doc_count = len(graph_nodes)
+
+        graph_stats = write_graph_structure(
+            memgraph_uri, graph_nodes, graph_edges, slug,
+        )
+        logger.info(
+            "pipeline.ingest graph_write slug=%s nodes=%d edges=%d",
+            slug, graph_stats.nodes_written, graph_stats.edges_written,
+        )
 
     if not chunks:
         raise ValueError(
