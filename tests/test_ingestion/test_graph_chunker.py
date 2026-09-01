@@ -15,12 +15,14 @@ import pytest
 from retrieval_hub.ingestion.chunking.graph import (
     GraphEdge,
     GraphNode,
+    _strict_isa_neighbors,
     chunk_graph_data,
     parse_graph_edges,
     parse_graph_nodes,
     render_default_entity,
     render_fhir_entity,
     render_hetionet_entity,
+    render_snomed_entity,
 )
 
 # ---------------------------------------------------------------------------
@@ -421,3 +423,205 @@ def test_chunk_graph_data_sif_edges(tmp_path) -> None:
     assert len(chunks) == 2
     assert len(edges) == 1
     assert edges[0].relationship_type == "CtD"
+
+
+# ---------------------------------------------------------------------------
+# render_snomed_entity
+# ---------------------------------------------------------------------------
+
+
+def test_render_snomed_entity_disorder() -> None:
+    disorder = GraphNode(
+        entity_id="59621000",
+        entity_type="Disorder",
+        name="Essential hypertension",
+        properties={
+            "fsn": "Essential hypertension (disorder)",
+            "definition": "A disorder characterized by elevated systemic arterial blood pressure.",
+            "semantic_tag": "disorder",
+        },
+    )
+    site = GraphNode(
+        entity_id="51840005",
+        entity_type="Body Structure",
+        name="Systemic circulatory system structure",
+    )
+    parent = GraphNode(
+        entity_id="38341003",
+        entity_type="Disorder",
+        name="Hypertensive disorder",
+    )
+    child = GraphNode(
+        entity_id="1201005",
+        entity_type="Disorder",
+        name="Benign essential hypertension",
+    )
+    edges = [
+        GraphEdge(source_id="59621000", target_id="51840005", relationship_type="FINDING_SITE"),
+        GraphEdge(source_id="59621000", target_id="38341003", relationship_type="IS_A"),
+        GraphEdge(source_id="1201005", target_id="59621000", relationship_type="IS_A"),
+    ]
+    lookup = _node_lookup([disorder, site, parent, child])
+
+    text = render_snomed_entity(disorder, edges, lookup)
+
+    assert "Clinical disorder: Essential hypertension." in text
+    assert "elevated systemic arterial blood pressure" in text
+    assert "Finding site: Systemic circulatory system structure." in text
+    assert "Parent concepts: Hypertensive disorder." in text
+    assert "Subtypes: Benign essential hypertension." in text
+    # Parent and subtype labels must not be confused
+    assert "Parent concepts: Benign essential hypertension" not in text
+    assert "Subtypes: Hypertensive disorder" not in text
+
+
+def test_strict_isa_neighbors_direction() -> None:
+    """_strict_isa_neighbors correctly separates parents from children."""
+    node = GraphNode(entity_id="A", entity_type="Disorder", name="A")
+    parent = GraphNode(entity_id="P", entity_type="Disorder", name="Parent")
+    child = GraphNode(entity_id="C", entity_type="Disorder", name="Child")
+    edges = [
+        GraphEdge(source_id="A", target_id="P", relationship_type="IS_A"),
+        GraphEdge(source_id="C", target_id="A", relationship_type="IS_A"),
+        GraphEdge(source_id="A", target_id="X", relationship_type="FINDING_SITE"),
+    ]
+    lookup = _node_lookup([node, parent, child])
+
+    parents = _strict_isa_neighbors(node, edges, lookup, direction="parents")
+    children = _strict_isa_neighbors(node, edges, lookup, direction="children")
+
+    assert parents == ["Parent"]
+    assert children == ["Child"]
+
+
+def test_render_snomed_entity_disorder_no_definition() -> None:
+    disorder = GraphNode(
+        entity_id="1201005",
+        entity_type="Disorder",
+        name="Benign essential hypertension",
+        properties={
+            "fsn": "Benign essential hypertension (disorder)",
+            "definition": "",
+            "semantic_tag": "disorder",
+        },
+    )
+    text = render_snomed_entity(disorder, [], _node_lookup([disorder]))
+
+    assert "Clinical disorder: Benign essential hypertension." in text
+    assert "elevated" not in text  # no definition text leaked
+
+
+def test_render_snomed_entity_body_structure() -> None:
+    structure = GraphNode(
+        entity_id="51840005",
+        entity_type="Body Structure",
+        name="Systemic circulatory system structure",
+        properties={
+            "fsn": "Systemic circulatory system structure (body structure)",
+            "definition": "",
+            "semantic_tag": "body structure",
+        },
+    )
+    parent = GraphNode(
+        entity_id="113257007",
+        entity_type="Body Structure",
+        name="Structure of cardiovascular system",
+    )
+    edges = [
+        GraphEdge(source_id="51840005", target_id="113257007", relationship_type="IS_A"),
+    ]
+    lookup = _node_lookup([structure, parent])
+
+    text = render_snomed_entity(structure, edges, lookup)
+
+    assert "Anatomical structure: Systemic circulatory system structure." in text
+    assert "Part of: Structure of cardiovascular system." in text
+
+
+def test_render_snomed_entity_observable() -> None:
+    obs = GraphNode(
+        entity_id="75367002",
+        entity_type="Observable Entity",
+        name="Blood pressure",
+        properties={
+            "fsn": "Blood pressure (observable entity)",
+            "definition": "The pressure of blood within the arteries.",
+            "semantic_tag": "observable entity",
+        },
+    )
+    text = render_snomed_entity(obs, [], _node_lookup([obs]))
+
+    assert "Observable entity: Blood pressure." in text
+    assert "pressure of blood within the arteries" in text
+
+
+def test_render_snomed_entity_finding() -> None:
+    finding = GraphNode(
+        entity_id="24184005",
+        entity_type="Finding",
+        name="Blood pressure above reference range",
+        properties={
+            "fsn": "Blood pressure above reference range (finding)",
+            "definition": "",
+            "semantic_tag": "finding",
+        },
+    )
+    site = GraphNode(
+        entity_id="51840005",
+        entity_type="Body Structure",
+        name="Systemic circulatory system structure",
+    )
+    edges = [
+        GraphEdge(source_id="24184005", target_id="51840005", relationship_type="FINDING_SITE"),
+    ]
+    lookup = _node_lookup([finding, site])
+
+    text = render_snomed_entity(finding, edges, lookup)
+
+    assert "Clinical finding: Blood pressure above reference range." in text
+    assert "Finding site: Systemic circulatory system structure." in text
+
+
+def test_render_snomed_entity_fallback() -> None:
+    node = GraphNode(
+        entity_id="12345",
+        entity_type="Morphologic Abnormality",
+        name="Arteriosclerosis",
+        properties={
+            "fsn": "Arteriosclerosis (morphologic abnormality)",
+            "definition": "Thickening and hardening of arterial walls.",
+            "semantic_tag": "morphologic abnormality",
+        },
+    )
+    text = render_snomed_entity(node, [], _node_lookup([node]))
+
+    assert "Morphologic Abnormality: Arteriosclerosis." in text
+    assert "Thickening and hardening" in text
+
+
+def test_chunk_graph_data_snomed_renderer(tmp_path) -> None:
+    _write_tsv(
+        tmp_path / "nodes.tsv",
+        """\
+        entity_id\tentity_type\tname\tproperties_json
+        59621000\tDisorder\tEssential hypertension\t{"fsn": "Essential hypertension (disorder)", "definition": "Elevated BP.", "semantic_tag": "disorder"}
+        51840005\tBody Structure\tSystemic circulatory system\t{"fsn": "Systemic circulatory system (body structure)", "definition": "", "semantic_tag": "body structure"}
+        """,
+    )
+    _write_tsv(
+        tmp_path / "edges.tsv",
+        """\
+        source_id\ttarget_id\trelationship_type\tproperties_json
+        59621000\t51840005\tFINDING_SITE\t{}
+        """,
+    )
+
+    chunks, nodes, edges = chunk_graph_data(
+        tmp_path, source_slug="snomed-test", renderer="snomed",
+    )
+
+    assert len(chunks) == 2
+    assert "Clinical disorder: Essential hypertension." in chunks[0].text
+    assert "Elevated BP." in chunks[0].text
+    assert "Finding site: Systemic circulatory system." in chunks[0].text
+    assert "Anatomical structure: Systemic circulatory system." in chunks[1].text

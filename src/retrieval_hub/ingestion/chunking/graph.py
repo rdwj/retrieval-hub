@@ -323,6 +323,128 @@ def render_hetionet_entity(
     return base
 
 
+def _strict_isa_neighbors(
+    node: GraphNode,
+    node_edges: list[GraphEdge],
+    all_nodes: dict[str, GraphNode],
+    *,
+    direction: str,
+    limit: int = 10,
+) -> list[str]:
+    """Return names of IS_A neighbors in a strict direction.
+
+    SNOMED IS_A edges: sourceId IS_A destinationId (child IS_A parent).
+    direction="parents": edges where this node is the source (outbound).
+    direction="children": edges where this node is the destination (inbound).
+    """
+    names: list[str] = []
+    for edge in node_edges:
+        if edge.relationship_type != "IS_A":
+            continue
+        if direction == "parents" and edge.source_id == node.entity_id:
+            peer = all_nodes.get(edge.target_id)
+        elif direction == "children" and edge.target_id == node.entity_id:
+            peer = all_nodes.get(edge.source_id)
+        else:
+            continue
+        if peer:
+            names.append(peer.name)
+        if len(names) >= limit:
+            break
+    return names
+
+
+def render_snomed_entity(
+    node: GraphNode,
+    node_edges: list[GraphEdge],
+    all_nodes: dict[str, GraphNode],
+) -> str:
+    """Render a SNOMED-CT clinical terminology entity."""
+    etype = node.entity_type
+    definition = _prop(node, "definition")
+
+    if etype == "Disorder":
+        parts = [f"Clinical disorder: {node.name}."]
+        if definition:
+            parts.append(definition)
+        sites = _neighbors_by_rel(node, node_edges, all_nodes, "FINDING_SITE")
+        morph = _neighbors_by_rel(
+            node, node_edges, all_nodes, "ASSOCIATED_MORPHOLOGY",
+        )
+        manifestations = _neighbors_by_rel(
+            node, node_edges, all_nodes, "HAS_DEFINITIONAL_MANIFESTATION",
+        )
+        parents = _strict_isa_neighbors(
+            node, node_edges, all_nodes, direction="parents",
+        )
+        children = _strict_isa_neighbors(
+            node, node_edges, all_nodes, direction="children",
+        )
+        if sites:
+            parts.append(f"Finding site: {', '.join(sites)}.")
+        if morph:
+            parts.append(f"Associated morphology: {', '.join(morph)}.")
+        if manifestations:
+            parts.append(f"Manifestations: {', '.join(manifestations)}.")
+        if parents:
+            parts.append(f"Parent concepts: {', '.join(parents)}.")
+        if children:
+            parts.append(f"Subtypes: {', '.join(children)}.")
+        return " ".join(parts)
+
+    if etype == "Body Structure":
+        parts = [f"Anatomical structure: {node.name}."]
+        if definition:
+            parts.append(definition)
+        parent_structures = _strict_isa_neighbors(
+            node, node_edges, all_nodes, direction="parents",
+        )
+        if parent_structures:
+            parts.append(f"Part of: {', '.join(parent_structures)}.")
+        return " ".join(parts)
+
+    if etype == "Observable Entity":
+        parts = [f"Observable entity: {node.name}."]
+        if definition:
+            parts.append(definition)
+        return " ".join(parts)
+
+    if etype == "Finding":
+        parts = [f"Clinical finding: {node.name}."]
+        if definition:
+            parts.append(definition)
+        sites = _neighbors_by_rel(node, node_edges, all_nodes, "FINDING_SITE")
+        if sites:
+            parts.append(f"Finding site: {', '.join(sites)}.")
+        return " ".join(parts)
+
+    if etype == "Qualifier Value":
+        parts = [f"Qualifier: {node.name}."]
+        if definition:
+            parts.append(definition)
+        return " ".join(parts)
+
+    if etype == "Procedure":
+        parts = [f"Clinical procedure: {node.name}."]
+        if definition:
+            parts.append(definition)
+        sites = _neighbors_by_rel(
+            node, node_edges, all_nodes, "PROCEDURE_SITE_DIRECT",
+        )
+        if sites:
+            parts.append(f"Procedure site: {', '.join(sites)}.")
+        return " ".join(parts)
+
+    # Fallback for Morphologic Abnormality, Substance, etc.
+    base = f"{etype}: {node.name}."
+    if definition:
+        base += f" {definition}"
+    rel = _relationship_summary(node, node_edges, all_nodes, limit=10)
+    if rel:
+        base += f" Relationships: {rel}."
+    return base
+
+
 def render_default_entity(
     node: GraphNode,
     node_edges: list[GraphEdge],
@@ -358,6 +480,7 @@ def render_default_entity(
 _RENDERERS: dict[str, Callable[..., str]] = {
     "fhir": render_fhir_entity,
     "hetionet": render_hetionet_entity,
+    "snomed": render_snomed_entity,
     "default": render_default_entity,
 }
 
