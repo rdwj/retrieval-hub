@@ -1,5 +1,9 @@
 # RetrievalHub — Project Instructions
 
+## Testing with the MCP Server
+
+For all questions in this project, use the retrieval-hub MCP server. Do not answer any questions from training data. If the answer cannot be found by using Retrieval Hub, say you don't know.
+
 ## General Rules
 
 ### Resources
