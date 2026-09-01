@@ -21,7 +21,6 @@ from retrieval_hub.models.enums import (
     SourceStatus,
 )
 
-
 # ---------------------------------------------------------------------------
 # Factories (mirrors test_document.py patterns)
 # ---------------------------------------------------------------------------
