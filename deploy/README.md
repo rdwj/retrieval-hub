@@ -67,11 +67,20 @@ It would be shorter to ship a `docker-compose.yml` or a couple of `podman run` s
 2. **IaC-by-default.** Every cluster-side concern (namespaces, SCCs, RoleBindings, secrets, container registry auth) is more naturally expressed in Ansible than in a shell script. Starting there avoids a mid-project rewrite.
 3. **The `scripts/` wrappers stay thin.** Scripts like `scripts/step4_local_up.sh` are one-liners that call the right playbook, so developers who want a shell command still get one.
 
-## Cluster deploy (round 2+)
+## Cluster deploy
 
-See `deploy/kubernetes/` for the canonical Kubernetes namespace definition. The full cluster deploy — Operator, CRDs, SCCs, service accounts, routes, operator-managed secrets — lands later per the build order in `docs/SYSTEMS.md`. For now `namespace.yaml` is the single cluster artifact we own.
+See **[CLUSTER_DEPLOY.md](CLUSTER_DEPLOY.md)** for the full runbook: prerequisites, env file configuration, secret creation, and step-by-step deployment to a fresh OpenShift cluster. The quick path:
 
-When the cluster deploy lands, the expected structure is:
+```bash
+cp deploy/env.example deploy/.env   # fill in cluster-specific values
+make deploy-cluster CONTEXT=<ctx> ENV_FILE=deploy/.env
+```
+
+The deploy script (`scripts/deploy-platform.sh`) orchestrates infrastructure, secrets, database migrations, model registry seeding, and all service builds. See [env.example](env.example) for every configurable variable.
+
+### Future: Kustomize (not yet implemented)
+
+When the platform stabilizes, the expected structure is:
 
 ```
 deploy/kubernetes/
