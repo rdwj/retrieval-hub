@@ -52,7 +52,7 @@ The deployed MCP server is live and authenticated via Google OAuth. Any Red Hat 
 mkdir test-retrieval-hub && cd test-retrieval-hub
 
 # Tell Claude to use the MCP server
-echo "For all questions in this project, use the retrieval-hub MCP server." > CLAUDE.md
+echo "For all questions in this project, use the retrieval-hub MCP server. Do not answer any questions from training data. If the answer cannot be found by using Retrieval Hub, say you don't know." > CLAUDE.md
 
 # Register the MCP server
 claude mcp add --transport http retrieval-hub \
