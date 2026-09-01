@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # Deploy the full RetrievalHub platform to an OpenShift cluster.
 #
-# Orchestrates: infrastructure, migrations, model registry seeding,
-# service deployments, and post-deploy verification. Wraps the
-# individual per-component deploy scripts.
+# Orchestrates: secrets, infrastructure, migrations, model registry seeding,
+# service deployments, and post-deploy verification. Wraps the individual
+# per-component deploy scripts.
 #
 # Usage:
 #   ./scripts/deploy-platform.sh --context=gpt-oss-120b
+#   ./scripts/deploy-platform.sh --context=gpt-oss-120b --env-file=deploy/.env
 #   ./scripts/deploy-platform.sh --context=gpt-oss-120b --skip-build
 #   ./scripts/deploy-platform.sh --context=gpt-oss-120b --infra-only
 #
 # Options:
-#   --context=NAME    OpenShift context (required)
-#   --project=NAME    Namespace (default: retrieval-hub)
-#   --skip-build      Skip container builds (apply manifests and seed only)
-#   --infra-only      Deploy infra + migrate + seed, skip service builds
+#   --context=NAME     OpenShift context (required)
+#   --project=NAME     Namespace (default: retrieval-hub)
+#   --env-file=PATH    Source cluster-specific variables from this file
+#   --skip-build       Skip container builds (apply manifests and seed only)
+#   --infra-only       Deploy infra + migrate + seed, skip service builds
 
 set -euo pipefail
 
@@ -22,11 +24,13 @@ PROJECT="retrieval-hub"
 CTX=""
 SKIP_BUILD=false
 INFRA_ONLY=false
+ENV_FILE=""
 
 for arg in "$@"; do
     case "$arg" in
         --context=*)   CTX="${arg#--context=}" ;;
         --project=*)   PROJECT="${arg#--project=}" ;;
+        --env-file=*)  ENV_FILE="${arg#--env-file=}" ;;
         --skip-build)  SKIP_BUILD=true ;;
         --infra-only)  INFRA_ONLY=true ;;
         *) echo "Unknown option: $arg"; exit 1 ;;
@@ -37,6 +41,22 @@ if [ -z "$CTX" ]; then
     echo "ERROR: --context is required"
     echo "Usage: $0 --context=<cluster-context>"
     exit 1
+fi
+
+# Source env file if provided
+if [ -n "$ENV_FILE" ]; then
+    if [ ! -f "$ENV_FILE" ]; then
+        echo "ERROR: Env file not found: $ENV_FILE"
+        exit 1
+    fi
+    echo "Sourcing env file: $ENV_FILE"
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+    # Allow env file to override PROJECT and CTX
+    PROJECT="${PROJECT:-retrieval-hub}"
+    CTX="${CONTEXT:-$CTX}"
 fi
 
 OC_CTX="--context=$CTX"
@@ -68,6 +88,73 @@ fi
 echo "  Namespace: $PROJECT"
 echo ""
 
+# --- Secrets -----------------------------------------------------------------
+
+echo "==> Ensuring secrets exist"
+
+# Helper: create a secret idempotently (only if it doesn't already exist)
+ensure_secret() {
+    local name="$1"
+    shift
+    if oc get secret "$name" -n "$PROJECT" $OC_CTX &>/dev/null; then
+        echo "  $name: exists (not overwriting)"
+    else
+        oc create secret generic "$name" "$@" -n "$PROJECT" $OC_CTX 2>&1 | sed 's/^/  /'
+    fi
+}
+
+# PostgreSQL credentials
+PG_USER="${POSTGRES_USER:-retrievalhub}"
+PG_PASS="${POSTGRES_PASSWORD:-retrievalhub}"
+PG_DB="retrievalhub"
+PG_VECTORS_DB="retrievalhub_vectors"
+PG_HOST="retrieval-hub-pg"
+ensure_secret retrieval-hub-pg \
+    --from-literal=POSTGRES_USER="$PG_USER" \
+    --from-literal=POSTGRES_PASSWORD="$PG_PASS" \
+    --from-literal=POSTGRES_DB="$PG_DB" \
+    --from-literal=VECTORS_DB="$PG_VECTORS_DB" \
+    --from-literal=RETRIEVAL_HUB_DB_URL="postgresql+psycopg://${PG_USER}:${PG_PASS}@${PG_HOST}:5432/${PG_DB}" \
+    --from-literal=RETRIEVAL_HUB_VECTORS_DB_URL="postgresql+psycopg://${PG_USER}:${PG_PASS}@${PG_HOST}:5432/${PG_VECTORS_DB}"
+
+# Auth service database (uses the same PG instance)
+ensure_secret retrieval-hub-auth \
+    --from-literal=DB_URL="postgresql+psycopg://${PG_USER}:${PG_PASS}@${PG_HOST}:5432/${PG_DB}_auth"
+
+# Auth service signing key
+SIGNING_KEY_PATH="${RETRIEVAL_HUB_AUTH_SIGNING_KEY_PATH:-}"
+if [ -n "$SIGNING_KEY_PATH" ] && [ -f "$SIGNING_KEY_PATH" ]; then
+    if oc get secret retrieval-hub-auth-signing-key -n "$PROJECT" $OC_CTX &>/dev/null; then
+        echo "  retrieval-hub-auth-signing-key: exists (not overwriting)"
+    else
+        oc create secret generic retrieval-hub-auth-signing-key \
+            --from-file=signing.pem="$SIGNING_KEY_PATH" \
+            -n "$PROJECT" $OC_CTX 2>&1 | sed 's/^/  /'
+    fi
+else
+    if oc get secret retrieval-hub-auth-signing-key -n "$PROJECT" $OC_CTX &>/dev/null; then
+        echo "  retrieval-hub-auth-signing-key: exists (not overwriting)"
+    else
+        echo "  retrieval-hub-auth-signing-key: SKIPPED (no key path provided)"
+        echo "    The auth service will generate an ephemeral key."
+        echo "    Set RETRIEVAL_HUB_AUTH_SIGNING_KEY_PATH for persistent keys."
+    fi
+fi
+
+# Google OAuth (optional)
+GOOGLE_ID="${RETRIEVAL_HUB_GOOGLE_CLIENT_ID:-}"
+GOOGLE_SECRET="${RETRIEVAL_HUB_GOOGLE_CLIENT_SECRET:-}"
+if [ -n "$GOOGLE_ID" ] && [ -n "$GOOGLE_SECRET" ]; then
+    ensure_secret retrieval-hub-google-oauth \
+        --from-literal=RETRIEVAL_HUB_GOOGLE_CLIENT_ID="$GOOGLE_ID" \
+        --from-literal=RETRIEVAL_HUB_GOOGLE_CLIENT_SECRET="$GOOGLE_SECRET"
+else
+    echo "  retrieval-hub-google-oauth: SKIPPED (no Google OAuth credentials)"
+    echo "    Set RETRIEVAL_HUB_GOOGLE_CLIENT_ID and _SECRET to enable."
+fi
+
+echo ""
+
 # --- Infrastructure ----------------------------------------------------------
 
 echo "==> Deploying infrastructure"
@@ -94,7 +181,6 @@ echo ""
 
 echo "==> Running database migrations"
 
-# Port-forward to cluster PG for migration
 PF_PID=""
 cleanup_pf() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null; }
 trap cleanup_pf EXIT
@@ -106,7 +192,7 @@ PF_PID=$!
 sleep 3
 
 if pg_isready -h 127.0.0.1 -p "$LOCAL_PORT" &>/dev/null; then
-    RETRIEVAL_HUB_DB_URL="postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:$LOCAL_PORT/retrievalhub" \
+    RETRIEVAL_HUB_DB_URL="postgresql+psycopg://${PG_USER}:${PG_PASS}@127.0.0.1:$LOCAL_PORT/$PG_DB" \
         python -m alembic upgrade head 2>&1 | sed 's/^/    /'
     echo "  Migrations complete"
 else
@@ -120,13 +206,12 @@ echo "==> Seeding model registry"
 
 if [ -n "$PF_PID" ] && pg_isready -h 127.0.0.1 -p "$LOCAL_PORT" &>/dev/null; then
     python "$REPO_ROOT/scripts/seed_model_endpoints.py" \
-        --db-url "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:$LOCAL_PORT/retrievalhub" \
+        --db-url "postgresql+psycopg://${PG_USER}:${PG_PASS}@127.0.0.1:$LOCAL_PORT/$PG_DB" \
         2>&1 | sed 's/^/    /'
 else
     echo "  WARNING: Could not reach cluster DB for seeding"
 fi
 
-# Clean up port-forward
 kill "$PF_PID" 2>/dev/null
 PF_PID=""
 echo ""
@@ -152,9 +237,32 @@ if [ "$SKIP_BUILD" = false ]; then
     echo "==> Building and deploying services"
     echo ""
 
+    echo "--- Auth Service ---"
+    if [ -f "$REPO_ROOT/retrieval-hub-auth/deploy.sh" ]; then
+        "$REPO_ROOT/retrieval-hub-auth/deploy.sh" "$PROJECT" --context="$CTX" 2>&1 | sed 's/^/    /'
+    else
+        echo "    SKIPPED (no deploy.sh)"
+    fi
+    echo ""
+
     echo "--- MCP Server ---"
     "$REPO_ROOT/retrieval-hub-mcp/deploy.sh" "$PROJECT" --context="$CTX" 2>&1 | sed 's/^/    /'
     echo ""
+
+    # Auto-detect MCP route URL and patch Google OAuth base URL
+    MCP_ROUTE=$(oc get route retrieval-hub-mcp -n "$PROJECT" $OC_CTX \
+        -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
+    if [ -n "$MCP_ROUTE" ]; then
+        DETECTED_BASE_URL="https://$MCP_ROUTE"
+        CURRENT_BASE_URL=$(oc get deployment retrieval-hub-mcp -n "$PROJECT" $OC_CTX \
+            -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="RETRIEVAL_HUB_GOOGLE_BASE_URL")].value}' 2>/dev/null || echo "")
+        if [ "$CURRENT_BASE_URL" != "$DETECTED_BASE_URL" ]; then
+            echo "  Patching RETRIEVAL_HUB_GOOGLE_BASE_URL to $DETECTED_BASE_URL..."
+            oc set env deployment/retrieval-hub-mcp \
+                RETRIEVAL_HUB_GOOGLE_BASE_URL="$DETECTED_BASE_URL" \
+                -n "$PROJECT" $OC_CTX 2>&1 | sed 's/^/    /'
+        fi
+    fi
 
     echo "--- BFF ---"
     "$REPO_ROOT/retrieval-hub-bff/deploy.sh" "$PROJECT" --context="$CTX" 2>&1 | sed 's/^/    /'
@@ -163,6 +271,12 @@ if [ "$SKIP_BUILD" = false ]; then
     if [ -f "$REPO_ROOT/retrieval-hub-evalhub/deploy.sh" ]; then
         echo "--- EvalHub ---"
         "$REPO_ROOT/retrieval-hub-evalhub/deploy.sh" "$PROJECT" --context="$CTX" 2>&1 | sed 's/^/    /'
+        echo ""
+    fi
+
+    if [ -f "$REPO_ROOT/scripts/deploy-ui-live.sh" ]; then
+        echo "--- UI ---"
+        "$REPO_ROOT/scripts/deploy-ui-live.sh" "$PROJECT" --context="$CTX" 2>&1 | sed 's/^/    /'
         echo ""
     fi
 else
@@ -183,9 +297,17 @@ if [ -n "$MCP_ROUTE" ]; then
     HEALTH=$(curl -s -o /dev/null -w "%{http_code}" \
         "https://$MCP_ROUTE/health" 2>/dev/null || echo "000")
     if [ "$HEALTH" = "200" ]; then
-        echo "  Health check: PASS (HTTP $HEALTH)"
+        echo "  Health check: PASS"
     else
         echo "  Health check: WARN (HTTP $HEALTH — may need a moment to start)"
+    fi
+
+    OAUTH=$(curl -s -o /dev/null -w "%{http_code}" \
+        "https://$MCP_ROUTE/.well-known/oauth-authorization-server" 2>/dev/null || echo "000")
+    if [ "$OAUTH" = "200" ]; then
+        echo "  Google OAuth: ENABLED"
+    else
+        echo "  Google OAuth: disabled or not configured"
     fi
 else
     echo "  WARNING: No MCP Route found"
@@ -205,10 +327,14 @@ echo "Platform deploy complete"
 echo "========================================="
 echo ""
 echo "Services:"
-echo "  MCP:  https://$MCP_ROUTE/mcp"
+[ -n "$MCP_ROUTE" ] && echo "  MCP:  https://$MCP_ROUTE/mcp"
+echo "  Auth: http://retrieval-hub-auth:8080 (internal)"
 echo "  BFF:  http://retrieval-hub-bff:8080 (internal)"
 echo ""
+echo "Connect with Claude Code:"
+echo "  claude mcp add --transport http retrieval-hub https://$MCP_ROUTE/mcp"
+echo ""
 echo "Next steps:"
-echo "  - Verify: curl https://$MCP_ROUTE/health"
+[ -n "$MCP_ROUTE" ] && echo "  - Verify: curl https://$MCP_ROUTE/health"
 echo "  - Run eval: ./retrieval-hub-evalhub/submit-job.sh --context=$CTX"
 echo "========================================="

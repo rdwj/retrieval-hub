@@ -27,8 +27,14 @@ help:
 	@echo "  deploy-embedding-tei        deploy TEI PubMedBERT (CPU)"
 	@echo "  deploy-embedding-snowflake  deploy vLLM Snowflake Arctic (GPU)"
 	@echo ""
+	@echo "cluster deployment targets:"
+	@echo "  deploy-cluster        full platform deploy (infra + services)"
+	@echo "  deploy-cluster-infra  infrastructure only (PG, embedding, migrations)"
+	@echo "  deploy-secrets        create secrets from env file"
+	@echo ""
 	@echo "  CONTEXT=<ctx>    (required) OpenShift context"
 	@echo "  NAMESPACE=<ns>   (default: retrieval-hub)"
+	@echo "  ENV_FILE=<path>  cluster config file (see deploy/env.example)"
 
 install:
 	$(PIP) install -e ".[dev]"
@@ -75,3 +81,31 @@ deploy-embedding-tei:
 deploy-embedding-snowflake:
 	./scripts/deploy-embedding.sh vllm-snowflake \
 		--context=$(CONTEXT) --namespace=$(NAMESPACE)
+
+# --- Cluster deployment -------------------------------------------------------
+
+.PHONY: deploy-cluster deploy-cluster-infra deploy-secrets
+
+deploy-cluster:
+ifndef CONTEXT
+	$(error CONTEXT is required. Usage: make deploy-cluster CONTEXT=<ctx> [ENV_FILE=deploy/.env])
+endif
+	./scripts/deploy-platform.sh --context=$(CONTEXT) \
+		$(if $(ENV_FILE),--env-file=$(ENV_FILE),) \
+		$(if $(filter-out retrieval-hub,$(NAMESPACE)),--project=$(NAMESPACE),)
+
+deploy-cluster-infra:
+ifndef CONTEXT
+	$(error CONTEXT is required)
+endif
+	./scripts/deploy-platform.sh --context=$(CONTEXT) --infra-only \
+		$(if $(ENV_FILE),--env-file=$(ENV_FILE),) \
+		$(if $(filter-out retrieval-hub,$(NAMESPACE)),--project=$(NAMESPACE),)
+
+deploy-secrets:
+ifndef CONTEXT
+	$(error CONTEXT is required)
+endif
+	./scripts/deploy-platform.sh --context=$(CONTEXT) --infra-only --skip-build \
+		$(if $(ENV_FILE),--env-file=$(ENV_FILE),) \
+		$(if $(filter-out retrieval-hub,$(NAMESPACE)),--project=$(NAMESPACE),)
