@@ -106,9 +106,28 @@ layer that proves the earlier phases actually made the agent experience
 good. Run the forcing-function query after each phase to measure
 progress.
 
-**Next session:** Phase 1 (all three parts). 1a is ~30 min, 1b is
-~1-2 hours (renderer + re-ingest), 1c is ~1-2 hours (converter +
-renderer + re-ingest). If time permits, start Phase 2.
+**Next session:** Re-run FHIR re-ingestion (1c data op — code is
+committed, just needs embedding). Then Phase 3 (retrieve filtering).
+Phase 2 code is also committed and deployed.
+
+### Checkpoint (2026-09-02)
+
+Phase 1 and Phase 2 code changes committed. Hetionet re-ingested and
+verified via MCP retrieve (chunks now include relationships). FHIR
+re-ingestion needs one more run — first attempt used stale Python
+bytecode, producing chunks without component values. Command:
+
+    PYTHONDONTWRITEBYTECODE=1 MEMGRAPH_BOLT_URI=bolt://127.0.0.1:17687 \
+      python -B scripts/ingest_fhir_hypertension.py \
+      --embedding-endpoint http://127.0.0.1:8090
+
+Needs port-forwards: Memgraph (17687→7687), Postgres catalog (5434),
+Postgres vectors (5433), TEI embedding (8090). Takes ~21 min.
+
+Key finding: Hetionet renderer was completely broken — abbreviated
+edge type codes ("CtD") never matched the full-description data
+("Compound - treats - Disease"), so zero relationships were rendering.
+Fixed and verified.
 
 ## Definition of done
 
