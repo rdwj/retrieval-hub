@@ -70,15 +70,41 @@ def _render_medication_request(r):
 def _render_observation(r):
     code_display = _safe_get(r, "code", "coding", 0, "display", default="Observation")
     vq = r.get("valueQuantity")
+
+    # Extract component values (e.g., systolic/diastolic BP)
+    components = []
+    for comp in r.get("component", []):
+        comp_vq = comp.get("valueQuantity")
+        if comp_vq and "value" in comp_vq:
+            comp_name = _safe_get(comp, "code", "coding", 0, "display", default="")
+            components.append({
+                "name": comp_name,
+                "value": comp_vq["value"],
+                "unit": comp_vq.get("unit", ""),
+            })
+
     if vq and "value" in vq:
         display = f"{code_display} = {vq['value']} {vq.get('unit', '')}"
     else:
         vc = _safe_get(r, "valueCodeableConcept", "coding", 0, "display")
-        display = f"{code_display} = {vc}" if vc else code_display
+        if vc:
+            display = f"{code_display} = {vc}"
+        elif components:
+            # No top-level value but has components — include them in display
+            comp_parts = ", ".join(
+                f"{c['name']} {c['value']} {c['unit']}".strip()
+                for c in components
+            )
+            display = f"{code_display}: {comp_parts}"
+        else:
+            display = code_display
+
     props = {
         "effectiveDateTime": r.get("effectiveDateTime"),
         "category": _safe_get(r, "category", 0, "coding", 0, "display"),
     }
+    if components:
+        props["components"] = components
     return display, props
 
 

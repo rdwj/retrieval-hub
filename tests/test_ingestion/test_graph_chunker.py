@@ -238,6 +238,77 @@ def test_render_fhir_entity_condition() -> None:
     assert "Onset: 2020-01-15." in text
 
 
+def test_render_fhir_entity_observation_simple() -> None:
+    """Observation with a top-level value renders as before."""
+    node = GraphNode(
+        entity_id="o1",
+        entity_type="Observation",
+        name="Heart Rate = 72 /min",
+        properties={"effectiveDateTime": "2024-01-15", "category": "vital-signs"},
+    )
+    text = render_fhir_entity(node, [], _node_lookup([node]))
+    assert "Observation: Heart Rate = 72 /min." in text
+    assert "Category: vital-signs." in text
+    assert "Date: 2024-01-15." in text
+
+
+def test_render_fhir_entity_observation_with_components() -> None:
+    """Observation with component values (e.g., BP panel) renders components."""
+    node = GraphNode(
+        entity_id="o2",
+        entity_type="Observation",
+        name="Blood Pressure Panel: Systolic Blood Pressure 140 mmHg, Diastolic Blood Pressure 90 mmHg",
+        properties={
+            "effectiveDateTime": "2024-01-15",
+            "category": "vital-signs",
+            "components": [
+                {"name": "Systolic Blood Pressure", "value": 140, "unit": "mmHg"},
+                {"name": "Diastolic Blood Pressure", "value": 90, "unit": "mmHg"},
+            ],
+        },
+    )
+    text = render_fhir_entity(node, [], _node_lookup([node]))
+    assert "Observation: Blood Pressure Panel:" in text
+    assert "Systolic Blood Pressure: 140 mmHg." in text
+    assert "Diastolic Blood Pressure: 90 mmHg." in text
+    assert "Category: vital-signs." in text
+    assert "Date: 2024-01-15." in text
+
+
+def test_render_fhir_entity_observation_components_as_json_string() -> None:
+    """Components stored as a JSON string (post-serialization) still parse."""
+    node = GraphNode(
+        entity_id="o3",
+        entity_type="Observation",
+        name="Blood Pressure Panel",
+        properties={
+            "effectiveDateTime": "2024-02-20",
+            "components": json.dumps([
+                {"name": "Systolic Blood Pressure", "value": 120, "unit": "mmHg"},
+                {"name": "Diastolic Blood Pressure", "value": 80, "unit": "mmHg"},
+            ]),
+        },
+    )
+    text = render_fhir_entity(node, [], _node_lookup([node]))
+    assert "Systolic Blood Pressure: 120 mmHg." in text
+    assert "Diastolic Blood Pressure: 80 mmHg." in text
+    assert "Date: 2024-02-20." in text
+
+
+def test_render_fhir_entity_observation_no_value_no_components() -> None:
+    """Observation with no value and no components renders cleanly."""
+    node = GraphNode(
+        entity_id="o4",
+        entity_type="Observation",
+        name="Unknown Panel",
+        properties={"effectiveDateTime": "2024-03-01"},
+    )
+    text = render_fhir_entity(node, [], _node_lookup([node]))
+    assert "Observation: Unknown Panel." in text
+    assert "Date: 2024-03-01." in text
+    assert "Category:" not in text  # no category set
+
+
 # ---------------------------------------------------------------------------
 # render_hetionet_entity
 # ---------------------------------------------------------------------------
@@ -249,9 +320,9 @@ def test_render_hetionet_entity_disease() -> None:
     gene = GraphNode(entity_id="g1", entity_type="Gene", name="IL13")
     anatomy = GraphNode(entity_id="a1", entity_type="Anatomy", name="Lung")
     edges = [
-        GraphEdge(source_id="c1", target_id="d1", relationship_type="CtD"),
-        GraphEdge(source_id="d1", target_id="g1", relationship_type="DaG"),
-        GraphEdge(source_id="d1", target_id="a1", relationship_type="DlA"),
+        GraphEdge(source_id="c1", target_id="d1", relationship_type="Compound - treats - Disease"),
+        GraphEdge(source_id="d1", target_id="g1", relationship_type="Disease - associates - Gene"),
+        GraphEdge(source_id="d1", target_id="a1", relationship_type="Disease - localizes - Anatomy"),
     ]
     lookup = _node_lookup([disease, compound, gene, anatomy])
 
@@ -263,11 +334,34 @@ def test_render_hetionet_entity_disease() -> None:
     assert "Affected anatomy: Lung." in text
 
 
+def test_render_hetionet_entity_disease_enriched() -> None:
+    disease = GraphNode(entity_id="d1", entity_type="Disease", name="Asthma")
+    symptom = GraphNode(entity_id="s1", entity_type="Symptom", name="Wheezing")
+    similar = GraphNode(entity_id="d2", entity_type="Disease", name="COPD")
+    gene_up = GraphNode(entity_id="g1", entity_type="Gene", name="IL5")
+    gene_down = GraphNode(entity_id="g2", entity_type="Gene", name="FOXP3")
+    edges = [
+        GraphEdge(source_id="d1", target_id="s1", relationship_type="Disease - presents - Symptom"),
+        GraphEdge(source_id="d1", target_id="d2", relationship_type="Disease - resembles - Disease"),
+        GraphEdge(source_id="d1", target_id="g1", relationship_type="Disease - upregulates - Gene"),
+        GraphEdge(source_id="d1", target_id="g2", relationship_type="Disease - downregulates - Gene"),
+    ]
+    lookup = _node_lookup([disease, symptom, similar, gene_up, gene_down])
+
+    text = render_hetionet_entity(disease, edges, lookup)
+
+    assert "Disease: Asthma." in text
+    assert "Symptoms: Wheezing." in text
+    assert "Resembles: COPD." in text
+    assert "Upregulates: IL5." in text
+    assert "Downregulates: FOXP3." in text
+
+
 def test_render_hetionet_entity_compound() -> None:
     compound = GraphNode(entity_id="c1", entity_type="Compound", name="Metformin")
     disease = GraphNode(entity_id="d1", entity_type="Disease", name="Diabetes")
     edges = [
-        GraphEdge(source_id="c1", target_id="d1", relationship_type="CtD"),
+        GraphEdge(source_id="c1", target_id="d1", relationship_type="Compound - treats - Disease"),
     ]
     lookup = _node_lookup([compound, disease])
 
@@ -275,6 +369,91 @@ def test_render_hetionet_entity_compound() -> None:
 
     assert "Compound: Metformin." in text
     assert "Treats: Diabetes." in text
+
+
+def test_render_hetionet_entity_compound_enriched() -> None:
+    compound = GraphNode(entity_id="c1", entity_type="Compound", name="Prednisone")
+    palliated = GraphNode(entity_id="d1", entity_type="Disease", name="Lupus")
+    similar = GraphNode(entity_id="c2", entity_type="Compound", name="Prednisolone")
+    gene_up = GraphNode(entity_id="g1", entity_type="Gene", name="NR3C1")
+    gene_down = GraphNode(entity_id="g2", entity_type="Gene", name="IL2")
+    edges = [
+        GraphEdge(source_id="c1", target_id="d1", relationship_type="Compound - palliates - Disease"),
+        GraphEdge(source_id="c1", target_id="c2", relationship_type="Compound - resembles - Compound"),
+        GraphEdge(source_id="c1", target_id="g1", relationship_type="Compound - upregulates - Gene"),
+        GraphEdge(source_id="c1", target_id="g2", relationship_type="Compound - downregulates - Gene"),
+    ]
+    lookup = _node_lookup([compound, palliated, similar, gene_up, gene_down])
+
+    text = render_hetionet_entity(compound, edges, lookup)
+
+    assert "Compound: Prednisone." in text
+    assert "Palliates: Lupus." in text
+    assert "Resembles: Prednisolone." in text
+    assert "Upregulates: NR3C1." in text
+    assert "Downregulates: IL2." in text
+
+
+def test_render_hetionet_entity_gene_enriched() -> None:
+    gene = GraphNode(entity_id="g1", entity_type="Gene", name="BRCA1")
+    interacts = GraphNode(entity_id="g2", entity_type="Gene", name="TP53")
+    regulates = GraphNode(entity_id="g3", entity_type="Gene", name="RAD51")
+    covaries = GraphNode(entity_id="g4", entity_type="Gene", name="BRCA2")
+    compound = GraphNode(entity_id="c1", entity_type="Compound", name="Olaparib")
+    edges = [
+        GraphEdge(source_id="g1", target_id="g2", relationship_type="Gene - interacts - Gene"),
+        GraphEdge(source_id="g1", target_id="g3", relationship_type="Gene > regulates > Gene"),
+        GraphEdge(source_id="g1", target_id="g4", relationship_type="Gene - covaries - Gene"),
+        GraphEdge(source_id="c1", target_id="g1", relationship_type="Compound - binds - Gene"),
+    ]
+    lookup = _node_lookup([gene, interacts, regulates, covaries, compound])
+
+    text = render_hetionet_entity(gene, edges, lookup)
+
+    assert "Gene: BRCA1." in text
+    assert "Interacts with: TP53." in text
+    assert "Regulates: RAD51." in text
+    assert "Covaries with: BRCA2." in text
+    assert "Bound by: Olaparib." in text
+
+
+def test_render_hetionet_entity_anatomy() -> None:
+    anatomy = GraphNode(entity_id="a1", entity_type="Anatomy", name="Lung")
+    disease = GraphNode(entity_id="d1", entity_type="Disease", name="Asthma")
+    gene_expr = GraphNode(entity_id="g1", entity_type="Gene", name="SFTPC")
+    gene_up = GraphNode(entity_id="g2", entity_type="Gene", name="MUC5AC")
+    gene_down = GraphNode(entity_id="g3", entity_type="Gene", name="AQP5")
+    edges = [
+        GraphEdge(source_id="d1", target_id="a1", relationship_type="Disease - localizes - Anatomy"),
+        GraphEdge(source_id="a1", target_id="g1", relationship_type="Anatomy - expresses - Gene"),
+        GraphEdge(source_id="a1", target_id="g2", relationship_type="Anatomy - upregulates - Gene"),
+        GraphEdge(source_id="a1", target_id="g3", relationship_type="Anatomy - downregulates - Gene"),
+    ]
+    lookup = _node_lookup([anatomy, disease, gene_expr, gene_up, gene_down])
+
+    text = render_hetionet_entity(anatomy, edges, lookup)
+
+    assert "Anatomy: Lung." in text
+    assert "Associated diseases: Asthma." in text
+    assert "Expresses: SFTPC." in text
+    assert "Upregulates: MUC5AC." in text
+    assert "Downregulates: AQP5." in text
+
+
+def test_render_hetionet_entity_symptom() -> None:
+    symptom = GraphNode(entity_id="s1", entity_type="Symptom", name="Fever")
+    disease1 = GraphNode(entity_id="d1", entity_type="Disease", name="Influenza")
+    disease2 = GraphNode(entity_id="d2", entity_type="Disease", name="Malaria")
+    edges = [
+        GraphEdge(source_id="d1", target_id="s1", relationship_type="Disease - presents - Symptom"),
+        GraphEdge(source_id="d2", target_id="s1", relationship_type="Disease - presents - Symptom"),
+    ]
+    lookup = _node_lookup([symptom, disease1, disease2])
+
+    text = render_hetionet_entity(symptom, edges, lookup)
+
+    assert "Symptom: Fever." in text
+    assert "Presented by: Influenza, Malaria." in text
 
 
 # ---------------------------------------------------------------------------

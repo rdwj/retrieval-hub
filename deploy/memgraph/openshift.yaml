@@ -35,17 +35,22 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        fsGroup: 1000740000
         seccompProfile:
           type: RuntimeDefault
       terminationGracePeriodSeconds: 120
       containers:
       - name: memgraph
         image: docker.io/memgraph/memgraph:latest
+        command: ["sh", "-c"]
         args:
-          - "--log-file="
-          - "--also-log-to-stderr"
-          - "--log-level=WARNING"
-          - "--data-directory=/tmp/memgraph"
+          - |
+            mkdir -p /var/lib/memgraph/data
+            exec /usr/lib/memgraph/memgraph \
+              --log-file= \
+              --also-log-to-stderr \
+              --log-level=WARNING \
+              --data-directory=/var/lib/memgraph/data
         ports:
         - containerPort: 7687
           protocol: TCP
@@ -66,8 +71,8 @@ spec:
           mountPath: /var/lib/memgraph
       volumes:
       - name: memgraph-data
-        emptyDir:
-          sizeLimit: 2Gi
+        persistentVolumeClaim:
+          claimName: memgraph-data
 ---
 apiVersion: v1
 kind: Service

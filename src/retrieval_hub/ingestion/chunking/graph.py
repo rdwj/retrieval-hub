@@ -256,7 +256,33 @@ def render_fhir_entity(
 
     if etype == "Observation":
         date = _prop(node, "effectiveDateTime", _prop(node, "issued", "unknown"))
-        return f"Observation: {node.name}. Date: {date}."
+        parts = [f"Observation: {node.name}."]
+
+        # Render component values (e.g., systolic/diastolic BP)
+        components_raw = node.properties.get("components")
+        if components_raw:
+            # May be a list (already parsed) or a JSON string
+            if isinstance(components_raw, str):
+                try:
+                    components_raw = json.loads(components_raw)
+                except (json.JSONDecodeError, TypeError):
+                    components_raw = None
+            if isinstance(components_raw, list):
+                for comp in components_raw:
+                    comp_name = comp.get("name", "")
+                    comp_val = comp.get("value", "")
+                    comp_unit = comp.get("unit", "")
+                    if comp_name and comp_val != "":
+                        parts.append(
+                            f"{comp_name}: {comp_val} {comp_unit}".strip() + "."
+                        )
+
+        category = _prop(node, "category")
+        if category:
+            parts.append(f"Category: {category}.")
+
+        parts.append(f"Date: {date}.")
+        return " ".join(parts)
 
     if etype == "Encounter":
         start = _prop(node, "periodStart", "unknown")
@@ -280,9 +306,35 @@ def render_hetionet_entity(
     etype = node.entity_type
 
     if etype == "Disease":
-        compounds = _neighbors_by_rel(node, node_edges, all_nodes, "CtD")
-        genes = _neighbors_by_rel(node, node_edges, all_nodes, "DaG")
-        anatomy = _neighbors_by_rel(node, node_edges, all_nodes, "DlA")
+        # Disease is the target of "Compound - treats - Disease".
+        compounds = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - treats - Disease", outbound=False,
+        )
+        genes = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - associates - Gene",
+        )
+        anatomy = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - localizes - Anatomy",
+        )
+        symptoms = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - presents - Symptom",
+        )
+        resembles = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - resembles - Disease",
+        )
+        upreg = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - upregulates - Gene",
+        )
+        downreg = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - downregulates - Gene",
+        )
         text = f"Disease: {node.name}."
         if compounds:
             text += f" Treated by: {', '.join(compounds)}."
@@ -290,12 +342,45 @@ def render_hetionet_entity(
             text += f" Associated genes: {', '.join(genes)}."
         if anatomy:
             text += f" Affected anatomy: {', '.join(anatomy)}."
+        if symptoms:
+            text += f" Symptoms: {', '.join(symptoms)}."
+        if resembles:
+            text += f" Resembles: {', '.join(resembles)}."
+        if upreg:
+            text += f" Upregulates: {', '.join(upreg)}."
+        if downreg:
+            text += f" Downregulates: {', '.join(downreg)}."
         return text
 
     if etype == "Compound":
-        diseases = _neighbors_by_rel(node, node_edges, all_nodes, "CtD")
-        genes = _neighbors_by_rel(node, node_edges, all_nodes, "CbG")
-        side_effects = _neighbors_by_rel(node, node_edges, all_nodes, "CcSE")
+        diseases = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - treats - Disease",
+        )
+        genes = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - binds - Gene",
+        )
+        side_effects = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - causes - Side Effect",
+        )
+        palliates = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - palliates - Disease",
+        )
+        resembles = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - resembles - Compound",
+        )
+        upreg = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - upregulates - Gene",
+        )
+        downreg = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - downregulates - Gene",
+        )
         text = f"Compound: {node.name}."
         if diseases:
             text += f" Treats: {', '.join(diseases)}."
@@ -303,19 +388,99 @@ def render_hetionet_entity(
             text += f" Targets: {', '.join(genes)}."
         if side_effects:
             text += f" Side effects: {', '.join(side_effects)}."
+        if palliates:
+            text += f" Palliates: {', '.join(palliates)}."
+        if resembles:
+            text += f" Resembles: {', '.join(resembles)}."
+        if upreg:
+            text += f" Upregulates: {', '.join(upreg)}."
+        if downreg:
+            text += f" Downregulates: {', '.join(downreg)}."
         return text
 
     if etype == "Gene":
-        diseases = _neighbors_by_rel(node, node_edges, all_nodes, "DaG")
-        processes = _neighbors_by_rel(node, node_edges, all_nodes, "GpBP")
+        # Gene is the target of "Disease - associates - Gene".
+        diseases = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - associates - Gene", outbound=False,
+        )
+        processes = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Gene - participates - Biological Process",
+        )
+        interacts = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Gene - interacts - Gene",
+        )
+        regulates = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Gene > regulates > Gene",
+        )
+        covaries = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Gene - covaries - Gene",
+        )
+        # Gene is the target of "Compound - binds - Gene".
+        compounds = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Compound - binds - Gene", outbound=False,
+        )
         text = f"Gene: {node.name}."
         if diseases:
             text += f" Associated diseases: {', '.join(diseases)}."
         if processes:
             text += f" Biological processes: {', '.join(processes)}."
+        if interacts:
+            text += f" Interacts with: {', '.join(interacts)}."
+        if regulates:
+            text += f" Regulates: {', '.join(regulates)}."
+        if covaries:
+            text += f" Covaries with: {', '.join(covaries)}."
+        if compounds:
+            text += f" Bound by: {', '.join(compounds)}."
         return text
 
-    # Fallback for Anatomy, Biological Process, Side Effect, etc.
+    if etype == "Anatomy":
+        # Anatomy is the target of "Disease - localizes - Anatomy".
+        diseases = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - localizes - Anatomy", outbound=False,
+        )
+        expresses = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Anatomy - expresses - Gene",
+        )
+        upreg = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Anatomy - upregulates - Gene",
+        )
+        downreg = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Anatomy - downregulates - Gene",
+        )
+        text = f"Anatomy: {node.name}."
+        if diseases:
+            text += f" Associated diseases: {', '.join(diseases)}."
+        if expresses:
+            text += f" Expresses: {', '.join(expresses)}."
+        if upreg:
+            text += f" Upregulates: {', '.join(upreg)}."
+        if downreg:
+            text += f" Downregulates: {', '.join(downreg)}."
+        return text
+
+    if etype == "Symptom":
+        # Symptom is the target of "Disease - presents - Symptom".
+        diseases = _neighbors_by_rel(
+            node, node_edges, all_nodes,
+            "Disease - presents - Symptom", outbound=False,
+        )
+        text = f"Symptom: {node.name}."
+        if diseases:
+            text += f" Presented by: {', '.join(diseases)}."
+        return text
+
+    # Fallback for Biological Process, Side Effect, etc.
     base = f"{etype}: {node.name}."
     rel = _relationship_summary(node, node_edges, all_nodes, limit=10)
     if rel:
