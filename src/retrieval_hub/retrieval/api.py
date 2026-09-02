@@ -271,6 +271,8 @@ def refine(
     strategy: str = "adjacent",
     max_context_tokens: int | None = None,
     min_score: float | None = None,
+    edge_types: list[str] | None = None,
+    max_nodes: int | None = None,
 ) -> RefineOutput:
     """Return adjacent context around a previously retrieved chunk.
 
@@ -327,6 +329,8 @@ def refine(
         strategy=strategy,
         max_context_tokens=max_context_tokens,
         min_score=min_score,
+        edge_types=edge_types,
+        max_nodes=max_nodes,
     )
 
 

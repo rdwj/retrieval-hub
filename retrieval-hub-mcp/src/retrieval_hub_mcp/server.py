@@ -951,6 +951,8 @@ async def refine(
     max_context_tokens: int | None = None,
     strategy: str | None = None,
     chunk_id: str | None = None,
+    edge_types: list[str] | None = None,
+    max_nodes: int | None = None,
     session: Session = Depends(get_catalog_session),
 ) -> RefineResponse:
     """Expand context around a previously retrieved chunk.
@@ -1009,6 +1011,14 @@ async def refine(
             ``refine`` result.  When provided, ``doc_title`` and
             ``chunk_index`` are resolved automatically from the chunk's
             metadata — you can pass empty/zero values for those fields.
+        edge_types: Restrict graph traversal to only follow edges of these
+            relationship types.  Only applicable to the
+            ``graph_traverse_from_seed`` strategy.  Accepts either
+            human-readable form (``"Compound - treats - Disease"``) or
+            Memgraph's sanitized form (``"Compound___treats___Disease"``).
+        max_nodes: Cap the number of neighbor nodes returned by graph
+            traversal.  Only applicable to the
+            ``graph_traverse_from_seed`` strategy.
     """
     try:
         identity = get_current_identity()
@@ -1043,6 +1053,10 @@ async def refine(
         )
         if effective_min_score is not None:
             refine_kwargs["min_score"] = effective_min_score
+        if edge_types is not None:
+            refine_kwargs["edge_types"] = edge_types
+        if max_nodes is not None:
+            refine_kwargs["max_nodes"] = max_nodes
 
         output = retrieval_refine(**refine_kwargs)
 

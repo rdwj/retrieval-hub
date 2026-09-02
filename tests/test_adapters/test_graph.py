@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from retrieval_hub.adapters.graph import GraphAdapter
+from retrieval_hub.adapters.graph import GraphAdapter, _normalize_edge_type
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 from retrieval_hub.models.enums import (
     AccessVisibility,
@@ -369,3 +369,261 @@ def test_graph_traverse_refine_with_neighbors() -> None:
     assert output.results[0].doc_title == "n2"
     assert output.results[1].doc_title == "n3"
     assert all(r.request_id == "req-traverse" for r in output.results)
+
+
+# ---------------------------------------------------------------------------
+# Edge type normalization
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Compound___treats___Disease", "Compound___treats___Disease"),
+        ("Compound - treats - Disease", "Compound___treats___Disease"),
+        ("Gene > participates > Pathway", "Gene___participates___Pathway"),
+        ("simple_rel", "simple_rel"),
+        ("A - B - C - D - E", "A___B___C___D___E"),
+    ],
+)
+def test_normalize_edge_type(raw: str, expected: str) -> None:
+    assert _normalize_edge_type(raw) == expected
+
+
+# ---------------------------------------------------------------------------
+# edge_types filtering
+# ---------------------------------------------------------------------------
+
+
+def test_graph_traverse_with_edge_types() -> None:
+    """Traversal with edge_types passes normalized types to the Cypher query."""
+    adapter = _make_adapter(location="idx_graph_et")
+
+    mock_session = MagicMock()
+    captured_calls: list[dict] = []
+
+    traversal_records = [
+        {
+            "seed_id": "n1", "seed_name": "Aspirin", "seed_type": "Compound",
+            "neighbor_id": "n2", "neighbor_name": "Migraine", "neighbor_type": "Disease",
+        },
+    ]
+    rel_records = [
+        {
+            "src": "n1", "rel_type": "Compound___treats___Disease", "tgt": "n2",
+            "tgt_name": "Migraine", "tgt_type": "Disease", "edge_src": "n1",
+        },
+    ]
+
+    call_count = 0
+
+    def mock_run(cypher, **kwargs):
+        nonlocal call_count
+        captured_calls.append({"cypher": cypher, "kwargs": kwargs})
+        call_count += 1
+        if call_count == 1:
+            return iter(traversal_records)
+        return iter(rel_records)
+
+    mock_session.run = mock_run
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    fake_cursor = MagicMock()
+    col_names = [
+        "id", "chunk_text", "chunk_tokens", "doc_title",
+        "doc_url", "doc_section", "chunk_index",
+    ]
+    fake_cursor.description = [MagicMock(name=n) for n in col_names]
+    for col, name in zip(fake_cursor.description, col_names, strict=True):
+        col.name = name
+    fake_cursor.fetchall.return_value = [
+        ("uuid-2", "Migraine text", 50, "n2", "graph://test/n2", "Disease", 1),
+    ]
+    fake_conn = MagicMock()
+    fake_conn.cursor.return_value.__enter__ = MagicMock(return_value=fake_cursor)
+    fake_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    fake_connect_ctx = MagicMock()
+    fake_connect_ctx.__enter__ = MagicMock(return_value=fake_conn)
+    fake_connect_ctx.__exit__ = MagicMock(return_value=False)
+
+    with patch("psycopg.connect", return_value=fake_connect_ctx):
+        output = adapter.refine(
+            doc_title="n1",
+            chunk_index=0,
+            query="What treats migraine?",
+            window=2,
+            request_id="req-et",
+            strategy="graph_traverse_from_seed",
+            edge_types=["Compound - treats - Disease"],
+        )
+
+    assert len(output.results) == 1
+    assert output.results[0].doc_title == "n2"
+
+    # Verify the traversal Cypher used $edge_types and the path pattern
+    traversal_cypher = captured_calls[0]["cypher"]
+    assert "$edge_types" in traversal_cypher
+    assert "ALL(rel IN relationships(p)" in traversal_cypher
+    assert captured_calls[0]["kwargs"]["edge_types"] == [
+        "Compound___treats___Disease",
+    ]
+
+    # Verify the relationship Cypher also filtered by edge_types
+    rel_cypher = captured_calls[1]["cypher"]
+    assert "type(r) IN $edge_types" in rel_cypher
+    assert captured_calls[1]["kwargs"]["edge_types"] == [
+        "Compound___treats___Disease",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# max_nodes limiting
+# ---------------------------------------------------------------------------
+
+
+def test_graph_traverse_with_max_nodes() -> None:
+    """max_nodes caps the number of neighbors returned."""
+    adapter = _make_adapter(location="idx_graph_mn")
+
+    mock_session = MagicMock()
+    traversal_records = [
+        {
+            "seed_id": "n1", "seed_name": "Hub", "seed_type": "Compound",
+            "neighbor_id": f"n{i}", "neighbor_name": f"Neighbor_{i}",
+            "neighbor_type": "Entity",
+        }
+        for i in range(2, 12)  # 10 neighbors
+    ]
+    rel_records = []
+
+    call_count = 0
+
+    def mock_run(cypher, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return iter(traversal_records)
+        return iter(rel_records)
+
+    mock_session.run = mock_run
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    # pgvector returns chunks for whichever entity_ids we ask for
+    fake_cursor = MagicMock()
+    col_names = [
+        "id", "chunk_text", "chunk_tokens", "doc_title",
+        "doc_url", "doc_section", "chunk_index",
+    ]
+    fake_cursor.description = [MagicMock(name=n) for n in col_names]
+    for col, name in zip(fake_cursor.description, col_names, strict=True):
+        col.name = name
+    # Return exactly 3 rows (matching max_nodes=3)
+    fake_cursor.fetchall.return_value = [
+        (f"uuid-{i}", f"Text {i}", 10, f"n{i}", f"graph://test/n{i}", "Entity", i)
+        for i in range(2, 5)
+    ]
+    fake_conn = MagicMock()
+    fake_conn.cursor.return_value.__enter__ = MagicMock(return_value=fake_cursor)
+    fake_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    fake_connect_ctx = MagicMock()
+    fake_connect_ctx.__enter__ = MagicMock(return_value=fake_conn)
+    fake_connect_ctx.__exit__ = MagicMock(return_value=False)
+
+    with patch("psycopg.connect", return_value=fake_connect_ctx):
+        adapter.refine(
+            doc_title="n1",
+            chunk_index=0,
+            query="test",
+            window=2,
+            request_id="req-mn",
+            strategy="graph_traverse_from_seed",
+            max_nodes=3,
+        )
+
+    # Verify the SQL only queried for 3 entity IDs (n2, n3, n4)
+    executed_sql_args = fake_cursor.execute.call_args[0][1]
+    assert len(executed_sql_args) == 3
+    assert executed_sql_args == ["n2", "n3", "n4"]
+
+
+# ---------------------------------------------------------------------------
+# edge_types + max_nodes combined
+# ---------------------------------------------------------------------------
+
+
+def test_graph_traverse_edge_types_and_max_nodes_combined() -> None:
+    """Both parameters applied together: filter by type, then cap count."""
+    adapter = _make_adapter(location="idx_graph_combo")
+
+    mock_session = MagicMock()
+    traversal_records = [
+        {
+            "seed_id": "n1", "seed_name": "Aspirin", "seed_type": "Compound",
+            "neighbor_id": f"n{i}", "neighbor_name": f"Target_{i}",
+            "neighbor_type": "Disease",
+        }
+        for i in range(2, 7)  # 5 neighbors after edge_types filter
+    ]
+    rel_records = []
+
+    call_count = 0
+
+    def mock_run(cypher, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return iter(traversal_records)
+        return iter(rel_records)
+
+    mock_session.run = mock_run
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    fake_cursor = MagicMock()
+    col_names = [
+        "id", "chunk_text", "chunk_tokens", "doc_title",
+        "doc_url", "doc_section", "chunk_index",
+    ]
+    fake_cursor.description = [MagicMock(name=n) for n in col_names]
+    for col, name in zip(fake_cursor.description, col_names, strict=True):
+        col.name = name
+    fake_cursor.fetchall.return_value = [
+        (f"uuid-{i}", f"Text {i}", 10, f"n{i}", f"graph://test/n{i}", "Disease", i)
+        for i in range(2, 4)  # 2 rows for max_nodes=2
+    ]
+    fake_conn = MagicMock()
+    fake_conn.cursor.return_value.__enter__ = MagicMock(return_value=fake_cursor)
+    fake_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    fake_connect_ctx = MagicMock()
+    fake_connect_ctx.__enter__ = MagicMock(return_value=fake_conn)
+    fake_connect_ctx.__exit__ = MagicMock(return_value=False)
+
+    with patch("psycopg.connect", return_value=fake_connect_ctx):
+        output = adapter.refine(
+            doc_title="n1",
+            chunk_index=0,
+            query="test",
+            window=2,
+            request_id="req-combo",
+            strategy="graph_traverse_from_seed",
+            edge_types=["Compound___treats___Disease"],
+            max_nodes=2,
+        )
+
+    # Only 2 entity IDs should have been queried (capped by max_nodes)
+    executed_sql_args = fake_cursor.execute.call_args[0][1]
+    assert len(executed_sql_args) == 2
+    assert executed_sql_args == ["n2", "n3"]
+
+    # total_chunks reflects all 5 neighbors (before max_nodes cap),
+    # because max_nodes is applied after the graph query
+    # but truncated should be True since we capped
+    assert output.truncated is True

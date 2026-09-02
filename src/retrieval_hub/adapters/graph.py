@@ -31,6 +31,16 @@ _DEFAULT_MAX_CONTEXT_TOKENS = 2048
 _ENC = tiktoken.get_encoding("cl100k_base")
 
 
+def _normalize_edge_type(raw: str) -> str:
+    """Normalize a human-readable edge type to Memgraph's sanitized form.
+
+    Converts ``" - "`` and ``" > "`` separators to ``"___"`` to match the
+    sanitization applied by ``write_graph._sanitize_rel_type()``, which
+    replaces every non-alphanumeric, non-underscore character with ``_``.
+    """
+    return raw.replace(" - ", "___").replace(" > ", "___")
+
+
 class GraphAdapter(DocumentAdapter):
     """Adapter for graph-family sources with Memgraph-backed refinement."""
 
@@ -75,6 +85,8 @@ class GraphAdapter(DocumentAdapter):
         strategy: str = "graph_traverse_from_seed",
         max_context_tokens: int | None = None,
         min_score: float | None = None,
+        edge_types: list[str] | None = None,
+        max_nodes: int | None = None,
     ) -> RefineOutput:
         if strategy not in _SUPPORTED_STRATEGIES:
             raise ValueError(
@@ -87,6 +99,8 @@ class GraphAdapter(DocumentAdapter):
             hops=window if window > 0 else 2,
             request_id=request_id,
             max_context_tokens=max_context_tokens or _DEFAULT_MAX_CONTEXT_TOKENS,
+            edge_types=edge_types,
+            max_nodes=max_nodes,
         )
 
     # -- graph traversal -----------------------------------------------------
@@ -99,29 +113,56 @@ class GraphAdapter(DocumentAdapter):
         hops: int,
         request_id: str,
         max_context_tokens: int,
+        edge_types: list[str] | None = None,
+        max_nodes: int | None = None,
     ) -> RefineOutput:
         from retrieval_hub.retrieval.api import RefineOutput
 
         source_slug = self.source.slug
         driver = self._get_driver()
 
-        cypher = (
-            "MATCH (seed:Entity {entity_id: $entity_id, source_slug: $slug}) "
-            f"OPTIONAL MATCH (seed)-[r*1..{hops}]-(neighbor:Entity) "
-            "WHERE neighbor.source_slug = $slug "
-            "WITH seed, neighbor, r "
-            "RETURN DISTINCT "
-            "  seed.entity_id AS seed_id, seed.name AS seed_name, "
-            "  seed.entity_type AS seed_type, "
-            "  neighbor.entity_id AS neighbor_id, "
-            "  neighbor.name AS neighbor_name, "
-            "  neighbor.entity_type AS neighbor_type"
-        )
+        normalized_edge_types: list[str] | None = None
+        if edge_types is not None:
+            normalized_edge_types = [
+                _normalize_edge_type(et) for et in edge_types
+            ]
+
+        cypher_params: dict[str, Any] = {
+            "entity_id": entity_id,
+            "slug": source_slug,
+        }
+
+        if normalized_edge_types is not None:
+            cypher = (
+                "MATCH (seed:Entity {entity_id: $entity_id, source_slug: $slug}) "
+                f"OPTIONAL MATCH p = (seed)-[*1..{hops}]-(neighbor:Entity) "
+                "WHERE neighbor.source_slug = $slug "
+                "AND ALL(rel IN relationships(p) WHERE type(rel) IN $edge_types) "
+                "WITH seed, neighbor "
+                "RETURN DISTINCT "
+                "  seed.entity_id AS seed_id, seed.name AS seed_name, "
+                "  seed.entity_type AS seed_type, "
+                "  neighbor.entity_id AS neighbor_id, "
+                "  neighbor.name AS neighbor_name, "
+                "  neighbor.entity_type AS neighbor_type"
+            )
+            cypher_params["edge_types"] = normalized_edge_types
+        else:
+            cypher = (
+                "MATCH (seed:Entity {entity_id: $entity_id, source_slug: $slug}) "
+                f"OPTIONAL MATCH (seed)-[r*1..{hops}]-(neighbor:Entity) "
+                "WHERE neighbor.source_slug = $slug "
+                "WITH seed, neighbor, r "
+                "RETURN DISTINCT "
+                "  seed.entity_id AS seed_id, seed.name AS seed_name, "
+                "  seed.entity_type AS seed_type, "
+                "  neighbor.entity_id AS neighbor_id, "
+                "  neighbor.name AS neighbor_name, "
+                "  neighbor.entity_type AS neighbor_type"
+            )
 
         with driver.session() as session:
-            result = session.run(
-                cypher, entity_id=entity_id, slug=source_slug,
-            )
+            result = session.run(cypher, **cypher_params)
             records = list(result)
 
         if not records:
@@ -142,9 +183,14 @@ class GraphAdapter(DocumentAdapter):
                 neighbor_ids.append(nid)
 
         unique_neighbor_ids = list(dict.fromkeys(neighbor_ids))
+        total_neighbors = len(unique_neighbor_ids)
+
+        if max_nodes is not None:
+            unique_neighbor_ids = unique_neighbor_ids[:max_nodes]
 
         rel_records = self._fetch_relationships(
             driver, entity_id, source_slug, hops,
+            edge_types=normalized_edge_types,
         )
         context_text = None
         if rel_records:
@@ -159,8 +205,6 @@ class GraphAdapter(DocumentAdapter):
         neighbor_chunks = self._fetch_neighbor_chunks(
             unique_neighbor_ids, request_id,
         )
-
-        total_neighbors = len(unique_neighbor_ids)
         logger.info(
             "graph.traverse entity_id=%s hops=%d neighbors=%d chunks=%d",
             entity_id, hops, total_neighbors, len(neighbor_chunks),
@@ -182,20 +226,31 @@ class GraphAdapter(DocumentAdapter):
         entity_id: str,
         source_slug: str,
         hops: int,
+        *,
+        edge_types: list[str] | None = None,
     ) -> list[dict[str, Any]]:
+        where_clause = "WHERE neighbor.source_slug = $slug"
+        if edge_types is not None:
+            where_clause += " AND type(r) IN $edge_types"
+
         cypher = (
             "MATCH (seed:Entity {entity_id: $entity_id, source_slug: $slug})"
             "-[r]-(neighbor:Entity) "
-            "WHERE neighbor.source_slug = $slug "
+            f"{where_clause} "
             "RETURN seed.entity_id AS src, type(r) AS rel_type, "
             "  neighbor.entity_id AS tgt, neighbor.name AS tgt_name, "
             "  neighbor.entity_type AS tgt_type, "
             "  startNode(r).entity_id AS edge_src"
         )
+        cypher_params: dict[str, Any] = {
+            "entity_id": entity_id,
+            "slug": source_slug,
+        }
+        if edge_types is not None:
+            cypher_params["edge_types"] = edge_types
+
         with driver.session() as session:
-            result = session.run(
-                cypher, entity_id=entity_id, slug=source_slug,
-            )
+            result = session.run(cypher, **cypher_params)
             return [dict(rec) for rec in result]
 
     def _render_with_relationships(
