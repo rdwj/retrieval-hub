@@ -461,6 +461,8 @@ async def test_retrieve_passes_top_k():
         query_text="test query",
         session=session,
         top_k=3,
+        doc_section=None,
+        scope_entity_id=None,
     )
 
 
@@ -822,12 +824,13 @@ def _make_refine_result(
     )
 
 
-def _make_refine_output(results, *, truncated=False, total_chunks=None):
+def _make_refine_output(results, *, truncated=False, total_chunks=None, context=None):
     """Wrap refine results in a RefineOutput-like namespace."""
     return SimpleNamespace(
         results=results,
         truncated=truncated,
         total_chunks=total_chunks,
+        context=context,
     )
 
 
