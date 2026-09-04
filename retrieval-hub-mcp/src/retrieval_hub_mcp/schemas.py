@@ -180,3 +180,4 @@ class RetrievalResponse(BaseModel):
     data_freshness: DataFreshness | None = None
     per_source_metadata: dict[str, SourceRetrievalMetadata] | None = None
     rewritten_queries: list[RewrittenQueryInfo] | None = None
+    confidence_note: str | None = None

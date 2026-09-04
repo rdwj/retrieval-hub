@@ -1945,3 +1945,42 @@ async def test_retrieve_multi_source_empty_merge():
     assert isinstance(resp, RetrievalResponse)
     assert len(resp.hits) == 0
     assert resp.request_id  # should still have a UUID
+
+
+# ---------------------------------------------------------------------------
+# _check_confidence
+# ---------------------------------------------------------------------------
+
+
+def test_check_confidence_high_score():
+    hits = [RetrievalHit(chunk_id="c1", text="good", score=0.85, doc_title="t", doc_url="u")]
+    from retrieval_hub_mcp.server import _check_confidence
+    assert _check_confidence(hits, "nomic-ai/nomic-embed-text-v1.5") is None
+
+
+def test_check_confidence_low_score():
+    hits = [RetrievalHit(chunk_id="c1", text="bad", score=0.50, doc_title="t", doc_url="u")]
+    from retrieval_hub_mcp.server import _check_confidence
+    note = _check_confidence(hits, "nomic-ai/nomic-embed-text-v1.5")
+    assert note is not None
+    assert "0.50" in note
+    assert "0.65" in note
+
+
+def test_check_confidence_no_hits():
+    from retrieval_hub_mcp.server import _check_confidence
+    assert _check_confidence([], "nomic-ai/nomic-embed-text-v1.5") is None
+
+
+def test_check_confidence_unknown_model():
+    hits = [RetrievalHit(chunk_id="c1", text="ok", score=0.55, doc_title="t", doc_url="u")]
+    from retrieval_hub_mcp.server import _check_confidence
+    note = _check_confidence(hits, "unknown/model")
+    assert note is not None
+    assert "0.60" in note
+
+
+def test_check_confidence_at_threshold():
+    hits = [RetrievalHit(chunk_id="c1", text="ok", score=0.65, doc_title="t", doc_url="u")]
+    from retrieval_hub_mcp.server import _check_confidence
+    assert _check_confidence(hits, "nomic-ai/nomic-embed-text-v1.5") is None

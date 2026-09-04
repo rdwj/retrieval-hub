@@ -67,6 +67,11 @@ from retrieval_hub_mcp.schemas import (
 
 logger = logging.getLogger(__name__)
 
+_LOW_CONFIDENCE_THRESHOLDS: dict[str, float] = {
+    "nomic-ai/nomic-embed-text-v1.5": 0.65,
+}
+_DEFAULT_LOW_CONFIDENCE_THRESHOLD = 0.60
+
 # ---------------------------------------------------------------------------
 # FastMCP application (with optional auth)
 # ---------------------------------------------------------------------------
@@ -750,6 +755,7 @@ async def retrieve(
             request_id=request_id,
             hits=hits,
             per_source_metadata=per_source_meta if per_source_meta else None,
+            confidence_note=_check_confidence(hits, None),
         )
     except ModelUnavailableError as exc:
         raise ToolError(
@@ -844,7 +850,27 @@ def _build_response(
         usage_rules=usage_rules,
         data_freshness=data_freshness,
         rewritten_queries=rewritten_queries,
+        confidence_note=_check_confidence(hits, embedding_model),
     )
+
+
+def _check_confidence(
+    hits: list[RetrievalHit],
+    embedding_model: str | None,
+) -> str | None:
+    """Return a note if the top hit's score suggests low relevance."""
+    if not hits:
+        return None
+    threshold = _LOW_CONFIDENCE_THRESHOLDS.get(
+        embedding_model or "", _DEFAULT_LOW_CONFIDENCE_THRESHOLD,
+    )
+    top_score = hits[0].score
+    if top_score < threshold:
+        return (
+            f"These results may not be closely related to your query "
+            f"(top score: {top_score:.2f}, threshold: {threshold:.2f})."
+        )
+    return None
 
 
 def _extract_usage(source_obj) -> tuple[UsageRules | None, DataFreshness | None]:

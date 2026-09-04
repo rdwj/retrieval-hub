@@ -94,6 +94,9 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
+markers = [
+    "integration: requires live database connections (port-forwards or cluster)",
+]
 
 [tool.coverage.run]
 source = ["src/retrieval_hub"]
