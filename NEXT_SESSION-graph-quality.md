@@ -110,24 +110,51 @@ progress.
 committed, just needs embedding). Then Phase 3 (retrieve filtering).
 Phase 2 code is also committed and deployed.
 
-### Checkpoint (2026-09-02)
+### Checkpoint (2026-09-03)
 
-Phase 1 and Phase 2 code changes committed. Hetionet re-ingested and
-verified via MCP retrieve (chunks now include relationships). FHIR
-re-ingestion needs one more run — first attempt used stale Python
-bytecode, producing chunks without component values. Command:
+All Phase 1 + Phase 2 code committed and pushed. Hetionet re-ingested
+and verified. FHIR re-ingestion still needed — the embedding step
+takes ~90 min with batch_size=2 and the TEI port-forward kept dying.
 
-    PYTHONDONTWRITEBYTECODE=1 MEMGRAPH_BOLT_URI=bolt://127.0.0.1:17687 \
-      python -B scripts/ingest_fhir_hypertension.py \
-      --embedding-endpoint http://127.0.0.1:8090
+Fixed two bugs found during re-ingestion attempts:
+- httpx.ReadError not caught by embed retry logic (committed)
+- `tail -30` pipe masked Python exit codes (don't pipe ingestion output)
 
-Needs port-forwards: Memgraph (17687→7687), Postgres catalog (5434),
-Postgres vectors (5433), TEI embedding (8090). Takes ~21 min.
+**To re-ingest FHIR next session:**
 
-Key finding: Hetionet renderer was completely broken — abbreviated
-edge type codes ("CtD") never matched the full-description data
-("Compound - treats - Disease"), so zero relationships were rendering.
-Fixed and verified.
+1. Start port-forwards (note: embedding-nomic uses port 8080, not 80):
+   ```
+   oc port-forward svc/retrieval-hub-pg 5434:5432 --context=gpt-oss-120b -n retrieval-hub &
+   oc port-forward svc/retrieval-hub-pg 5433:5432 --context=gpt-oss-120b -n retrieval-hub &
+   oc port-forward svc/memgraph 17687:7687 --context=gpt-oss-120b -n retrieval-hub &
+   ```
+
+2. Start the TEI watchdog (required — port-forward dies during 90 min run):
+   ```
+   cat > /tmp/pf-watchdog.sh << 'SCRIPT'
+   #!/bin/bash
+   while true; do
+       if ! lsof -i :8090 2>/dev/null | grep -q LISTEN; then
+           echo "[$(date)] Restarting TEI port-forward..."
+           oc port-forward svc/retrieval-hub-embedding-nomic 8090:8080 \
+             --context=gpt-oss-120b -n retrieval-hub &
+           sleep 3
+       fi
+       sleep 10
+   done
+   SCRIPT
+   chmod +x /tmp/pf-watchdog.sh && /tmp/pf-watchdog.sh &
+   ```
+
+3. Run ingestion (no pipe, no tail):
+   ```
+   PYTHONDONTWRITEBYTECODE=1 MEMGRAPH_BOLT_URI=bolt://127.0.0.1:17687 \
+     python3 -B scripts/ingest_fhir_hypertension.py \
+     --embedding-endpoint http://127.0.0.1:8090
+   ```
+
+Takes ~90 min with batch_size=2. Consider increasing batch size if
+TEI pod memory has been bumped.
 
 ## Definition of done
 
