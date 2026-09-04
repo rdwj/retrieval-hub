@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
 from retrieval_hub.adapters.base import SourceAdapter
 
 
