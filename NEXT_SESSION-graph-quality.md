@@ -16,152 +16,92 @@ able to answer this from RetrievalHub alone, without fighting the tools.
 
 Issues: #40, #41, #42, #43, #44, #45, #46
 
-## Phase 1 — Infrastructure + chunk quality (data layer)
+## Next: Phase 3 — retrieve filtering + forcing-function validation
 
-Fix the foundation: make Memgraph reliable and make chunk text
-self-sufficient so retrieve alone covers 80%+ of use cases.
+Add metadata filtering to the retrieve API so agents can scope queries
+to specific entity types and patient subgraphs. Then run the forcing-
+function query end-to-end to validate that Phases 1-3 together make the
+agent experience good.
 
-### 1a. Memgraph PVC migration (#40)
-Replace emptyDir with PVC. Small, high-value reliability fix.
-Must be done first since phases 1b-1c require re-ingestion.
+1. **#43 — doc_section filtering** (mechanical)
+   Add a `doc_section` parameter to the MCP `retrieve` tool that becomes
+   a WHERE clause on the existing `doc_section` column in pgvector. Same
+   threading pattern as `edge_types`/`max_nodes` from Phase 2: MCP tool
+   param → `api.py` `query()` → `DocumentAdapter.retrieve()` → SQL.
+   Files: `server.py`, `api.py`, `adapters/document.py`, tests.
+   FHIR entity types stored in doc_section: Patient, Condition,
+   MedicationRequest, Observation, Encounter, Procedure, etc.
 
-### 1b. Hetionet chunk text enrichment (#44, #46)
-Update `render_hetionet_entity()` to include immediate edges and neighbor
-names in chunk text. Currently renders "Compound: Hydrochlorothiazide."
-with no relationships. Should render like SNOMED-CT: entity name +
-treats + palliates + targets + resembles + anatomy. Re-ingest after.
+2. **#42 — entity-scope filtering** (needs design)
+   Restrict retrieve to a specific subgraph (e.g., one patient's data).
+   Design options: (a) `doc_title` prefix matching (cheap but fragile),
+   (b) new `doc_scope` metadata column populated during ingestion with a
+   scope key like patient UUID, (c) graph-based scoping via Memgraph
+   traversal to find all entity_ids connected to a seed, then filter
+   pgvector by those IDs. Option (c) is the most powerful but crosses
+   adapter boundaries. Start by examining FHIR edge structure to see
+   which option fits the data.
 
-### 1c. FHIR Observation component promotion (#41, #46)
-Two options from the issue: promote each component to its own graph node
-(more flexible) or include component values inline in the panel node text
-(simpler). The simpler approach (inline values in chunk text) fits the
-"retrieve-sufficient" pattern better and doesn't require graph schema
-changes. Update `convert_fhir_to_graph.py` to extract component values
-and `render_fhir_entity()` to include them. Re-ingest after.
+3. **Forcing-function query** (validation gate)
+   After #43 and #42, run the treatment plan query against the live MCP
+   server. This touches 5 sources (FHIR, VA CPG, SNOMED-CT, Hetionet,
+   PubMed) and requires scoping, cross-source bridging, and formatted
+   output. The result tells us whether Phase 4 (agent ergonomics) is
+   needed or if the tools are already good enough.
 
-## Phase 2 — Bounded graph traversal (#45)
+**Sequencing.** #43 first (straightforward, unblocks testing of scoping
+patterns). #42 design second (informed by what #43 reveals about the
+query patterns agents actually use). Forcing-function query last.
 
-Add `max_depth`, `edge_types`, and `max_nodes` parameters to
-`graph_traverse_from_seed`. Currently returns the entire reachable
-subgraph regardless of the `window` parameter. The Hetionet timeout
-is a direct consequence of unbounded traversal on a dense graph.
+**Constraints for the session:**
+- No re-ingestion needed — this is API-layer work on existing data
+- #42 design should be decided in-session, not deferred to the file
 
-This is a GraphAdapter + Memgraph query change. The MCP refine tool
-already accepts arbitrary kwargs that pass through to the adapter.
+**Session start protocol:**
+- Premise checks: `oc get pods --context=gpt-oss-120b -n retrieval-hub`
+  (cluster healthy?); `git log --oneline -5` (no surprise merges?);
+  quick MCP `retrieve` query against fhir-hypertension to confirm the
+  re-ingested data is live and includes component values
+- Rules with history:
+  - Use `127.0.0.1` not `localhost` for port-forwarded connections
+  - Metadata-only changes use SQL UPDATEs, not full re-ingestion
+- Stop-and-ask before: any schema changes to pgvector tables (adding
+  columns affects all sources); any changes to the FHIR graph converter
+  that would require re-ingestion
+- Close ritual: session summary + update this file
 
-## Phase 3 — Retrieve filtering (#42, #43)
+## Remaining epic phases
 
-Add metadata filtering to the retrieve API. Two complementary filters:
-
-- **doc_section filter** (#43): restrict by entity type (Observation,
-  Condition, MedicationRequest, etc.). Already stored in chunks as
-  `doc_section`. Needs pgvector WHERE clause on the existing column.
-
-- **Entity-scope filter** (#42): restrict to a specific subgraph
-  (e.g., one patient's data). Could use `doc_title` prefix matching
-  or a new metadata column. Needs design — this is the hardest issue
-  in the epic.
-
-## Phase 4 — Agent ergonomics
+### Phase 4 — Agent ergonomics
 
 Make the platform easy for agents to use for multi-source synthesis
 without trial-and-error. The forcing function is the treatment plan
 query above: it touches 5 sources and requires scoping, cross-source
 bridging, and formatted output.
 
-### 4a. Data card enrichment for agent discoverability
+#### 4a. Data card enrichment for agent discoverability
 Each source's `description_long` and `sample_prompts` should tell an
 agent *when* to use it, *what* it contains, and *how* to query it
 effectively. Current descriptions are factual but don't guide
-multi-source workflows. Add sample prompts that demonstrate
-cross-source patterns (e.g., "retrieve a FHIR patient, then look up
-their conditions in SNOMED-CT, then find treatment guidelines in
-VA CPG").
+multi-source workflows.
 
-### 4b. CLAUDE.md / agent integration guidance
+#### 4b. CLAUDE.md / agent integration guidance
 Write RetrievalHub-specific guidance that an agent consumes at session
 start. Content: source catalog overview, which sources to use for which
-question types, multi-source workflow patterns, common pitfalls (e.g.,
-use doc_section filter for FHIR, use graph refine for relationship
-traversal). Start by manually testing what guidance an agent needs,
-then consider a `retrieval-hub config init` CLI tool that writes the
-guidance to the consuming project's CLAUDE.md.
+question types, multi-source workflow patterns, common pitfalls.
 
-### 4c. Multi-source workflow patterns
+#### 4c. Multi-source workflow patterns
 Document and test the canonical multi-source workflows:
 - Patient-centered clinical report (FHIR + VA CPG + SNOMED-CT + PubMed)
 - Drug interaction lookup (Hetionet + SNOMED-CT)
 - Evidence-based treatment plan (VA CPG + PubMed + ClinicalTrials)
 
-Test these against the live MCP server and iterate on the guidance
-until an agent can complete them without workarounds.
-
-## Sequencing
-
-Phase 1 first (1a → 1b → 1c, sequential because of re-ingestion).
-Phase 2 can start after 1a (Memgraph PVC). Phase 3 is independent
-of 1 and 2 but benefits from 1b/1c (better chunks reduce the need
-for filtering workarounds). Phase 4 comes last — it's the validation
-layer that proves the earlier phases actually made the agent experience
-good. Run the forcing-function query after each phase to measure
-progress.
-
-**Next session:** Re-run FHIR re-ingestion (1c data op — code is
-committed, just needs embedding). Then Phase 3 (retrieve filtering).
-Phase 2 code is also committed and deployed.
-
-### Checkpoint (2026-09-03)
-
-All Phase 1 + Phase 2 code committed and pushed. Hetionet re-ingested
-and verified. FHIR re-ingestion still needed — the embedding step
-takes ~90 min with batch_size=2 and the TEI port-forward kept dying.
-
-Fixed two bugs found during re-ingestion attempts:
-- httpx.ReadError not caught by embed retry logic (committed)
-- `tail -30` pipe masked Python exit codes (don't pipe ingestion output)
-
-**To re-ingest FHIR next session:**
-
-1. Start port-forwards (note: embedding-nomic uses port 8080, not 80):
-   ```
-   oc port-forward svc/retrieval-hub-pg 5434:5432 --context=gpt-oss-120b -n retrieval-hub &
-   oc port-forward svc/retrieval-hub-pg 5433:5432 --context=gpt-oss-120b -n retrieval-hub &
-   oc port-forward svc/memgraph 17687:7687 --context=gpt-oss-120b -n retrieval-hub &
-   ```
-
-2. Start the TEI watchdog (required — port-forward dies during 90 min run):
-   ```
-   cat > /tmp/pf-watchdog.sh << 'SCRIPT'
-   #!/bin/bash
-   while true; do
-       if ! lsof -i :8090 2>/dev/null | grep -q LISTEN; then
-           echo "[$(date)] Restarting TEI port-forward..."
-           oc port-forward svc/retrieval-hub-embedding-nomic 8090:8080 \
-             --context=gpt-oss-120b -n retrieval-hub &
-           sleep 3
-       fi
-       sleep 10
-   done
-   SCRIPT
-   chmod +x /tmp/pf-watchdog.sh && /tmp/pf-watchdog.sh &
-   ```
-
-3. Run ingestion (no pipe, no tail):
-   ```
-   PYTHONDONTWRITEBYTECODE=1 MEMGRAPH_BOLT_URI=bolt://127.0.0.1:17687 \
-     python3 -B scripts/ingest_fhir_hypertension.py \
-     --embedding-endpoint http://127.0.0.1:8090
-   ```
-
-Takes ~90 min with batch_size=2. Consider increasing batch size if
-TEI pod memory has been bumped.
-
 ## Definition of done
 
-- Memgraph data survives pod restart (#40)
-- Hetionet chunks include relationship edges (#44)
-- FHIR BP panel chunks include systolic/diastolic values (#41)
-- Graph traverse respects depth/edge-type/max-nodes bounds (#45)
+- ~~Memgraph data survives pod restart (#40)~~ done
+- ~~Hetionet chunks include relationship edges (#44)~~ done
+- ~~FHIR BP panel chunks include systolic/diastolic values (#41)~~ done
+- ~~Graph traverse respects depth/edge-type/max-nodes bounds (#45)~~ done
 - Retrieve supports doc_section filtering (#43)
 - Entity-scope filtering designed and at least prototyped (#42)
 - #46 (umbrella) closeable because individual issues are resolved
@@ -171,38 +111,33 @@ TEI pod memory has been bumped.
 - Agent integration guidance tested and documented (CLAUDE.md
   entries or equivalent)
 
-## Session start protocol
+## What landed last session (2026-09-03)
 
-- `oc get pods --context=gpt-oss-120b -n retrieval-hub` — cluster healthy?
-- `oc get pvc --context=gpt-oss-120b -n retrieval-hub` — existing PVCs?
-- `oc get statefulset memgraph -o yaml --context=gpt-oss-120b -n retrieval-hub`
-  — read current manifest before modifying
-- Port-forwards: Memgraph (7687), Postgres catalog (5434), Postgres
-  vectors (5433), TEI embedding (8090)
-- Rules with history:
-  - TEI batch_size=2, 10-retry backoff, self-healing port-forward
-  - Use `127.0.0.1` not `localhost` for port-forwarded connections
-  - Metadata-only changes use SQL UPDATEs, not full re-ingestion
+Phase 1 complete + Phase 2 complete. All code committed, Hetionet and
+FHIR re-ingested with enriched chunk text, bounded traversal deployed.
+See `session-summaries/2026-09-03-graph-quality-phase1-2.md`.
+
+**Closed:** #40 — Memgraph PVC, #41 — FHIR Observation components,
+#44 — Hetionet chunk enrichment, #45 — bounded graph traversal
+
+**Follow-ups filed:** none (bugs found during re-ingestion were fixed
+in-session: httpx.ReadError retry, TEI port-forward watchdog pattern)
 
 ## Watch out for
 
-- Re-ingestion of FHIR (22K nodes) takes 30-60 min through TEI. Plan
-  this for the end of the session or run it in background.
-- Hetionet re-ingestion is fast (~5 min, 769 nodes).
-- Memgraph StatefulSet change will delete the existing pod. Graph data
-  must be reloaded after PVC is attached.
-- The `window` parameter in graph_traverse_from_seed may already be
-  wired but not implemented in the Cypher query — check before adding
-  new parameters.
-- FHIR component promotion may increase the node count significantly
-  if each component becomes its own node. Consider the inline approach
-  first.
+- The `doc_section` filter for #43 needs to work for ALL source families,
+  not just graph — document sources also have doc_section (section headers).
+  Make it a general retrieve parameter, not graph-specific.
+- #42 entity-scope filter design has three options with different tradeoffs.
+  Don't start implementing before choosing — pick the option in a design
+  discussion, then build.
+- Port-forwards: Memgraph uses 17687 (7687 taken by local Podman gvproxy).
+  TEI embedding-nomic uses port 8080, not 80.
 
 ## If blocked
 
-- If PVC provisioning fails: check StorageClasses with `oc get sc`,
-  try a different class or smaller size
-- If TEI is unstable during re-ingestion: use local sentence-transformers
-  for Hetionet (769 nodes fits easily in local memory)
-- If FHIR component data is not in the existing graph source files:
-  need to re-run `convert_fhir_to_graph.py` from the raw FHIR bundles
+- If #42 design is unclear after examining the FHIR edge structure, skip
+  to the forcing-function query first — it will reveal what scoping an
+  agent actually needs, which informs the design.
+- If cluster is down, Phase 3 work is all local code + tests. Can develop
+  and test without cluster access, then deploy later.
