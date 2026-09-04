@@ -163,6 +163,7 @@ def _neighbors_by_rel(
     *,
     outbound: bool = True,
     limit: int = 10,
+    peer_entity_type: str | None = None,
 ) -> list[str]:
     """Return names of neighbors connected via *rel_type*."""
     names: list[str] = []
@@ -182,6 +183,8 @@ def _neighbors_by_rel(
             )
             peer = all_nodes.get(peer_id)
         if peer:
+            if peer_entity_type and peer.entity_type != peer_entity_type:
+                continue
             names.append(peer.name)
         if len(names) >= limit:
             break
@@ -229,8 +232,14 @@ def render_fhir_entity(
         gender = _prop(node, "gender", "unknown")
         birth = _prop(node, "birthDate", "unknown")
         text = f"Patient: {node.name}. Gender: {gender}. Birth date: {birth}."
-        conditions = _neighbors_by_rel(node, node_edges, all_nodes, "HAS_CONDITION")
-        meds = _neighbors_by_rel(node, node_edges, all_nodes, "HAS_MEDICATION")
+        conditions = _neighbors_by_rel(
+            node, node_edges, all_nodes, "HAS_SUBJECT",
+            outbound=False, peer_entity_type="Condition",
+        )
+        meds = _neighbors_by_rel(
+            node, node_edges, all_nodes, "HAS_SUBJECT",
+            outbound=False, peer_entity_type="MedicationRequest",
+        )
         if conditions:
             text += f" Conditions: {', '.join(conditions)}."
         if meds:

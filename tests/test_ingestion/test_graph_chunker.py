@@ -211,8 +211,8 @@ def test_render_fhir_entity_patient() -> None:
     cond = GraphNode(entity_id="c1", entity_type="Condition", name="Hypertension")
     med = GraphNode(entity_id="m1", entity_type="MedicationRequest", name="Lisinopril")
     edges = [
-        GraphEdge(source_id="p1", target_id="c1", relationship_type="HAS_CONDITION"),
-        GraphEdge(source_id="p1", target_id="m1", relationship_type="HAS_MEDICATION"),
+        GraphEdge(source_id="c1", target_id="p1", relationship_type="HAS_SUBJECT"),
+        GraphEdge(source_id="m1", target_id="p1", relationship_type="HAS_SUBJECT"),
     ]
     lookup = _node_lookup([patient, cond, med])
 
