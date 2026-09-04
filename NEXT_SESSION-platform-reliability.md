@@ -1,14 +1,20 @@
 # Next Session -- Platform Reliability
 
-## Status: DEFERRED
+## Status: MOSTLY COMPLETE
 
-#40 (Memgraph PVC) absorbed into the graph-quality epic
-(`NEXT_SESSION-graph-quality.md`) as Phase 1a. Remaining items
-here are queued after graph-quality completes.
+#40 (Memgraph PVC) delivered in graph-quality Phase 1a.
+#29 (confidence elicitation) and #31 (MCP-level e2e eval) delivered in
+the graph-quality epic closure session (2026-09-04).
 
-## Priority queue (after graph-quality epic)
+## Remaining
 
-1. **#29 Elicitation** — clarifying questions for low-confidence results
-2. **#31 MCP-level end-to-end eval** — integration test path through
-   the deployed MCP server
-3. **#27 Production ingestion runners** — Tekton/Job-based ingestion
+1. **#27 Production ingestion runners** — Tekton/Job-based ingestion
+   pipelines. The current approach runs ingestion scripts locally with
+   port-forwards to the cluster. A production path would use Tekton
+   pipelines or Kubernetes Jobs running in-cluster.
+
+## Completed
+
+- ~~#40 Memgraph PVC~~ done (graph-quality Phase 1a)
+- ~~#29 Elicitation~~ done (ba695c2)
+- ~~#31 MCP-level end-to-end eval~~ done (ba695c2)
