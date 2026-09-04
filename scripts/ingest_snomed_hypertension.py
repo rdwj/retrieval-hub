@@ -91,16 +91,15 @@ def main() -> None:
             "with clinical relationships and anatomical context"
         ),
         description_long=(
-            "Graph-family source extracted from SNOMED-CT US Edition "
-            "(September 2026 release). Rooted at Essential hypertension "
-            "(59621000) and Hypertensive disorder (38341003), this "
-            "subgraph includes the full IS_A descendant hierarchy, "
-            "ancestor concepts up to 3 levels, and 1-hop traversals "
-            "through Finding site, Associated morphology, Has "
-            "definitional manifestation, Has interpretation, Interprets, "
-            "Causative agent, and Procedure site relationships. "
-            "Supports graph_traverse_from_seed refine strategy for "
-            "multi-hop clinical concept expansion."
+            "Hypertension concept hierarchy from SNOMED-CT US Edition. "
+            "Entity types: Disorder, Body Structure, Observable Entity, "
+            "Finding, Qualifier Value, Procedure. Provides clinical "
+            "terminology classification, anatomical context (finding "
+            "sites), and IS_A hierarchies. Use doc_section to filter by "
+            "entity type. Use refine to traverse the SNOMED ontology "
+            "(IS_A for parent/child concepts, FINDING_SITE for anatomical "
+            "context). Best for clinical terminology enrichment and "
+            "concept classification."
         ),
         db_url=args.db_url,
         vectors_db_url=args.vectors_db_url,

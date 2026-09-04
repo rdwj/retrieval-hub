@@ -91,16 +91,15 @@ def main() -> None:
             "a CC0-licensed integrative biomedical knowledge graph"
         ),
         description_long=(
-            "Graph-family source extracted from Hetionet v1.0, an open "
-            "(CC0) network encoding relationships among genes, diseases, "
-            "compounds, anatomies, symptoms, side effects, biological "
-            "processes, and pathways. This subgraph contains all nodes "
-            "within 2 hops of the hypertension Disease node "
-            "(DOID:10763), capturing treatment compounds, associated "
-            "genes, presenting symptoms, palliative drugs, anatomical "
-            "localizations, and disease-resemblance links. Supports "
-            "graph_traverse_from_seed refine strategy for multi-hop "
-            "biomedical context expansion."
+            "2-hop subgraph around hypertension from Hetionet v1.0, "
+            "a CC0-licensed integrative biomedical knowledge graph. "
+            "Entity types: Disease, Compound, Gene, Anatomy, Symptom, "
+            "Pharmacologic Class, Side Effect, Biological Process, "
+            "Cellular Component, Molecular Function, Pathway. Use "
+            "doc_section to filter by entity type. Use refine with "
+            "edge_types to traverse specific relationship types (e.g., "
+            "\"Compound - treats - Disease\"). Best for drug-gene-disease "
+            "relationships, side effects, and pharmacological context."
         ),
         db_url=args.db_url,
         vectors_db_url=args.vectors_db_url,

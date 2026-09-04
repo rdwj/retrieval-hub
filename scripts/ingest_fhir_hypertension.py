@@ -90,12 +90,14 @@ def main() -> None:
             "as a graph of clinical entities and relationships"
         ),
         description_long=(
-            "Graph-family source from 50 Synthea-generated synthetic "
-            "patients. Entities include Patient, Condition, Medication, "
-            "Observation, Encounter, and Procedure resources. Edges "
-            "represent FHIR references (HAS_SUBJECT, PART_OF_ENCOUNTER, "
-            "REASON_FOR, etc.). Supports graph_traverse_from_seed refine "
-            "strategy for multi-hop clinical context expansion."
+            "50 synthetic hypertension patients from Synthea (FHIR R4), "
+            "stored as a graph of clinical entities. Entity types: Patient, "
+            "Condition, MedicationRequest, Observation, Encounter, Procedure, "
+            "Immunization, CarePlan, DiagnosticReport, Claim. Use doc_section "
+            "to filter by entity type (e.g., [\"Patient\", \"Condition\"]). "
+            "Use scope_entity_id with a patient UUID to restrict results to "
+            "one patient's clinical data. Supports graph_traverse_from_seed "
+            "refine strategy for multi-hop context expansion from any entity."
         ),
         db_url=args.db_url,
         vectors_db_url=args.vectors_db_url,
