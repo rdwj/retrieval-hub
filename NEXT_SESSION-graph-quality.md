@@ -16,7 +16,12 @@ able to answer this from RetrievalHub alone, without fighting the tools.
 
 Issues: #40, #41, #42, #43, #44, #45, #46, #47
 
-## Next: Close the epic — fix Patient chunks, automate forcing-function eval, add confidence elicitation
+## EPIC COMPLETE
+
+All definition-of-done items met. See session summary:
+`session-summaries/2026-09-04-graph-quality-close-epic.md`
+
+## Previous: Close the epic — fix Patient chunks, automate forcing-function eval, add confidence elicitation
 
 Three items to wrap the epic. The first (#47) is the last blocker for
 closing the umbrella issue. The second (#31) captures the manual
@@ -99,10 +104,10 @@ separate future epic, not part of this one.
 - ~~Entity-scope filtering designed and at least prototyped (#42)~~ done
 - ~~Forcing-function query passes (5-source treatment plan)~~ done
 - ~~Agent integration guidance documented (guide + data cards)~~ done
-- FHIR Patient chunks include conditions and medications (#47)
-- #46 (umbrella) closed
-- MCP-level end-to-end eval captured as repeatable test (#31)
-- Low-confidence elicitation on retrieve results (#29)
+- ~~FHIR Patient chunks include conditions and medications (#47)~~ done
+- ~~#46 (umbrella) closed~~ done
+- ~~MCP-level end-to-end eval captured as repeatable test (#31)~~ done
+- ~~Low-confidence elicitation on retrieve results (#29)~~ done
 
 ## What landed last session (2026-09-04)
 
