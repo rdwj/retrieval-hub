@@ -627,3 +627,234 @@ def test_graph_traverse_edge_types_and_max_nodes_combined() -> None:
     # because max_nodes is applied after the graph query
     # but truncated should be True since we capped
     assert output.truncated is True
+
+
+# ---------------------------------------------------------------------------
+# _collect_scope_ids
+# ---------------------------------------------------------------------------
+
+
+def test_collect_scope_ids() -> None:
+    """Seed + neighbors are returned from Memgraph traversal."""
+    adapter = _make_adapter()
+
+    mock_session = MagicMock()
+    records = [
+        {"seed_id": "patient-1", "neighbor_id": "enc-1"},
+        {"seed_id": "patient-1", "neighbor_id": "obs-1"},
+        {"seed_id": "patient-1", "neighbor_id": None},  # seed with no extra neighbor
+    ]
+    mock_session.run.return_value = iter(records)
+
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    ids = adapter._collect_scope_ids("patient-1", hops=2)
+
+    assert set(ids) == {"patient-1", "enc-1", "obs-1"}
+
+
+def test_collect_scope_ids_no_entity() -> None:
+    """When the seed entity is not found, returns empty list."""
+    adapter = _make_adapter()
+
+    mock_session = MagicMock()
+    mock_session.run.return_value = iter([])  # no records
+
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    ids = adapter._collect_scope_ids("nonexistent-id", hops=2)
+
+    assert ids == []
+
+
+# ---------------------------------------------------------------------------
+# Scoped retrieve
+# ---------------------------------------------------------------------------
+
+
+def test_retrieve_with_scope_entity_id() -> None:
+    """Full scoped retrieve: Memgraph traversal + pgvector scoped search."""
+    adapter = _make_adapter(location="idx_graph_scope")
+
+    # Mock Memgraph for _collect_scope_ids
+    mock_mg_session = MagicMock()
+    scope_records = [
+        {"seed_id": "patient-1", "neighbor_id": "enc-1"},
+        {"seed_id": "patient-1", "neighbor_id": "obs-1"},
+    ]
+    mock_mg_session.run.return_value = iter(scope_records)
+
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_mg_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    # Mock QueryEmbedder
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1] * 768
+
+    # Mock pgvector for _scoped_similarity_search
+    fake_cursor = MagicMock()
+    col_names = [
+        "id", "chunk_text", "doc_title", "doc_url",
+        "doc_section", "chunk_index", "score",
+    ]
+    fake_cursor.description = [MagicMock(name=n) for n in col_names]
+    for col, name in zip(fake_cursor.description, col_names, strict=True):
+        col.name = name
+    fake_cursor.fetchall.return_value = [
+        ("uuid-1", "Patient data", "patient-1", "", "Patient", 0, 0.92),
+        ("uuid-2", "Encounter data", "enc-1", "", "Encounter", 0, 0.88),
+    ]
+
+    fake_conn = MagicMock()
+    fake_conn.cursor.return_value.__enter__ = MagicMock(return_value=fake_cursor)
+    fake_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    fake_connect_ctx = MagicMock()
+    fake_connect_ctx.__enter__ = MagicMock(return_value=fake_conn)
+    fake_connect_ctx.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch(
+            "retrieval_hub.ingestion.embed.QueryEmbedder",
+            return_value=mock_embedder,
+        ),
+        patch("psycopg.connect", return_value=fake_connect_ctx),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        results = adapter.retrieve(
+            "What observations exist?",
+            top_k=5,
+            request_id="req-scope",
+            scope_entity_id="patient-1",
+        )
+
+    assert len(results) == 2
+    assert results[0].chunk_id == "uuid-1"
+    assert results[0].doc_title == "patient-1"
+    assert results[0].score == pytest.approx(0.92)
+    assert results[0].request_id == "req-scope"
+    assert results[1].chunk_id == "uuid-2"
+    assert results[1].doc_title == "enc-1"
+
+    # Verify SQL contained the scope filter
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "doc_title = ANY(%s)" in executed_sql
+    assert "idx_graph_scope" in executed_sql
+
+
+def test_retrieve_without_scope_entity_id() -> None:
+    """Without scope_entity_id, delegates to parent DocumentAdapter.retrieve()."""
+    adapter = _make_adapter()
+
+    with patch.object(
+        adapter.__class__.__bases__[0],  # DocumentAdapter
+        "retrieve",
+        return_value=[],
+    ) as mock_parent:
+        results = adapter.retrieve(
+            "some query",
+            top_k=5,
+            request_id="req-noscope",
+        )
+
+    assert results == []
+    mock_parent.assert_called_once_with(
+        "some query",
+        top_k=5,
+        request_id="req-noscope",
+        doc_section=None,
+    )
+
+
+def test_retrieve_with_scope_and_doc_section() -> None:
+    """Both scope_entity_id and doc_section filters are applied together."""
+    adapter = _make_adapter(location="idx_graph_both")
+
+    # Mock Memgraph
+    mock_mg_session = MagicMock()
+    scope_records = [
+        {"seed_id": "patient-1", "neighbor_id": "obs-1"},
+    ]
+    mock_mg_session.run.return_value = iter(scope_records)
+
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_mg_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    # Mock QueryEmbedder
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1] * 768
+
+    # Mock pgvector
+    fake_cursor = MagicMock()
+    col_names = [
+        "id", "chunk_text", "doc_title", "doc_url",
+        "doc_section", "chunk_index", "score",
+    ]
+    fake_cursor.description = [MagicMock(name=n) for n in col_names]
+    for col, name in zip(fake_cursor.description, col_names, strict=True):
+        col.name = name
+    fake_cursor.fetchall.return_value = [
+        ("uuid-obs", "Observation data", "obs-1", "", "Observation", 0, 0.85),
+    ]
+
+    fake_conn = MagicMock()
+    fake_conn.cursor.return_value.__enter__ = MagicMock(return_value=fake_cursor)
+    fake_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    fake_connect_ctx = MagicMock()
+    fake_connect_ctx.__enter__ = MagicMock(return_value=fake_conn)
+    fake_connect_ctx.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch(
+            "retrieval_hub.ingestion.embed.QueryEmbedder",
+            return_value=mock_embedder,
+        ),
+        patch("psycopg.connect", return_value=fake_connect_ctx),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        results = adapter.retrieve(
+            "lab results",
+            top_k=5,
+            request_id="req-both",
+            scope_entity_id="patient-1",
+            doc_section=["Observation"],
+        )
+
+    assert len(results) == 1
+    assert results[0].doc_section == "Observation"
+
+    # Verify SQL has both filters
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "doc_title = ANY(%s)" in executed_sql
+    assert "doc_section = ANY(%s)" in executed_sql
+
+
+def test_retrieve_scope_entity_id_no_neighbors_returns_empty() -> None:
+    """When the seed entity has no graph presence, returns empty list."""
+    adapter = _make_adapter()
+
+    mock_mg_session = MagicMock()
+    mock_mg_session.run.return_value = iter([])
+
+    mock_driver = MagicMock()
+    mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_mg_session)
+    mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+    adapter._driver = mock_driver
+
+    results = adapter.retrieve(
+        "any query",
+        top_k=5,
+        request_id="req-empty-scope",
+        scope_entity_id="nonexistent-patient",
+    )
+
+    assert results == []

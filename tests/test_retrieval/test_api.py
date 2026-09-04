@@ -207,7 +207,8 @@ def test_multi_query_routes_per_source(session):
     from unittest.mock import patch
 
     def mock_query(
-        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None
+        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None,
+        doc_section=None, scope_entity_id=None,
     ):
         return [_make_result(chunk_id=f"{source_slug}-hit", source_slug=source_slug)]
 
@@ -230,7 +231,8 @@ def test_multi_query_skips_unqueryable(session):
     from unittest.mock import patch
 
     def mock_query(
-        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None
+        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None,
+        doc_section=None, scope_entity_id=None,
     ):
         if source_slug == "broken":
             raise SourceNotQueryableError("no index")
@@ -246,3 +248,84 @@ def test_multi_query_skips_unqueryable(session):
 
     assert set(results.keys()) == {"good"}
     assert len(results["good"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# doc_section pass-through tests
+# ---------------------------------------------------------------------------
+
+
+def test_multi_query_passes_doc_section(session):
+    """multi_query forwards doc_section to each query() call."""
+    from unittest.mock import patch
+
+    captured_doc_sections: list = []
+
+    def mock_query(
+        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None,
+        doc_section=None, scope_entity_id=None,
+    ):
+        captured_doc_sections.append(doc_section)
+        return [_make_result(chunk_id=f"{source_slug}-hit", source_slug=source_slug)]
+
+    with patch("retrieval_hub.retrieval.api.query", side_effect=mock_query):
+        multi_query(
+            ["src-a", "src-b"],
+            "test query",
+            session=session,
+            top_k=5,
+            doc_section=["Patient", "Condition"],
+        )
+
+    assert len(captured_doc_sections) == 2
+    assert all(ds == ["Patient", "Condition"] for ds in captured_doc_sections)
+
+
+def test_multi_query_passes_none_doc_section_by_default(session):
+    """multi_query passes doc_section=None when not specified."""
+    from unittest.mock import patch
+
+    captured_doc_sections: list = []
+
+    def mock_query(
+        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None,
+        doc_section=None, scope_entity_id=None,
+    ):
+        captured_doc_sections.append(doc_section)
+        return [_make_result(chunk_id=f"{source_slug}-hit", source_slug=source_slug)]
+
+    with patch("retrieval_hub.retrieval.api.query", side_effect=mock_query):
+        multi_query(
+            ["src-a"],
+            "test query",
+            session=session,
+            top_k=5,
+        )
+
+    assert captured_doc_sections == [None]
+
+
+def test_multi_query_passes_scope_entity_id(session):
+    """multi_query forwards scope_entity_id to each query() call."""
+    from unittest.mock import patch
+
+    captured_scope_ids: list = []
+
+    def mock_query(
+        source_slug, query_text, *, session, top_k, vectors_db_url=None, request_id=None,
+        doc_section=None, scope_entity_id=None,
+    ):
+        captured_scope_ids.append(scope_entity_id)
+        return [_make_result(chunk_id=f"{source_slug}-hit", source_slug=source_slug)]
+
+    with patch("retrieval_hub.retrieval.api.query", side_effect=mock_query):
+        multi_query(
+            ["src-a", "src-b"],
+            "test query",
+            session=session,
+            top_k=5,
+            scope_entity_id="patient-uuid-123",
+        )
+
+    assert len(captured_scope_ids) == 2
+    assert all(sid == "patient-uuid-123" for sid in captured_scope_ids)

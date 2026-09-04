@@ -88,6 +88,30 @@ def test_document_adapter_rejects_non_pgvector_backend() -> None:
         )
 
 
+def test_document_adapter_rejects_scope_entity_id() -> None:
+    """DocumentAdapter raises ValueError when scope_entity_id is provided."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    with pytest.raises(ValueError, match="scope_entity_id is only supported for graph-family"):
+        adapter.retrieve(
+            "test query",
+            top_k=5,
+            request_id="req-1",
+            scope_entity_id="some-entity-id",
+        )
+
+
 def test_document_adapter_retrieve_wires_embedder_and_sql() -> None:
     source = _make_source()
     recipe = _make_recipe_version(
@@ -1283,3 +1307,180 @@ def test_entity_arc_refine_no_results() -> None:
 
     assert len(output.results) == 0
     assert not output.truncated
+
+
+# ---------------------------------------------------------------------------
+# doc_section filter tests
+# ---------------------------------------------------------------------------
+
+_RETRIEVE_COLS = ["id", "chunk_text", "doc_title", "doc_url", "doc_section", "chunk_index", "score"]
+
+
+def test_similarity_search_with_doc_section_filter() -> None:
+    """When doc_section is provided, _similarity_search adds a WHERE clause."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [
+            ("uuid-1", "patient chunk", "Doc", "https://ex/d", "Patient", 0, 0.91),
+        ],
+    )
+
+    with (
+        patch("psycopg.connect", return_value=fake_conn_ctx),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        rows = adapter._similarity_search(
+            [0.1] * 768, top_k=5, doc_section=["Patient", "Condition"]
+        )
+
+    assert len(rows) == 1
+    assert rows[0]["doc_section"] == "Patient"
+
+    # Verify the executed SQL contains the WHERE clause with ANY
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "WHERE doc_section = ANY(%s)" in executed_sql
+
+    # Verify the doc_section list was passed as a parameter
+    executed_params = fake_cursor.execute.call_args[0][1]
+    assert ["Patient", "Condition"] in list(executed_params)
+
+
+def test_similarity_search_without_doc_section_filter() -> None:
+    """When doc_section is None, _similarity_search uses the unfiltered query."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [
+            ("uuid-1", "any chunk", "Doc", "https://ex/d", "Intro", 0, 0.88),
+        ],
+    )
+
+    with (
+        patch("psycopg.connect", return_value=fake_conn_ctx),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        rows = adapter._similarity_search([0.1] * 768, top_k=5, doc_section=None)
+
+    assert len(rows) == 1
+
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "WHERE" not in executed_sql
+
+
+def test_retrieve_passes_doc_section_through() -> None:
+    """The retrieve() method passes doc_section through to _similarity_search."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [
+            ("uuid-1", "condition chunk", "Doc", "https://ex/d", "Condition", 2, 0.85),
+        ],
+    )
+
+    with (
+        patch(
+            "retrieval_hub.ingestion.embed.QueryEmbedder",
+            return_value=fake_embedder,
+        ),
+        patch("psycopg.connect", return_value=fake_conn_ctx),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        results = adapter.retrieve(
+            "test query",
+            top_k=5,
+            request_id="req-ds",
+            doc_section=["Condition"],
+        )
+
+    assert len(results) == 1
+    assert results[0].doc_section == "Condition"
+
+    # Verify the WHERE clause was applied
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "WHERE doc_section = ANY(%s)" in executed_sql
+
+
+def test_retrieve_without_doc_section_is_backward_compatible() -> None:
+    """Calling retrieve() without doc_section produces the unfiltered query."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [
+            ("uuid-1", "any chunk", "Doc", "https://ex/d", "Intro", 0, 0.90),
+        ],
+    )
+
+    with (
+        patch(
+            "retrieval_hub.ingestion.embed.QueryEmbedder",
+            return_value=fake_embedder,
+        ),
+        patch("psycopg.connect", return_value=fake_conn_ctx),
+        patch("pgvector.psycopg.register_vector"),
+    ):
+        # Call without doc_section -- backward compatible
+        results = adapter.retrieve("test query", top_k=5, request_id="req-compat")
+
+    assert len(results) == 1
+
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "WHERE" not in executed_sql

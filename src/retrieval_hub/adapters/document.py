@@ -96,7 +96,14 @@ class DocumentAdapter(SourceAdapter):
         *,
         top_k: int,
         request_id: str,
+        doc_section: list[str] | None = None,
+        scope_entity_id: str | None = None,
     ) -> list[Any]:
+        if scope_entity_id is not None:
+            raise ValueError(
+                "scope_entity_id is only supported for graph-family sources."
+            )
+
         from retrieval_hub.ingestion.embed import QueryEmbedder
         from retrieval_hub.retrieval.api import RetrievalResult
 
@@ -108,7 +115,7 @@ class DocumentAdapter(SourceAdapter):
         )
         query_vec = embedder.embed(query_text)
 
-        rows = self._similarity_search(query_vec, top_k=top_k)
+        rows = self._similarity_search(query_vec, top_k=top_k, doc_section=doc_section)
 
         results: list[RetrievalResult] = []
         for row in rows:
@@ -405,8 +412,17 @@ class DocumentAdapter(SourceAdapter):
         query_vec: list[float],
         *,
         top_k: int,
+        doc_section: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Run the ANN search against the pgvector table.
+
+        Parameters
+        ----------
+        doc_section:
+            Optional list of section names to restrict the search to.
+            When provided, a ``WHERE doc_section = ANY(%s)`` clause is
+            added so only chunks belonging to the given sections are
+            considered.
 
         Returns a list of row dicts sorted by descending score.
         """
@@ -415,21 +431,36 @@ class DocumentAdapter(SourceAdapter):
 
         table = self.physical_index.location
         logger.info(
-            "document_adapter._similarity_search table=%s top_k=%d", table, top_k
+            "document_adapter._similarity_search table=%s top_k=%d doc_section=%s",
+            table,
+            top_k,
+            doc_section,
         )
 
-        sql = (
-            f"SELECT id, chunk_text, doc_title, doc_url, doc_section, "
-            f"chunk_index, 1 - (embedding <=> %s::vector) AS score "
-            f"FROM {table} "
-            f"ORDER BY embedding <=> %s::vector "
-            f"LIMIT %s"
-        )
+        if doc_section is not None:
+            sql = (
+                f"SELECT id, chunk_text, doc_title, doc_url, doc_section, "
+                f"chunk_index, 1 - (embedding <=> %s::vector) AS score "
+                f"FROM {table} "
+                f"WHERE doc_section = ANY(%s) "
+                f"ORDER BY embedding <=> %s::vector "
+                f"LIMIT %s"
+            )
+            params: tuple = (query_vec, doc_section, query_vec, top_k)
+        else:
+            sql = (
+                f"SELECT id, chunk_text, doc_title, doc_url, doc_section, "
+                f"chunk_index, 1 - (embedding <=> %s::vector) AS score "
+                f"FROM {table} "
+                f"ORDER BY embedding <=> %s::vector "
+                f"LIMIT %s"
+            )
+            params = (query_vec, query_vec, top_k)
 
         with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
             register_vector(conn)
             with conn.cursor() as cur:
-                cur.execute(sql, (query_vec, query_vec, top_k))
+                cur.execute(sql, params)
                 cols = [desc.name for desc in cur.description or []]
                 rows = cur.fetchall()
         return [dict(zip(cols, row, strict=True)) for row in rows]

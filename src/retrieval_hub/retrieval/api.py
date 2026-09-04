@@ -181,6 +181,8 @@ def query(
     top_k: int = 10,
     vectors_db_url: str | None = None,
     request_id: str | None = None,
+    doc_section: list[str] | None = None,
+    scope_entity_id: str | None = None,
 ) -> list[RetrievalResult]:
     """Return top-k retrieval results for ``query_text`` against a source.
 
@@ -201,6 +203,17 @@ def query(
     request_id:
         Optional caller-provided request id. One is generated if absent so
         every result carries a stable lineage handle.
+    doc_section:
+        Optional list of section names to restrict the search to. When
+        provided, only chunks whose ``doc_section`` column matches one
+        of the given values are returned. For graph sources this
+        corresponds to entity types; for document sources it is section
+        header text.
+    scope_entity_id:
+        Restrict retrieval to a specific subgraph by providing a seed
+        entity ID.  The system traverses the graph from this entity to
+        find all connected entities, then restricts the vector search
+        to those entities.  Only works for graph-family sources.
 
     Raises
     ------
@@ -254,6 +267,8 @@ def query(
         query_text,
         top_k=top_k,
         request_id=effective_request_id,
+        doc_section=doc_section,
+        scope_entity_id=scope_entity_id,
     )
     return [replace(r, source_slug=source_slug) for r in results]
 
@@ -413,6 +428,8 @@ def multi_query(
     top_k: int = 10,
     vectors_db_url: str | None = None,
     request_id: str | None = None,
+    doc_section: list[str] | None = None,
+    scope_entity_id: str | None = None,
 ) -> dict[str, list[RetrievalResult]]:
     """Query multiple sources and return per-source results.
 
@@ -431,6 +448,8 @@ def multi_query(
                 top_k=top_k,
                 vectors_db_url=vectors_db_url,
                 request_id=effective_request_id,
+                doc_section=doc_section,
+                scope_entity_id=scope_entity_id,
             )
         except SourceNotQueryableError:
             logger.warning("multi_query: skipping unqueryable source %s", slug)

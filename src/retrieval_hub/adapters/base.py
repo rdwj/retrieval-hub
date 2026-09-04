@@ -38,12 +38,29 @@ class SourceAdapter(ABC):
         *,
         top_k: int,
         request_id: str,
+        doc_section: list[str] | None = None,
+        scope_entity_id: str | None = None,
     ) -> list[RetrievalResult]:
         """Return top-k normalized results for ``query_text``.
 
         Implementations must populate every lineage field on each
         ``RetrievalResult`` (``physical_index_id``, ``recipe_version``,
         ``request_id``) so the MCP layer never has to reconstruct them.
+
+        Parameters
+        ----------
+        doc_section:
+            Optional list of section names to restrict the search to.
+            When provided, only chunks whose ``doc_section`` column
+            matches one of the given values are considered.  For graph
+            sources this corresponds to entity types (e.g., "Patient",
+            "Condition"); for document sources it is section header text.
+        scope_entity_id:
+            Restrict retrieval to a specific subgraph by providing a
+            seed entity ID.  The system traverses the graph from this
+            entity to find all connected entities, then restricts the
+            vector search to those entities.  Only supported for
+            graph-family sources.
         """
 
     @abstractmethod

@@ -72,6 +72,151 @@ class GraphAdapter(DocumentAdapter):
             self._driver = GraphDatabase.driver(self._bolt_uri)
         return self._driver
 
+    # -- retrieve override (scoped retrieval) ---------------------------------
+
+    def retrieve(
+        self,
+        query_text: str,
+        *,
+        top_k: int,
+        request_id: str,
+        doc_section: list[str] | None = None,
+        scope_entity_id: str | None = None,
+    ) -> list[Any]:
+        if scope_entity_id is None:
+            # No scoping -- delegate to parent (DocumentAdapter)
+            return super().retrieve(
+                query_text,
+                top_k=top_k,
+                request_id=request_id,
+                doc_section=doc_section,
+            )
+
+        # 1. Traverse Memgraph to collect scope entity_ids
+        scope_ids = self._collect_scope_ids(scope_entity_id, hops=2)
+        if not scope_ids:
+            return []
+
+        # 2. Embed the query
+        from retrieval_hub.ingestion.embed import QueryEmbedder
+
+        embedder = QueryEmbedder(
+            model_name=self._embedding_model_name(),
+            endpoint=self._embedding_endpoint(),
+            query_prefix=self._query_prefix(),
+            prompt_name=self._query_prompt_name(),
+        )
+        query_vec = embedder.embed(query_text)
+
+        # 3. Run scoped + optionally doc_section-filtered vector search
+        rows = self._scoped_similarity_search(
+            query_vec, scope_ids, top_k=top_k, doc_section=doc_section,
+        )
+
+        # 4. Build results (same pattern as DocumentAdapter.retrieve)
+        from retrieval_hub.retrieval.api import RetrievalResult
+
+        results = []
+        for row in rows:
+            results.append(
+                RetrievalResult(
+                    chunk_id=str(row["id"]),
+                    text=row["chunk_text"],
+                    score=float(row["score"]),
+                    doc_title=row["doc_title"] or "",
+                    doc_url=row["doc_url"] or "",
+                    doc_section=row["doc_section"],
+                    chunk_index=row["chunk_index"],
+                    physical_index_id=self.physical_index.id,
+                    recipe_version=self.recipe_version.version_number,
+                    request_id=request_id,
+                )
+            )
+        return results
+
+    def _collect_scope_ids(self, entity_id: str, hops: int = 2) -> list[str]:
+        """Traverse Memgraph from seed and return all connected entity_ids including the seed."""
+        driver = self._get_driver()
+        source_slug = self.source.slug
+
+        cypher = (
+            "MATCH (seed:Entity {entity_id: $entity_id, source_slug: $slug}) "
+            f"OPTIONAL MATCH (seed)-[*1..{hops}]-(neighbor:Entity) "
+            "WHERE neighbor.source_slug = $slug "
+            "RETURN DISTINCT seed.entity_id AS seed_id, "
+            "  neighbor.entity_id AS neighbor_id"
+        )
+
+        with driver.session() as session:
+            result = session.run(cypher, entity_id=entity_id, slug=source_slug)
+            records = list(result)
+
+        if not records:
+            logger.warning(
+                "scope: no entity found entity_id=%s slug=%s",
+                entity_id, source_slug,
+            )
+            return []
+
+        ids: set[str] = {entity_id}  # include seed
+        for rec in records:
+            nid = rec["neighbor_id"]
+            if nid:
+                ids.add(nid)
+
+        logger.info(
+            "scope: entity_id=%s hops=%d scope_size=%d",
+            entity_id, hops, len(ids),
+        )
+        return list(ids)
+
+    def _scoped_similarity_search(
+        self,
+        query_vec: list[float],
+        scope_ids: list[str],
+        *,
+        top_k: int,
+        doc_section: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """ANN search scoped to specific entity_ids, optionally filtered by doc_section."""
+        import psycopg
+        from pgvector.psycopg import register_vector
+
+        table = self.physical_index.location
+
+        where_clauses = ["doc_title = ANY(%s)"]
+        params_list: list = [query_vec, scope_ids]
+
+        if doc_section is not None:
+            where_clauses.append("doc_section = ANY(%s)")
+            params_list.append(doc_section)
+
+        where_str = " AND ".join(where_clauses)
+        params_list.extend([query_vec, top_k])
+
+        sql = (
+            f"SELECT id, chunk_text, doc_title, doc_url, doc_section, "
+            f"chunk_index, 1 - (embedding <=> %s::vector) AS score "
+            f"FROM {table} "
+            f"WHERE {where_str} "
+            f"ORDER BY embedding <=> %s::vector "
+            f"LIMIT %s"
+        )
+
+        logger.info(
+            "graph_adapter._scoped_similarity_search table=%s "
+            "scope_size=%d doc_section=%s top_k=%d",
+            table, len(scope_ids), doc_section, top_k,
+        )
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            register_vector(conn)
+            with conn.cursor() as cur:
+                cur.execute(sql, tuple(params_list))
+                cols = [desc.name for desc in cur.description or []]
+                rows = cur.fetchall()
+        return [dict(zip(cols, row, strict=True)) for row in rows]
+
     # -- refine entry point --------------------------------------------------
 
     def refine(

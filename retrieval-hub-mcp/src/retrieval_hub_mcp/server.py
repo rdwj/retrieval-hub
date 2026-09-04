@@ -563,6 +563,8 @@ async def retrieve(
     file_path: str | None = None,
     ref: str | None = None,
     no_rewrite: bool = False,
+    doc_section: list[str] | None = None,
+    scope_entity_id: str | None = None,
     session: Session = Depends(get_catalog_session),
 ) -> RetrievalResponse:
     """Search a data source and return relevant passages with provenance metadata.
@@ -598,6 +600,16 @@ async def retrieve(
         no_rewrite: Skip automatic query rewriting even if the source has
             rewriter metadata enabled.  Useful for comparing raw vs rewritten
             retrieval quality.
+        doc_section: Optional list of document section names to restrict
+            results to.  For graph sources this filters by entity type
+            (e.g., ``["Patient", "Condition"]``).  For document sources
+            it filters by section header text.
+        scope_entity_id: Restrict retrieval to a specific subgraph by providing
+            a seed entity ID.  The system traverses the graph from this entity
+            to find all connected entities, then restricts the vector search
+            to those entities.  Only works for graph-family sources.  For FHIR
+            sources, pass a patient UUID to scope results to that patient's
+            clinical data.
     """
     try:
         identity = get_current_identity()
@@ -654,6 +666,8 @@ async def retrieve(
                         query_text=qt,
                         session=session,
                         top_k=top_k,
+                        doc_section=doc_section,
+                        scope_entity_id=scope_entity_id,
                     )
                 )
 
@@ -697,6 +711,8 @@ async def retrieve(
             query_text=query,
             session=session,
             top_k=top_k,
+            doc_section=doc_section,
+            scope_entity_id=scope_entity_id,
         )
         merged = rrf_merge(per_source, top_k=top_k)
 
