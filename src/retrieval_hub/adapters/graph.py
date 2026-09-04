@@ -92,6 +92,8 @@ class GraphAdapter(DocumentAdapter):
                 doc_section=doc_section,
             )
 
+        doc_section = self._expand_doc_section(doc_section)
+
         # 1. Traverse Memgraph to collect scope entity_ids
         scope_ids = self._collect_scope_ids(scope_entity_id, hops=2)
         if not scope_ids:

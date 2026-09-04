@@ -31,6 +31,37 @@ class SourceAdapter(ABC):
         self.physical_index = physical_index
         self.recipe_version = recipe_version
 
+    def _expand_doc_section(
+        self, doc_section: list[str] | None,
+    ) -> list[str] | None:
+        """Expand doc_section values using semantic_context entity aliases.
+
+        If the source has a semantic_context with entity definitions, checks
+        each requested doc_section value against entity aliases. When a value
+        matches an alias, the entity's canonical name (which matches the
+        doc_section column) is added to the filter list.
+        """
+        if not doc_section:
+            return doc_section
+        sc = getattr(self.source, "semantic_context", None)
+        if not sc or not isinstance(sc, dict):
+            return doc_section
+        entities = sc.get("entities") or []
+        if not entities:
+            return doc_section
+
+        expanded = set(doc_section)
+        for val in doc_section:
+            val_lower = val.lower()
+            for ent in entities:
+                name = ent.get("name", "")
+                aliases = ent.get("aliases") or []
+                if val_lower == name.lower():
+                    continue
+                if any(a.lower() == val_lower for a in aliases):
+                    expanded.add(name)
+        return list(expanded) if expanded != set(doc_section) else doc_section
+
     @abstractmethod
     def retrieve(
         self,

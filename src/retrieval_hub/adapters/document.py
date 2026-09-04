@@ -104,6 +104,8 @@ class DocumentAdapter(SourceAdapter):
                 "scope_entity_id is only supported for graph-family sources."
             )
 
+        doc_section = self._expand_doc_section(doc_section)
+
         from retrieval_hub.ingestion.embed import QueryEmbedder
         from retrieval_hub.retrieval.api import RetrievalResult
 
