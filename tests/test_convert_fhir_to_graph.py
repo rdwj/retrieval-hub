@@ -9,15 +9,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 # The converter lives in scripts/, not in the package. Add it to sys.path.
 _SCRIPTS_DIR = str(Path(__file__).resolve().parent.parent / "scripts")
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from convert_fhir_to_graph import _render_observation, _safe_get
-
+from convert_fhir_to_graph import _render_observation  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # _render_observation — top-level value
