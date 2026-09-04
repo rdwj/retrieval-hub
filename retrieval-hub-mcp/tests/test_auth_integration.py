@@ -569,6 +569,7 @@ async def test_refine_succeeds_with_correct_group(mock_refine_fn, mock_identity)
         ],
         truncated=False,
         total_chunks=1,
+        context=None,
     )
     mock_refine_fn.return_value = refine_output
 
