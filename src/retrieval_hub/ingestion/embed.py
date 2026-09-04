@@ -92,7 +92,7 @@ def _remote_embed(
             items = sorted(body["data"], key=lambda d: d["index"])
             return [item["embedding"] for item in items]
 
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError) as exc:
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError) as exc:
             last_err = exc
             if attempt < _REMOTE_MAX_RETRIES:
                 _backoff_sleep(attempt)
