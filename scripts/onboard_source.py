@@ -320,6 +320,30 @@ def _promote_winner(
             logger.warning("Could not drop table %s", loser_table, exc_info=True)
 
 
+def _populate_ontology(args: argparse.Namespace) -> None:
+    """Upsert ontology_mapping rows if the source has semantic_context entities."""
+    from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
+    from retrieval_hub.models import Source
+    from retrieval_hub.ontology import populate_ontology_for_source
+
+    engine = create_db_engine(args.db_url)
+    factory = make_session_factory(engine)
+    with session_scope(factory) as session:
+        source = session.query(Source).filter(Source.slug == args.slug).one_or_none()
+        if source is None:
+            logger.warning("Source %s not found, skipping ontology population", args.slug)
+            return
+
+        sc = source.semantic_context
+        if not sc or not sc.get("entities"):
+            logger.info("Source %s has no entities, skipping ontology population", args.slug)
+            return
+
+        inserted = populate_ontology_for_source(args.slug, sc["entities"], session)
+        if inserted:
+            logger.info("Populated %d ontology_mapping row(s) for %s", inserted, args.slug)
+
+
 def _print_report(
     winner_config: dict[str, int],
     winner_summary: dict[str, Any],
@@ -398,6 +422,7 @@ async def run(args: argparse.Namespace) -> None:
         result = _run_ingestion(args, default_config)
         _write_chunk_config_to_index(args, result["physical_index_id"], default_config)
         print(f"  Ingested (source_id={result['source_id'][:8]}...)")
+        _populate_ontology(args)
         print(f"\n  Source is now CURATED and queryable as '{args.slug}'")
         print("  (No eval baseline — run without --skip-eval for quality metrics)")
         return
@@ -439,6 +464,9 @@ async def run(args: argparse.Namespace) -> None:
 
     # Step 7: Promote winner
     _promote_winner(args, winner_config, CANDIDATE_CONFIGS, winner_summary)
+
+    # Step 7.5: Populate ontology registry
+    _populate_ontology(args)
 
     # Step 8: Report
     _print_report(winner_config, winner_summary, eval_results, args.slug)

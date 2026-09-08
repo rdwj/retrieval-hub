@@ -181,3 +181,25 @@ class RetrievalResponse(BaseModel):
     per_source_metadata: dict[str, SourceRetrievalMetadata] | None = None
     rewritten_queries: list[RewrittenQueryInfo] | None = None
     confidence_note: str | None = None
+
+
+class OntologyConceptMapping(BaseModel):
+    """A source's local name for a canonical concept."""
+
+    source_slug: str
+    local_name: str
+
+
+class OntologyConcept(BaseModel):
+    """A canonical concept with all its source mappings."""
+
+    canonical_name: str
+    source_mappings: list[OntologyConceptMapping]
+
+
+class OntologyResponse(BaseModel):
+    """Cross-source concept registry returned by ``describe_ontology``."""
+
+    concepts: list[OntologyConcept]
+    total_concepts: int
+    total_mappings: int

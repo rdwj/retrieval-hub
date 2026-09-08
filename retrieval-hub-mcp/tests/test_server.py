@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastmcp.exceptions import ToolError
 from retrieval_hub_mcp.schemas import (
+    OntologyResponse,
     RefineHit,
     RefineResponse,
     RetrievalHit,
@@ -26,6 +27,7 @@ from retrieval_hub_mcp.server import (
     _parse_source_slugs,
     _resolve_embedding_model,
     _resolve_refine_strategy,
+    describe_ontology,
     describe_source,
     list_sources,
     refine,
@@ -1987,3 +1989,145 @@ def test_check_confidence_at_threshold():
     hits = [RetrievalHit(chunk_id="c1", text="ok", score=0.65, doc_title="t", doc_url="u")]
     from retrieval_hub_mcp.server import _check_confidence
     assert _check_confidence(hits, "nomic-ai/nomic-embed-text-v1.5") is None
+
+
+# ---------------------------------------------------------------------------
+# describe_ontology
+# ---------------------------------------------------------------------------
+
+
+def _make_ontology_row(canonical_name, source_slug, local_name):
+    """Build a mock OntologyMapping row."""
+    return SimpleNamespace(
+        canonical_name=canonical_name,
+        source_slug=source_slug,
+        local_name=local_name,
+    )
+
+
+class _MockOntologyQuery:
+    """Chainable mock that supports order_by for the ontology tool."""
+
+    def __init__(self, results):
+        self._results = results
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def all(self):
+        return self._results
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_full_registry():
+    """describe_ontology without filters returns all concepts grouped."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+        _make_ontology_row("Condition", "snomed", "Disorder"),
+        _make_ontology_row("Patient", "fhir", "Patient"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(session=session)
+
+    assert isinstance(result, OntologyResponse)
+    assert result.total_concepts == 2
+    assert result.total_mappings == 3
+    names = [c.canonical_name for c in result.concepts]
+    assert "Condition" in names
+    assert "Patient" in names
+
+    condition = next(c for c in result.concepts if c.canonical_name == "Condition")
+    assert len(condition.source_mappings) == 2
+    slugs = {m.source_slug for m in condition.source_mappings}
+    assert slugs == {"fhir", "snomed"}
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_filter_by_concept():
+    """Filtering by concept name returns only that concept group."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+        _make_ontology_row("Condition", "snomed", "Disorder"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(concept="Condition", session=session)
+
+    assert result.total_concepts == 1
+    assert result.concepts[0].canonical_name == "Condition"
+    assert result.total_mappings == 2
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_filter_by_source():
+    """Filtering by source_slug returns only mappings for that source."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+        _make_ontology_row("Patient", "fhir", "Patient"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(source_slug="fhir", session=session)
+
+    assert result.total_concepts == 2
+    assert result.total_mappings == 2
+    for concept in result.concepts:
+        assert all(m.source_slug == "fhir" for m in concept.source_mappings)
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_both_filters():
+    """Both concept and source_slug filters together narrow results."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(concept="Condition", source_slug="fhir", session=session)
+
+    assert result.total_concepts == 1
+    assert result.total_mappings == 1
+    assert result.concepts[0].source_mappings[0].local_name == "Condition"
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_empty_registry():
+    """An empty registry returns zero counts, not an error."""
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery([])
+
+    result = await describe_ontology(session=session)
+
+    assert result.total_concepts == 0
+    assert result.total_mappings == 0
+    assert result.concepts == []
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_concepts_sorted_alphabetically():
+    """Concepts are returned in alphabetical order by canonical name."""
+    rows = [
+        _make_ontology_row("Zebra", "zoo", "Zebra"),
+        _make_ontology_row("Alpha", "zoo", "Alpha"),
+        _make_ontology_row("Middle", "zoo", "Middle"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(session=session)
+
+    names = [c.canonical_name for c in result.concepts]
+    assert names == ["Alpha", "Middle", "Zebra"]

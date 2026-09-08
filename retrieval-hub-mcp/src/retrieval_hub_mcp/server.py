@@ -1,12 +1,13 @@
 """RetrievalHub MCP server — catalog browsing and retrieval over MCP.
 
-Exposes five read-only tools:
+Exposes six read-only tools:
 
-* ``list_sources``    — browse the catalog of queryable sources
-* ``describe_source`` — full metadata for one source (prompts, counts)
-* ``retrieve``        — semantic search against a source's physical index
-* ``refine``          — expand context around a previously retrieved chunk
-* ``request_access``  — guidance for requesting access to a restricted source
+* ``list_sources``       — browse the catalog of queryable sources
+* ``describe_source``    — full metadata for one source (prompts, counts)
+* ``describe_ontology``  — browse the cross-source concept mapping registry
+* ``retrieve``           — semantic search against a source's physical index
+* ``refine``             — expand context around a previously retrieved chunk
+* ``request_access``     — guidance for requesting access to a restricted source
 """
 
 from __future__ import annotations
@@ -21,11 +22,12 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from retrieval_hub.db.engine import create_db_engine, make_session_factory
 from retrieval_hub.model_registry import ModelUnavailableError
-from retrieval_hub.models import PhysicalIndex, RecipeVersion, SamplePrompt, Source
+from retrieval_hub.models import OntologyMapping, PhysicalIndex, RecipeVersion, SamplePrompt, Source
 from retrieval_hub.models.enums import SourceStatus
 from retrieval_hub.models.identity import Identity
 from retrieval_hub.policy.access import can_access
@@ -53,6 +55,9 @@ from retrieval_hub_mcp.schemas import (
     ChunkConfig,
     DataFreshness,
     EvalBaseline,
+    OntologyConcept,
+    OntologyConceptMapping,
+    OntologyResponse,
     RefineHit,
     RefineResponse,
     RetrievalHit,
@@ -1228,5 +1233,77 @@ async def request_access(
         if allowed_emails:
             result["allowed_emails"] = allowed_emails
         return result
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# describe_ontology
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
+    tags={"catalog"},
+)
+async def describe_ontology(
+    concept: str | None = None,
+    source_slug: str | None = None,
+    session: Session = Depends(get_catalog_session),
+) -> OntologyResponse:
+    """Browse the cross-source concept mapping registry.
+
+    Returns canonical concepts with their per-source local names, showing
+    how the same real-world concept is represented differently across data
+    sources.  Use this to understand cross-source terminology before
+    constructing multi-source queries.
+
+    Without parameters, returns the full registry.  Use ``concept`` to
+    filter to a single canonical concept name, or ``source_slug`` to show
+    only mappings involving a specific source.
+
+    Parameters:
+        concept: Filter to a single canonical concept name
+            (case-insensitive).  For example, ``"Condition"`` returns the
+            Condition concept group and all its source mappings.
+        source_slug: Filter to mappings involving this source.  Returns
+            only concepts that have a mapping for the given source.
+    """
+    try:
+        query = session.query(OntologyMapping)
+
+        if concept is not None:
+            query = query.filter(
+                func.lower(OntologyMapping.canonical_name) == concept.lower()
+            )
+        if source_slug is not None:
+            query = query.filter(OntologyMapping.source_slug == source_slug)
+
+        rows = query.order_by(OntologyMapping.canonical_name).all()
+
+        grouped: dict[str, list[OntologyConceptMapping]] = {}
+        for row in rows:
+            grouped.setdefault(row.canonical_name, []).append(
+                OntologyConceptMapping(
+                    source_slug=row.source_slug,
+                    local_name=row.local_name,
+                )
+            )
+
+        concepts = [
+            OntologyConcept(
+                canonical_name=canon,
+                source_mappings=mappings,
+            )
+            for canon, mappings in sorted(grouped.items())
+        ]
+
+        total_mappings = sum(len(c.source_mappings) for c in concepts)
+
+        return OntologyResponse(
+            concepts=concepts,
+            total_concepts=len(concepts),
+            total_mappings=total_mappings,
+        )
     finally:
         session.close()
