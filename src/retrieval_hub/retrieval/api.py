@@ -17,7 +17,8 @@ import logging
 import uuid
 from dataclasses import dataclass, replace
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, aliased
 
 from retrieval_hub.adapters.base import SourceAdapter
 from retrieval_hub.adapters.document import DocumentAdapter
@@ -30,6 +31,7 @@ from retrieval_hub.model_registry import (
 )
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 from retrieval_hub.models.enums import SourceFamily
+from retrieval_hub.models.ontology import OntologyMapping
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +96,6 @@ def _resolve_embedding_endpoint(
     try:
         return resolve_model(session, model_name)
     except ModelUnavailableError:
-        from sqlalchemy import select
-
         ep = session.execute(
             select(ModelEndpoint).where(ModelEndpoint.model_name == model_name)
         ).scalar_one_or_none()
@@ -171,6 +171,43 @@ def _build_adapter(
         f"Supported families: document, clinical_document, technical_document, "
         f"code, process, tabular, graph."
     )
+
+
+def expand_doc_section_via_registry(
+    session: Session,
+    source_slug: str,
+    doc_section: list[str] | None,
+) -> list[str] | None:
+    """Expand doc_section values using the ontology_mapping registry.
+
+    Performs a self-join on ontology_mapping to find local names in the
+    target source whose canonical name matches any input value (either as
+    a local_name in any source or as a canonical_name directly). Returns
+    the union of original values and any registry-discovered expansions.
+
+    Returns ``doc_section`` unchanged when it is ``None`` or empty.
+    """
+    if not doc_section:
+        return doc_section
+
+    om_any = aliased(OntologyMapping)
+    om_target = aliased(OntologyMapping)
+
+    stmt = (
+        select(om_target.local_name)
+        .select_from(om_any)
+        .join(om_target, om_any.canonical_name == om_target.canonical_name)
+        .where(
+            om_target.source_slug == source_slug,
+            (om_any.local_name.in_(doc_section))
+            | (om_any.canonical_name.in_(doc_section)),
+        )
+        .distinct()
+    )
+
+    rows = session.execute(stmt).scalars().all()
+    expanded = set(doc_section) | set(rows)
+    return list(expanded)
 
 
 def query(
@@ -256,6 +293,18 @@ def query(
     )
 
     effective_request_id = request_id or str(uuid.uuid4())
+
+    expanded_doc_section = expand_doc_section_via_registry(
+        session, source_slug, doc_section,
+    )
+    if expanded_doc_section != doc_section:
+        logger.info(
+            "retrieval.query ontology expansion source=%s original=%s expanded=%s",
+            source_slug,
+            doc_section,
+            expanded_doc_section,
+        )
+
     logger.info(
         "retrieval.query source=%s top_k=%d request_id=%s",
         source_slug,
@@ -267,7 +316,7 @@ def query(
         query_text,
         top_k=top_k,
         request_id=effective_request_id,
-        doc_section=doc_section,
+        doc_section=expanded_doc_section,
         scope_entity_id=scope_entity_id,
     )
     return [replace(r, source_slug=source_slug) for r in results]
