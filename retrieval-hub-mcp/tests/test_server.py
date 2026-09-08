@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastmcp.exceptions import ToolError
 from retrieval_hub_mcp.schemas import (
+    OntologyRelationshipInfo,
     OntologyResponse,
     RefineHit,
     RefineResponse,
@@ -2255,3 +2256,196 @@ async def test_describe_ontology_hierarchy_no_concept_rows():
 
     assert result.concepts[0].parent is None
     assert result.concepts[0].children is None
+
+
+# ---------------------------------------------------------------------------
+# describe_ontology — include_relationships
+# ---------------------------------------------------------------------------
+
+
+def _make_relationship_row(
+    source_concept, relationship, target_concept, source_slug=None,
+):
+    """Build a mock OntologyRelationship row."""
+    return SimpleNamespace(
+        source_concept=source_concept,
+        relationship=relationship,
+        target_concept=target_concept,
+        source_slug=source_slug,
+    )
+
+
+class _MockRelationshipQuery:
+    """Chainable mock for OntologyRelationship queries."""
+
+    def __init__(self, results):
+        self._results = results
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def all(self):
+        return self._results
+
+
+class _MockRelSession:
+    """Mock session handling OntologyMapping, OntologyConcept,
+    and OntologyRelationship queries."""
+
+    def __init__(
+        self, mapping_rows, concept_rows=None,
+        child_rows=None, rel_rows=None,
+    ):
+        self._mapping_rows = mapping_rows
+        self._concept_rows = concept_rows or []
+        self._child_rows = child_rows or []
+        self._rel_rows = rel_rows or []
+        self._concept_call_count = 0
+
+    def query(self, model):
+        if hasattr(model, "__tablename__"):
+            if model.__tablename__ == "ontology_relationship":
+                return _MockRelationshipQuery(self._rel_rows)
+            if model.__tablename__ == "ontology_concept":
+                self._concept_call_count += 1
+                if self._concept_call_count == 1:
+                    return _MockConceptQuery(self._concept_rows)
+                return _MockConceptQuery(self._child_rows)
+        return _MockOntologyQuery(self._mapping_rows)
+
+    def close(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_relationships_disabled_by_default():
+    """Without include_relationships, relationships field is None."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(session=session)
+
+    assert result.concepts[0].relationships is None
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_relationships_outgoing():
+    """Outgoing relationships are attached to the source concept."""
+    mapping_rows = [
+        _make_ontology_row("Compound", "hetionet", "Compound"),
+    ]
+    rel_rows = [
+        _make_relationship_row("Compound", "treats", "Disease"),
+        _make_relationship_row("Compound", "palliates", "Disease"),
+    ]
+    session = _MockRelSession(mapping_rows, rel_rows=rel_rows)
+
+    result = await describe_ontology(
+        concept="Compound",
+        include_relationships=True,
+        session=session,
+    )
+
+    assert result.total_concepts == 1
+    compound = result.concepts[0]
+    assert compound.relationships is not None
+    assert len(compound.relationships) == 2
+    verbs = {r.relationship for r in compound.relationships}
+    assert verbs == {"treats", "palliates"}
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_relationships_incoming():
+    """Incoming relationships are attached to the target concept."""
+    mapping_rows = [
+        _make_ontology_row("Disease", "hetionet", "Disease"),
+    ]
+    rel_rows = [
+        _make_relationship_row("Compound", "treats", "Disease"),
+    ]
+    session = _MockRelSession(mapping_rows, rel_rows=rel_rows)
+
+    result = await describe_ontology(
+        concept="Disease",
+        include_relationships=True,
+        session=session,
+    )
+
+    assert result.total_concepts == 1
+    disease = result.concepts[0]
+    assert disease.relationships is not None
+    assert len(disease.relationships) == 1
+    assert disease.relationships[0].source_concept == "Compound"
+    assert disease.relationships[0].relationship == "treats"
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_relationships_empty():
+    """include_relationships=True with no rows returns None."""
+    mapping_rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+    ]
+    session = _MockRelSession(mapping_rows, rel_rows=[])
+
+    result = await describe_ontology(
+        include_relationships=True,
+        session=session,
+    )
+
+    assert result.concepts[0].relationships is None
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_relationships_with_source_slug():
+    """Relationship source_slug is preserved in the response."""
+    mapping_rows = [
+        _make_ontology_row("Patient", "fhir", "Patient"),
+    ]
+    rel_rows = [
+        _make_relationship_row(
+            "Patient", "diagnosed_with", "Condition",
+            source_slug="fhir",
+        ),
+    ]
+    session = _MockRelSession(mapping_rows, rel_rows=rel_rows)
+
+    result = await describe_ontology(
+        concept="Patient",
+        include_relationships=True,
+        session=session,
+    )
+
+    patient = result.concepts[0]
+    assert patient.relationships is not None
+    assert patient.relationships[0].source_slug == "fhir"
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_relationships_sorted():
+    """Relationships are sorted by (source, relationship, target)."""
+    mapping_rows = [
+        _make_ontology_row("Compound", "hetionet", "Compound"),
+    ]
+    rel_rows = [
+        _make_relationship_row("Compound", "treats", "Disease"),
+        _make_relationship_row("Compound", "binds", "Gene"),
+        _make_relationship_row(
+            "Compound", "palliates", "Disease",
+        ),
+    ]
+    session = _MockRelSession(mapping_rows, rel_rows=rel_rows)
+
+    result = await describe_ontology(
+        concept="Compound",
+        include_relationships=True,
+        session=session,
+    )
+
+    rels = result.concepts[0].relationships
+    assert rels is not None
+    verbs = [r.relationship for r in rels]
+    assert verbs == ["binds", "palliates", "treats"]

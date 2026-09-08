@@ -22,7 +22,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from retrieval_hub.db.engine import create_db_engine, make_session_factory
@@ -31,6 +31,9 @@ from retrieval_hub.models import OntologyMapping, PhysicalIndex, RecipeVersion, 
 from retrieval_hub.models.enums import SourceStatus
 from retrieval_hub.models.identity import Identity
 from retrieval_hub.models.ontology_concept import OntologyConcept as OntologyConceptModel
+from retrieval_hub.models.ontology_relationship import (
+    OntologyRelationship as OntologyRelationshipModel,
+)
 from retrieval_hub.policy.access import can_access
 from retrieval_hub.retrieval.api import (
     SourceNotFoundError,
@@ -58,6 +61,7 @@ from retrieval_hub_mcp.schemas import (
     EvalBaseline,
     OntologyConcept,
     OntologyConceptMapping,
+    OntologyRelationshipInfo,
     OntologyResponse,
     RefineHit,
     RefineResponse,
@@ -1251,6 +1255,7 @@ async def describe_ontology(
     concept: str | None = None,
     source_slug: str | None = None,
     include_hierarchy: bool = False,
+    include_relationships: bool = False,
     session: Session = Depends(get_catalog_session),
 ) -> OntologyResponse:
     """Browse the cross-source concept mapping registry.
@@ -1272,6 +1277,9 @@ async def describe_ontology(
             only concepts that have a mapping for the given source.
         include_hierarchy: When true, each concept includes its parent
             and direct children from the IS-A hierarchy.  Defaults to
+            false to keep responses compact.
+        include_relationships: When true, each concept includes its
+            relationships (both outgoing and incoming).  Defaults to
             false to keep responses compact.
     """
     try:
@@ -1317,6 +1325,50 @@ async def describe_ontology(
                     else:
                         hierarchy.setdefault(c.parent_name, (None, []))[1].append(c.name)
 
+        rel_map: dict[str, list[OntologyRelationshipInfo]] = {}
+        if include_relationships:
+            canonical_names = list(grouped.keys())
+            if canonical_names:
+                lower_names = {
+                    n.lower(): n for n in canonical_names
+                }
+                rel_rows = (
+                    session.query(OntologyRelationshipModel)
+                    .filter(
+                        or_(
+                            func.lower(
+                                OntologyRelationshipModel
+                                .source_concept
+                            ).in_(lower_names.keys()),
+                            func.lower(
+                                OntologyRelationshipModel
+                                .target_concept
+                            ).in_(lower_names.keys()),
+                        )
+                    )
+                    .all()
+                )
+                for r in rel_rows:
+                    info = OntologyRelationshipInfo(
+                        source_concept=r.source_concept,
+                        relationship=r.relationship,
+                        target_concept=r.target_concept,
+                        source_slug=r.source_slug,
+                    )
+                    src_key = r.source_concept.lower()
+                    tgt_key = r.target_concept.lower()
+                    if src_key in lower_names:
+                        rel_map.setdefault(
+                            lower_names[src_key], [],
+                        ).append(info)
+                    if (
+                        tgt_key in lower_names
+                        and tgt_key != src_key
+                    ):
+                        rel_map.setdefault(
+                            lower_names[tgt_key], [],
+                        ).append(info)
+
         concepts = []
         for canon, mappings in sorted(grouped.items()):
             parent = None
@@ -1325,12 +1377,24 @@ async def describe_ontology(
                 parent = hierarchy[canon][0]
                 kids = sorted(hierarchy[canon][1])
                 children = kids if kids else None
+            rels = None
+            if include_relationships and canon in rel_map:
+                rels = sorted(
+                    rel_map[canon],
+                    key=lambda r: (
+                        r.source_concept,
+                        r.relationship,
+                        r.target_concept,
+                    ),
+                )
+                rels = rels if rels else None
             concepts.append(
                 OntologyConcept(
                     canonical_name=canon,
                     source_mappings=mappings,
                     parent=parent,
                     children=children,
+                    relationships=rels,
                 )
             )
 

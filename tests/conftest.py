@@ -96,6 +96,7 @@ def session(engine: Engine) -> Iterator[Session]:
             "eval_run",
             "eval_suite",
             "rewrite_prompt_ref",
+            "ontology_relationship",
             "ontology_mapping",
             "ontology_concept",
             "model_endpoint",

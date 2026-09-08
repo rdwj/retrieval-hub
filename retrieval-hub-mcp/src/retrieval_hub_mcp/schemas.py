@@ -190,6 +190,15 @@ class OntologyConceptMapping(BaseModel):
     local_name: str
 
 
+class OntologyRelationshipInfo(BaseModel):
+    """A directed relationship between two concepts."""
+
+    source_concept: str
+    relationship: str
+    target_concept: str
+    source_slug: str | None = None
+
+
 class OntologyConcept(BaseModel):
     """A canonical concept with all its source mappings."""
 
@@ -197,6 +206,7 @@ class OntologyConcept(BaseModel):
     source_mappings: list[OntologyConceptMapping]
     parent: str | None = None
     children: list[str] | None = None
+    relationships: list[OntologyRelationshipInfo] | None = None
 
 
 class OntologyResponse(BaseModel):
