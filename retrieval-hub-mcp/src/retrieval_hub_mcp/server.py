@@ -30,6 +30,7 @@ from retrieval_hub.model_registry import ModelUnavailableError
 from retrieval_hub.models import OntologyMapping, PhysicalIndex, RecipeVersion, SamplePrompt, Source
 from retrieval_hub.models.enums import SourceStatus
 from retrieval_hub.models.identity import Identity
+from retrieval_hub.models.ontology_concept import OntologyConcept as OntologyConceptModel
 from retrieval_hub.policy.access import can_access
 from retrieval_hub.retrieval.api import (
     SourceNotFoundError,
@@ -1249,6 +1250,7 @@ async def request_access(
 async def describe_ontology(
     concept: str | None = None,
     source_slug: str | None = None,
+    include_hierarchy: bool = False,
     session: Session = Depends(get_catalog_session),
 ) -> OntologyResponse:
     """Browse the cross-source concept mapping registry.
@@ -1268,6 +1270,9 @@ async def describe_ontology(
             Condition concept group and all its source mappings.
         source_slug: Filter to mappings involving this source.  Returns
             only concepts that have a mapping for the given source.
+        include_hierarchy: When true, each concept includes its parent
+            and direct children from the IS-A hierarchy.  Defaults to
+            false to keep responses compact.
     """
     try:
         query = session.query(OntologyMapping)
@@ -1290,13 +1295,44 @@ async def describe_ontology(
                 )
             )
 
-        concepts = [
-            OntologyConcept(
-                canonical_name=canon,
-                source_mappings=mappings,
+        hierarchy: dict[str, tuple[str | None, list[str]]] = {}
+        if include_hierarchy:
+            canonical_names = list(grouped.keys())
+            if canonical_names:
+                concept_rows = (
+                    session.query(OntologyConceptModel)
+                    .filter(OntologyConceptModel.name.in_(canonical_names))
+                    .all()
+                )
+                for c in concept_rows:
+                    hierarchy[c.name] = (c.parent_name, [])
+                child_rows = (
+                    session.query(OntologyConceptModel)
+                    .filter(OntologyConceptModel.parent_name.in_(canonical_names))
+                    .all()
+                )
+                for c in child_rows:
+                    if c.parent_name in hierarchy:
+                        hierarchy[c.parent_name][1].append(c.name)
+                    else:
+                        hierarchy.setdefault(c.parent_name, (None, []))[1].append(c.name)
+
+        concepts = []
+        for canon, mappings in sorted(grouped.items()):
+            parent = None
+            children = None
+            if include_hierarchy and canon in hierarchy:
+                parent = hierarchy[canon][0]
+                kids = sorted(hierarchy[canon][1])
+                children = kids if kids else None
+            concepts.append(
+                OntologyConcept(
+                    canonical_name=canon,
+                    source_mappings=mappings,
+                    parent=parent,
+                    children=children,
+                )
             )
-            for canon, mappings in sorted(grouped.items())
-        ]
 
         total_mappings = sum(len(c.source_mappings) for c in concepts)
 

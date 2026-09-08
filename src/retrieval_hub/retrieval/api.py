@@ -32,6 +32,7 @@ from retrieval_hub.model_registry import (
 from retrieval_hub.models import PhysicalIndex, RecipeVersion, Source
 from retrieval_hub.models.enums import SourceFamily
 from retrieval_hub.models.ontology import OntologyMapping
+from retrieval_hub.models.ontology_concept import OntologyConcept
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +174,44 @@ def _build_adapter(
     )
 
 
+def _expand_concepts_via_hierarchy(
+    session: Session,
+    canonical_names: set[str],
+    max_depth: int = 5,
+) -> set[str]:
+    """Walk parent→child edges to find all descendant concepts.
+
+    Given a set of canonical concept names, returns those names plus all
+    their children (recursively, up to ``max_depth`` levels).  Uses
+    iterative breadth-first expansion to avoid deep recursion.
+    """
+    if not canonical_names:
+        return canonical_names
+
+    expanded = set(canonical_names)
+    frontier = set(canonical_names)
+
+    for _ in range(max_depth):
+        if not frontier:
+            break
+        children = (
+            session.execute(
+                select(OntologyConcept.name).where(
+                    OntologyConcept.parent_name.in_(frontier)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        new = set(children) - expanded
+        if not new:
+            break
+        expanded |= new
+        frontier = new
+
+    return expanded
+
+
 def expand_doc_section_via_registry(
     session: Session,
     source_slug: str,
@@ -185,6 +224,10 @@ def expand_doc_section_via_registry(
     a local_name in any source or as a canonical_name directly). Returns
     the union of original values and any registry-discovered expansions.
 
+    When the ontology_concept table contains hierarchy data, the expansion
+    also walks parent→child edges: searching for "Condition" will include
+    children like "Hypertension", "PTSD", etc.
+
     Returns ``doc_section`` unchanged when it is ``None`` or empty.
     """
     if not doc_section:
@@ -193,6 +236,7 @@ def expand_doc_section_via_registry(
     om_any = aliased(OntologyMapping)
     om_target = aliased(OntologyMapping)
 
+    # Flat expansion: find canonical names matching the input values.
     stmt = (
         select(om_target.local_name)
         .select_from(om_any)
@@ -207,6 +251,53 @@ def expand_doc_section_via_registry(
 
     rows = session.execute(stmt).scalars().all()
     expanded = set(doc_section) | set(rows)
+
+    # Hierarchy expansion: resolve input values to canonical names, walk
+    # children, then find local names in the target source for those children.
+    # Wrapped in try/except so that deployments without the ontology_concept
+    # migration fall back to flat expansion only.
+    try:
+        input_canonicals_stmt = (
+            select(OntologyMapping.canonical_name)
+            .where(
+                (OntologyMapping.local_name.in_(doc_section))
+                | (OntologyMapping.canonical_name.in_(doc_section))
+            )
+            .distinct()
+        )
+        input_canonicals = set(
+            session.execute(input_canonicals_stmt).scalars().all()
+        )
+        direct_canonical_stmt = (
+            select(OntologyConcept.name).where(
+                OntologyConcept.name.in_(doc_section)
+            )
+        )
+        input_canonicals |= set(
+            session.execute(direct_canonical_stmt).scalars().all()
+        )
+
+        if input_canonicals:
+            all_concepts = _expand_concepts_via_hierarchy(session, input_canonicals)
+            new_concepts = all_concepts - input_canonicals
+            if new_concepts:
+                child_locals_stmt = (
+                    select(OntologyMapping.local_name)
+                    .where(
+                        OntologyMapping.source_slug == source_slug,
+                        OntologyMapping.canonical_name.in_(new_concepts),
+                    )
+                    .distinct()
+                )
+                child_locals = session.execute(child_locals_stmt).scalars().all()
+                expanded |= set(child_locals)
+                expanded |= new_concepts
+    except Exception:
+        logger.debug(
+            "ontology_concept table not available; skipping hierarchy expansion",
+            exc_info=True,
+        )
+
     return list(expanded)
 
 

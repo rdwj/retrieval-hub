@@ -2131,3 +2131,127 @@ async def test_describe_ontology_concepts_sorted_alphabetically():
 
     names = [c.canonical_name for c in result.concepts]
     assert names == ["Alpha", "Middle", "Zebra"]
+
+
+# ---------------------------------------------------------------------------
+# describe_ontology — include_hierarchy
+# ---------------------------------------------------------------------------
+
+
+def _make_concept_row(name, parent_name=None):
+    """Build a mock OntologyConcept row."""
+    return SimpleNamespace(name=name, parent_name=parent_name)
+
+
+class _MockConceptQuery:
+    """Chainable mock for OntologyConcept queries."""
+
+    def __init__(self, results):
+        self._results = results
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def all(self):
+        return self._results
+
+
+class _MockHierarchySession:
+    """Mock session that handles both OntologyMapping and OntologyConcept queries."""
+
+    def __init__(self, mapping_rows, concept_rows, child_rows):
+        self._mapping_rows = mapping_rows
+        self._concept_rows = concept_rows
+        self._child_rows = child_rows
+        self._call_count = 0
+
+    def query(self, model):
+        if hasattr(model, "__tablename__") and model.__tablename__ == "ontology_concept":
+            self._call_count += 1
+            if self._call_count == 1:
+                return _MockConceptQuery(self._concept_rows)
+            return _MockConceptQuery(self._child_rows)
+        return _MockOntologyQuery(self._mapping_rows)
+
+    def close(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_hierarchy_disabled_by_default():
+    """Without include_hierarchy, parent and children are None."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(session=session)
+
+    assert result.concepts[0].parent is None
+    assert result.concepts[0].children is None
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_hierarchy_with_parent_and_children():
+    """With include_hierarchy=True, parent and children are populated."""
+    mapping_rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+    ]
+    concept_rows = [
+        _make_concept_row("Condition", parent_name=None),
+    ]
+    child_rows = [
+        _make_concept_row("Hypertension", parent_name="Condition"),
+        _make_concept_row("PTSD", parent_name="Condition"),
+    ]
+
+    session = _MockHierarchySession(mapping_rows, concept_rows, child_rows)
+
+    result = await describe_ontology(include_hierarchy=True, session=session)
+
+    assert result.total_concepts == 1
+    condition = result.concepts[0]
+    assert condition.parent is None
+    assert condition.children == ["Hypertension", "PTSD"]
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_hierarchy_child_shows_parent():
+    """A child concept shows its parent when include_hierarchy is True."""
+    mapping_rows = [
+        _make_ontology_row("Hypertension", "fhir", "Hypertension"),
+    ]
+    concept_rows = [
+        _make_concept_row("Hypertension", parent_name="Condition"),
+    ]
+    child_rows = []
+
+    session = _MockHierarchySession(mapping_rows, concept_rows, child_rows)
+
+    result = await describe_ontology(
+        concept="Hypertension", include_hierarchy=True, session=session,
+    )
+
+    assert result.total_concepts == 1
+    ht = result.concepts[0]
+    assert ht.parent == "Condition"
+    assert ht.children is None
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_hierarchy_no_concept_rows():
+    """When ontology_concept table has no matching rows, hierarchy fields stay None."""
+    mapping_rows = [
+        _make_ontology_row("Condition", "fhir", "Condition"),
+    ]
+    concept_rows = []
+    child_rows = []
+
+    session = _MockHierarchySession(mapping_rows, concept_rows, child_rows)
+
+    result = await describe_ontology(include_hierarchy=True, session=session)
+
+    assert result.concepts[0].parent is None
+    assert result.concepts[0].children is None

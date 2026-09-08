@@ -8,6 +8,7 @@ from retrieval_hub.models.identity import Identity
 from retrieval_hub.models.ingestion import IngestionRun
 from retrieval_hub.models.model_endpoint import ModelEndpoint
 from retrieval_hub.models.ontology import OntologyMapping
+from retrieval_hub.models.ontology_concept import OntologyConcept
 from retrieval_hub.models.recipe import Recipe, RecipeVersion
 from retrieval_hub.models.rewriter import RewritePromptRef
 from retrieval_hub.models.source import (
@@ -26,6 +27,7 @@ __all__ = [
     "IngestionRun",
     "InvalidStateTransitionError",
     "ModelEndpoint",
+    "OntologyConcept",
     "OntologyMapping",
     "PhysicalIndex",
     "Recipe",

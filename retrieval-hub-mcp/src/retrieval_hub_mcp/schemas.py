@@ -195,6 +195,8 @@ class OntologyConcept(BaseModel):
 
     canonical_name: str
     source_mappings: list[OntologyConceptMapping]
+    parent: str | None = None
+    children: list[str] | None = None
 
 
 class OntologyResponse(BaseModel):
