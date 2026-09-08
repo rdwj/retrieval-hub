@@ -10,107 +10,103 @@ epic.
 
 Issues: #48 (umbrella), #56, #57
 
-## Next: Benchmarking ontology-assisted vs. raw retrieval (#57)
+## Next: Family-aware hierarchy expansion + ontology doctor skill
 
-The ontology registry is feature-complete through Phase 5a (44 concepts,
-53 mappings with authority scores, 13 cross-concept relationships,
-hierarchy expansion, describe_ontology with sorting). Before investing
-in drift detection (#56) or concept-first retrieval (Phase 6), we need
-quantitative evidence that the ontology layer improves agent retrieval.
+The benchmark (session 2026-09-08) validated cross-source resolution
+(80% win rate) and relationship discovery (100% win rate), but found
+that hierarchy expansion hurts retrieval on non-graph sources (0%
+win rate). The next session has two tracks:
 
-1. **#57 — Benchmark ontology-assisted vs. raw retrieval**
+1. **Fix hierarchy expansion for document-family sources**
 
-   Design paired query sets that test the same clinical questions two
-   ways: (a) agent uses `describe_ontology` to discover cross-source
-   terminology, then queries with the right local names, and (b) agent
-   queries with the canonical name only (no ontology tools). Compare
-   recall@k and answer quality.
+   Child concept names (e.g., "Metformin", "PHQ-9") don't exist as
+   `doc_section` values in clinical_document sources. The current
+   expansion adds them to the doc_section filter, which matches
+   nothing. The fix: detect the target source's family and, for
+   document-family sources, inject child names into the query text
+   instead of the doc_section filter.
 
-   Implementation steps:
+   Implementation in `expand_doc_section_via_registry` — add a
+   family check and return expanded terms separately. The retrieval
+   API's `query()` function would accept an optional `query_expansion`
+   parameter that appends terms before embedding.
 
-   a. **Query set design.** Build 10-15 paired queries across three
-      dimensions:
-      - Cross-source concept resolution: "Find all Condition data"
-        across FHIR (Condition), Hetionet (Disease), SNOMED (Disorder)
-      - Hierarchy expansion: "Find Condition data" with hierarchy
-        (should include Hypertension, PTSD, etc.) vs. literal only
-      - Relationship-informed queries: "What compounds treat
-        conditions?" using relationship discovery vs. blind search
+   **Definition of done:** Re-run the benchmark and show hierarchy
+   queries producing positive lift on document-family sources.
 
-      Five multi-source concepts are available for cross-source
-      queries: Compound (3 sources), Condition (3), Finding (3),
-      Anatomy (2), Procedure (2).
+2. **Design the ontology doctor skill (`/ontology-doctor`)**
 
-   b. **Benchmark harness.** Script that runs each query pair against
-      the live MCP server (via port-forward or direct cluster URL)
-      and collects results. Use the existing eval script patterns
-      in `scripts/eval_*.py` as reference. The harness should:
-      - Run the "with ontology" path: call `describe_ontology` first,
-        extract local names, query each source with correct terms
-      - Run the "without ontology" path: query with the canonical
-        name only (what an agent would do without ontology tools)
-      - Record hits, scores, and which chunks were returned
+   A Claude Code skill that analyzes ontology health and proposes
+   fixes. This is a design session — the goal is a skill spec, not
+   working code. Decisions needed:
 
-   c. **Metrics computation.** For each query pair, compute:
-      - Recall@k: did the ontology path surface relevant chunks
-        the raw path missed?
-      - Unique-source coverage: how many distinct sources returned
-        results with vs. without ontology?
-      - Authority score correlation: do higher-authority-score
-        mappings produce better retrieval results?
+   - **Scope of analysis**: What checks does the doctor run?
+     - Dead mappings: local_names that produce zero retrieval hits
+     - Family mismatches: hierarchy expansions that harm retrieval
+     - Score clustering: authority scores too narrow to differentiate
+     - Missing mappings: source entity types not in the registry
+     - Stale mappings: local_names that no longer exist in source data
+       (overlaps with #56 drift detection)
+   - **Fix vs. propose**: Does the doctor auto-fix or generate a
+     report for human review? Probably report-first with an `--apply`
+     flag for safe fixes (like adding missing mappings).
+   - **Deployment target**: Run against the deployed server (needs
+     OAuth handling) or require port-forwards to cluster DB?
+   - **Skill interface**: What arguments does `/ontology-doctor` take?
+     Specific source? Specific concept? Full audit?
+   - **Output format**: JSON report, human-readable table, or both?
+     Should it create GitHub issues for findings?
 
-   d. **Report.** Summary output (JSON + human-readable) with
-      per-dimension and aggregate metrics. Include the query sets
-      and raw results for reproducibility.
+   **Definition of done:** Skill spec written to
+   `.claude/skills/ontology-doctor.md` with trigger rules, check
+   catalog, output format, and example invocations. Implementation
+   is a follow-on session.
 
-   **Sequencing.** Query set design first (a), then harness (b) and
-   metrics (c) together, report last (d).
+**Sequencing:** Fix hierarchy expansion first (smaller, concrete),
+then design the ontology doctor skill (larger, needs design decisions).
 
 **Constraints for the session:**
-- The benchmark measures the *deployed* MCP server. Ensure port-forward
-  to 5434 (Postgres) is running for ontology lookups, and the MCP server
-  pod is healthy.
-- Use `127.0.0.1` not `localhost` for local Postgres connections.
-- The eval scripts in `scripts/eval_*.py` use psycopg and direct DB
-  queries. The benchmark can use the same pattern, or call the MCP
-  tools via the retrieval-hub Python client if available.
-- Authority scores are advisory. The benchmark should measure whether
-  they correlate with retrieval quality, not enforce them.
-- Do not change the ontology registry or MCP server code. This is a
-  measurement session, not a feature session.
+- Hierarchy fix changes `expand_doc_section_via_registry` and the
+  `query()` function signature. Both are core retrieval code — needs
+  tests.
+- The ontology doctor design should account for the OAuth-protected
+  MCP endpoint (the benchmark had to use direct DB access for this
+  reason).
+- Use `127.0.0.1` not `localhost` for Postgres connections.
 
 **Session start protocol:**
-- Premise checks: verify MCP server pod is running and healthy
-  (`curl /health`). Verify port-forward to 5434 is active. Run
-  `describe_ontology` (via port-forward or test script) to confirm
-  authority scores are present. Check `git log --oneline -5` for
-  unexpected commits.
-- Rules with history: MCP server deploys to gpt-oss-120b cluster
-  context (not mcp-rhoai). Use `127.0.0.1` not `localhost` for
-  Postgres. Container deploys need explicit dep verification.
-- Stop-and-ask before: any changes to the ontology registry schema
-  or MCP server code (this is a measurement session).
-- Close ritual: session summary + `/plan-next-session` per convention.
+- Premise checks: verify port-forward to 5434 is active, embedding
+  service on 8081, run benchmark smoke test to confirm baseline.
+- Read `docs/ontology-benchmark-findings.md` for full analysis.
+- Stop-and-ask before: changes to the `query()` function signature
+  (affects all callers).
+- Close ritual: session summary + `/plan-next-session`.
 
-### Definition of done
+## What landed last session (2026-09-08 benchmark)
 
-- 10-15 paired query sets covering cross-source resolution, hierarchy
-  expansion, and relationship discovery.
-- Benchmark harness that runs both paths and records results.
-- Recall@k and source coverage metrics reported with and without
-  ontology.
-- Human-readable report summarizing whether the ontology layer helps.
+Benchmark shipped: 12 paired queries across 3 dimensions, deterministic
+harness using direct DB access, full metrics with report.
+
+Key findings:
+- Cross-source resolution: 80% win rate, +6.2 avg hit lift
+- Relationship discovery: 100% win rate, +7.0 avg hit lift
+- Hierarchy expansion: 0% win rate, -4.5 avg hit lift (family mismatch)
+- Authority score correlation: not significant (r=0.04, p=0.77)
+
+See `docs/ontology-benchmark-findings.md` and
+`session-summaries/2026-09-08-ontology-benchmark.md`.
+
+**Commits:** b7d9c01 (benchmark), (next commit: findings + session summary)
+
+**Prior sessions (same day):** Phases 1-5a shipped. Closed
+#49, #50, #51, #52, #53, #54, #55.
 
 ## Remaining epic phases
 
 The arc goes from lightweight registry (Phase 1-2) through biomedical
 hierarchy support (Phase 3-4) to production governance (Phase 5-6).
-Phases 1-5a are done. Phases 5b and 6 are production hardening and
-concept-first retrieval. #57 (benchmarking) validates the foundation
-before further investment.
-
-See `docs/research-enterprise-ontology-platforms.md` for the landscape
-research informing this design.
+Phases 1-5a are done. #57 (benchmarking) validated cross-source and
+relationship dimensions. Hierarchy needs a fix before Phase 6.
 
 ### Phase 5b: Drift detection (#56)
 
@@ -122,7 +118,29 @@ entity list). Alerts on stale mappings.
 **Definition of done:** Validation CronJob runs on schedule, alerts
 on stale mappings. Stale mappings are flagged but not auto-removed.
 
-**Dependencies:** Phases 1-2 (done). Independent of Phase 5a.
+**Dependencies:** Phases 1-2 (done). Independent of hierarchy fix.
+
+### Phase 5c: Family-aware hierarchy expansion
+
+Fix `expand_doc_section_via_registry` to detect source family and
+route hierarchy expansion to query text (document sources) vs.
+doc_section filter (graph sources). Re-run benchmark to validate.
+
+**Definition of done:** Hierarchy benchmark queries show positive
+lift. No regression in cross-source or relationship dimensions.
+
+**Dependencies:** Benchmark (done). Blocks Phase 6.
+
+### Phase 5d: Ontology doctor skill
+
+Claude Code skill that audits ontology health: dead mappings, family
+mismatches, score clustering, missing mappings, stale mappings.
+Report-first with optional `--apply` for safe fixes.
+
+**Definition of done:** Skill spec + working implementation that
+runs the benchmark harness and additional checks, produces a report.
+
+**Dependencies:** Benchmark (done), hierarchy fix (5c, recommended).
 
 ### Phase 6 (stretch): Concept-first retrieval
 
@@ -135,45 +153,29 @@ remains the default.
 to matching sources. Results tagged with source provenance. Direct
 source access unchanged.
 
-**Dependencies:** Phases 1-3 minimum (done). Phase 4 relationships
-enrich the fan-out with traversal strategies.
-
-## What landed last session (2026-09-08)
-
-Phase 5a shipped: `authority_score` column on `ontology_mapping` with
-scoring heuristics (source status, family weight, cross-source
-agreement). `describe_ontology` returns mappings sorted by score
-descending. Seed script applied to cluster DB (53 mappings, scores
-0.720-1.248). MCP server redeployed.
-
-See `session-summaries/2026-09-08-ontology-authority-scoring.md`.
-
-**Closed:** #55 — disambiguation and authority ranking
-
-**Commits:** 1518e7e, 5616241, 9f9e8a1, 5d3877f
-
-**Prior sessions (same day):** Phases 1-4 also shipped. Closed
-#49, #50, #51, #52, #53, #54.
+**Dependencies:** Phases 1-3 (done), hierarchy fix (5c).
 
 ## Watch out for
 
 - Alembic migration chain — current head is `c3d4e5f6a7b8`.
 - The MCP server uses alias imports to avoid Pydantic/ORM name
   collisions: `OntologyConceptModel`, `OntologyRelationshipModel`.
+  The ORM classes are `OntologyConcept` and `OntologyRelationship`.
 - Authority scores are advisory — don't gate retrieval on them.
-  The benchmark should measure whether they correlate with quality.
-- Per-source alias fallback must remain functional for sources not
-  yet in the registry.
-- The `semantic_context.authority_weight` override is undocumented
-  for data owners — document it if benchmarking validates the scores.
-- All sources are currently `curated` status, so status weight alone
-  provides no differentiation. Family weight is the primary signal.
+- Per-source alias fallback (`SourceAdapter._expand_doc_section`)
+  must remain functional for sources not yet in the registry.
+- The benchmark harness monkey-patches `_resolve_embedding_endpoint`
+  and `expand_doc_section_via_registry`. If those signatures change,
+  update the benchmark.
+- `expand_doc_section_via_registry` has TWO callers: the retrieval
+  API `query()` function and the refine path. Both must be updated
+  for the hierarchy fix.
+- All sources are `curated` status — status weight provides no
+  differentiation. Family weight is the primary authority signal.
 
 ## If blocked
 
-- If the benchmark design turns out to be larger than expected,
-  start with a minimal version: 5 paired queries for cross-source
-  concept resolution only (the strongest signal), skip hierarchy and
-  relationship dimensions initially.
+- If the hierarchy fix proves architecturally complex, start with the
+  ontology doctor skill design (independent of the fix).
 - #56 (drift detection) is independently workable and doesn't depend
-  on benchmark results.
+  on the benchmark or hierarchy fix.
