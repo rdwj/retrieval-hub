@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Float, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from retrieval_hub.db.base import Base
@@ -38,6 +38,9 @@ class OntologyMapping(Base):
     )
     source_slug: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     local_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    authority_score: Mapped[float] = mapped_column(
+        Float, nullable=False, default=1.0
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
