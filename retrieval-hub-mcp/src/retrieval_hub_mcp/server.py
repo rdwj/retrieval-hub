@@ -1300,6 +1300,7 @@ async def describe_ontology(
                 OntologyConceptMapping(
                     source_slug=row.source_slug,
                     local_name=row.local_name,
+                    authority_score=row.authority_score,
                 )
             )
 
@@ -1371,6 +1372,9 @@ async def describe_ontology(
 
         concepts = []
         for canon, mappings in sorted(grouped.items()):
+            sorted_mappings = sorted(
+                mappings, key=lambda m: m.authority_score, reverse=True,
+            )
             parent = None
             children = None
             if include_hierarchy and canon in hierarchy:
@@ -1391,7 +1395,7 @@ async def describe_ontology(
             concepts.append(
                 OntologyConcept(
                     canonical_name=canon,
-                    source_mappings=mappings,
+                    source_mappings=sorted_mappings,
                     parent=parent,
                     children=children,
                     relationships=rels,

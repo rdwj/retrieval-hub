@@ -1996,12 +1996,13 @@ def test_check_confidence_at_threshold():
 # ---------------------------------------------------------------------------
 
 
-def _make_ontology_row(canonical_name, source_slug, local_name):
+def _make_ontology_row(canonical_name, source_slug, local_name, authority_score=1.0):
     """Build a mock OntologyMapping row."""
     return SimpleNamespace(
         canonical_name=canonical_name,
         source_slug=source_slug,
         local_name=local_name,
+        authority_score=authority_score,
     )
 
 
@@ -2448,3 +2449,46 @@ async def test_describe_ontology_relationships_sorted():
     assert rels is not None
     verbs = [r.relationship for r in rels]
     assert verbs == ["binds", "palliates", "treats"]
+
+
+# ---------------------------------------------------------------------------
+# describe_ontology — authority_score
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_mapping_includes_authority_score():
+    """OntologyConceptMapping includes authority_score from the database row."""
+    rows = [
+        _make_ontology_row("Condition", "fhir", "Condition", authority_score=0.95),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(session=session)
+
+    assert result.total_concepts == 1
+    mapping = result.concepts[0].source_mappings[0]
+    assert mapping.authority_score == 0.95
+
+
+@pytest.mark.asyncio
+async def test_describe_ontology_mappings_sorted_by_authority_score():
+    """Source mappings within a concept are sorted by authority_score descending."""
+    rows = [
+        _make_ontology_row("Condition", "doc-src", "Condition", authority_score=0.72),
+        _make_ontology_row("Condition", "snomed", "Disorder", authority_score=1.25),
+        _make_ontology_row("Condition", "fhir", "Condition", authority_score=1.04),
+    ]
+
+    session = MagicMock()
+    session.query.return_value = _MockOntologyQuery(rows)
+
+    result = await describe_ontology(session=session)
+
+    assert result.total_concepts == 1
+    scores = [m.authority_score for m in result.concepts[0].source_mappings]
+    assert scores == [1.25, 1.04, 0.72], (
+        "Mappings should be sorted by authority_score descending"
+    )

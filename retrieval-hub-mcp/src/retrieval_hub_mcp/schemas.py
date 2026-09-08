@@ -188,6 +188,7 @@ class OntologyConceptMapping(BaseModel):
 
     source_slug: str
     local_name: str
+    authority_score: float = 1.0
 
 
 class OntologyRelationshipInfo(BaseModel):
