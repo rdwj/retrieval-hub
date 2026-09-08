@@ -8,76 +8,99 @@ sources without knowing source-specific terminology. Builds on the
 lightweight per-source alias resolution shipped in the graph-quality
 epic.
 
-Issues: #48 (umbrella), #49, #50, #51, #52, #53, #54, #55, #56
+Issues: #48 (umbrella), #53, #54, #55, #56
 
-## Next: Phase 2 — Discovery API + onboarding auto-populate (#50, #52)
+## Next: Phase 3 — Hierarchical concepts (#53)
 
-The registry exists and is seeded (53 rows, 5 sources), but agents
-can't see it and new sources don't populate it automatically. This
-session makes the registry visible and self-maintaining.
+The registry is flat: "Hypertension" and "Condition" are separate
+canonical concepts even though Hypertension IS-A Condition in SNOMED.
+This session adds parent/child edges so that searching for "Condition"
+automatically expands to include its subtypes.
 
-1. **#50 — MCP tool to describe cross-source concept mappings**
-   Add a `describe_ontology` tool to the MCP server that returns all
-   canonical concepts with their per-source local names. The tool
-   should accept an optional `concept` parameter to filter to a single
-   canonical name, and an optional `source_slug` to show only mappings
-   for one source. Without parameters, it returns the full registry.
-   The response should be agent-friendly: grouped by canonical concept,
-   each listing its source mappings with local names.
+1. **#53 — Add parent/child (is-a) edges to the ontology registry**
 
-   Key files: `retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`
-   (existing MCP tool definitions), `src/retrieval_hub/models/ontology.py`
-   (OntologyMapping model). Follow the pattern of existing tools like
-   `list_sources` or `describe_source`.
+   Add a `parent_canonical_name` column to the `ontology_mapping` table
+   (nullable, self-referential on canonical_name). Create an Alembic
+   migration extending the existing `c7a9e2f1d834` head.
 
-2. **#52 — Auto-populate registry during source onboarding**
-   When `scripts/onboard_source.py` completes onboarding (after ingestion
-   and eval), read the source's `semantic_context.entities` and upsert
-   ontology_mapping rows. Reuse the union-find grouping logic from
-   `scripts/seed_ontology_registry.py` — but only for the new source's
-   entities against existing registry entries, not a full re-seed.
+   Design choice: store hierarchy on the canonical concept, not on
+   individual source mappings. A concept's position in the hierarchy
+   is source-independent — "Hypertension" is a subtype of "Condition"
+   regardless of which source mentions it.
 
-   The auto-populate should also work when `semantic_context` is set
-   after onboarding (e.g., via `seed_graph_entity_aliases.py` or
-   `seed_va_cpg_semantic_context.py`). Consider extracting the
-   grouping + upsert logic into a library function in
-   `src/retrieval_hub/ontology/` that both the seed script and
-   onboard script can call.
+   Implementation steps:
 
-**Sequencing.** #50 first (the MCP tool is independent and immediately
-testable). #52 second (auto-populate hooks into onboard_source.py and
-benefits from the MCP tool for verification).
+   a. **Schema + migration.** Add `parent_canonical_name` to
+      `OntologyMapping` in `src/retrieval_hub/models/ontology.py`.
+      New Alembic migration. Consider whether this should be a
+      separate table (`ontology_concept` with `name` + `parent_name`)
+      or stay on the existing mapping table — the mapping table has
+      one row per (canonical, source, local), so the parent would be
+      repeated across all mappings of the same canonical. A separate
+      concept table is cleaner but adds a join. Discuss with user.
+
+   b. **Seed from Memgraph.** Write a script
+      `scripts/seed_ontology_hierarchy.py` that reads SNOMED IS_A edges
+      from Memgraph and sets `parent_canonical_name` on matching registry
+      rows. The SNOMED source is `snomed-ct-hypertension`; its entity
+      types map to canonical concepts via the existing registry.
+
+   c. **Expand doc_section via hierarchy.** Extend
+      `expand_doc_section_via_registry()` in
+      `src/retrieval_hub/retrieval/api.py` to walk parent→child edges.
+      When a user searches for "Condition", the expansion should include
+      "Hypertension" (and any other children). Depth limit to prevent
+      runaway traversal on deep hierarchies.
+
+   d. **Extend describe_ontology.** Add optional `include_hierarchy`
+      parameter (default false) to the `describe_ontology` MCP tool.
+      When true, each concept includes its parent and children. This
+      lets agents browse the hierarchy programmatically.
+
+   e. **Tests.** Unit tests for hierarchy traversal in
+      `tests/test_ontology/`. MCP tool tests for the hierarchy parameter
+      in `retrieval-hub-mcp/tests/test_server.py`.
+
+**Sequencing.** Schema first (a), then seed (b), then retrieval
+expansion (c) and MCP tool update (d) can be parallel. Tests (e)
+alongside each step.
 
 **Constraints for the session:**
-- The MCP server code is in `retrieval-hub-mcp/`, a separate package
-  from the core `src/retrieval_hub/`. The tool handler gets a catalog
-  session via `Depends(get_catalog_session)` — same pattern as retrieve.
-- Do not modify the existing seed script's behavior — the library
-  extraction should be additive, keeping the CLI script working as-is.
+- The Alembic migration chain — current head is `c7a9e2f1d834`.
+  Check `alembic/versions/` before creating the new migration.
+- Memgraph connectivity — need port-forward or direct access to
+  the cluster's Memgraph instance to read IS_A edges. If Memgraph
+  is unreachable, the seed script can be developed against a mock
+  and tested later.
+- Do not modify the existing `expand_doc_section_via_registry`
+  behavior for flat lookups — hierarchy expansion should be additive.
 
 **Session start protocol:**
 - Premise checks: confirm `ontology_mapping` table has 53 rows on
-  cluster DB (port-forward 5434). Confirm the MCP server's tool list
-  in `server.py` — check for any tools added by parallel sessions.
+  cluster DB (port-forward 5434). Confirm Memgraph is reachable
+  (port-forward 7687) and has IS_A edges in the SNOMED source.
   Run `git log --oneline -5` to verify no unexpected commits landed.
+  Check the Alembic head matches `c7a9e2f1d834`.
 - Rules with history: the MCP server deploys to gpt-oss-120b cluster
   context (not mcp-rhoai). Container deploys need explicit dep
   verification and memory sizing (see CLAUDE.md lessons learned).
-- Stop-and-ask before: any changes to the Source model or existing
-  Alembic migration chain. Any modifications to onboard_source.py's
-  existing flow (the ontology hook should be additive, not restructuring).
+  Use `127.0.0.1` not `localhost` for local Postgres connections.
+- Stop-and-ask before: any changes to the `ontology_mapping` table's
+  existing columns or unique constraint. Any Alembic migration that
+  drops or renames existing columns. Any changes to
+  `expand_doc_section_via_registry`'s existing flat-lookup behavior.
 - Close ritual: session summary + `/plan-next-session` per convention.
 
 ### Definition of done
 
-- `describe_ontology` MCP tool returns canonical concepts with
-  per-source mappings. Tested via mcp-test-mcp or direct invocation.
-- New source onboarding writes ontology_mapping rows automatically
-  when the source has semantic_context.entities.
-- Grouping + upsert logic extracted to a shared function usable by
-  both the seed script and onboard pipeline.
-- All existing tests pass, new tests for the MCP tool and
-  auto-populate logic.
+- `ontology_mapping` (or a new `ontology_concept` table) supports
+  parent/child relationships between canonical concepts.
+- Alembic migration applied to cluster DB.
+- SNOMED IS_A hierarchy seeded into the registry.
+- `expand_doc_section_via_registry` walks parent→child edges when
+  expanding doc_section filters (with depth limit).
+- `describe_ontology` MCP tool can return hierarchy information.
+- All existing tests pass, new tests for hierarchy traversal.
 
 ## Remaining epic phases
 
@@ -91,20 +114,6 @@ tightens incrementally — direct source access never goes away.
 See `docs/research-enterprise-ontology-platforms.md` for the landscape
 research informing this design.
 
-### Phase 3: Hierarchical concepts (#53)
-
-Add parent/child (is-a) edges between canonical concepts. Query-time
-expansion walks the hierarchy: searching for "Cardiovascular Disease"
-automatically includes "Hypertension" subtypes. SNOMED-CT's hierarchy
-(already in Memgraph) provides the seed data.
-
-**Definition of done:** Registry supports parent_concept_id. Retrieve
-expands doc_section by walking the hierarchy. SNOMED-CT hierarchy
-navigable via concept-level queries.
-
-**Dependencies:** Phase 1 (done). Phase 2 nice-to-have (discovery API
-makes hierarchy browsable).
-
 ### Phase 4: Cross-concept relationship types (#54)
 
 Registry captures relationship types between concepts ("Compound
@@ -116,8 +125,7 @@ strategies.
 MCP tool returns relationships between concepts. Agents can ask "how
 are Compound and Disease related?"
 
-**Dependencies:** Phase 2 (needs the discovery API to surface
-relationships).
+**Dependencies:** Phase 2 (done). Benefits from Phase 3 hierarchy.
 
 ### Phase 5: Quality and governance (#55, #56)
 
@@ -130,7 +138,7 @@ grows.
 mappings. Authority scores influence concept resolution when
 conflicts arise.
 
-**Dependencies:** Phases 1-2. Benefits from Phase 3-4 data but
+**Dependencies:** Phases 1-2 (done). Benefits from Phase 3-4 data but
 doesn't require them.
 
 ### Phase 6 (stretch): Concept-first retrieval
@@ -148,35 +156,44 @@ source access unchanged.
 
 ## What landed last session (2026-09-08)
 
-Phase 1 shipped: ontology_mapping table with Alembic migration, seed
-script with union-find cross-source grouping, and
-expand_doc_section_via_registry() in retrieval/api.py. 53 rows seeded
-across 5 sources. Migration and seed applied to cluster DB.
+Phase 2 shipped: `describe_ontology` MCP tool with concept/source_slug
+filters, shared `populate_ontology_for_source()` library for incremental
+registry population, onboard_source.py hook. 15 new tests.
+
+See `session-summaries/2026-09-08-ontology-discovery-api.md`.
+
+**Closed:** #50 — MCP tool, #52 — auto-populate during onboarding
+
+**Commits:** 2e53ed8 — feat: Add describe_ontology MCP tool and
+ontology auto-populate library
+
+**Prior session (same day):** Phase 1 shipped — ontology_mapping table
+with Alembic migration, seed script with union-find cross-source
+grouping, expand_doc_section_via_registry(). 53 rows seeded across
+5 sources.
 
 **Closed:** #49 — schema and migration, #51 — retrieve uses registry
 
-**Commits:** 1462889 — feat: Add ontology_mapping registry for
-cross-source concept resolution
-
 ## Watch out for
 
-- The Alembic migration chain — check `alembic/versions/` for the
-  latest head (currently `c7a9e2f1d834`) before creating new migrations.
+- The Alembic migration chain — current head is `c7a9e2f1d834`.
+  Check before creating new migrations.
 - The MCP server package (`retrieval-hub-mcp/`) has its own
   `requirements-deploy.txt` — any new dependencies need adding there.
 - Per-source alias fallback must remain functional for sources not
   yet in the registry. The registry is additive, not a replacement.
-- The integration/conftest.py `pytest_collection_modifyitems` hook
-  skips ALL tests when catalog DB is unreachable. Run tests with
-  `--ignore=tests/integration` for unit tests.
+- Memgraph connection details may need port-forward setup. Check
+  the graph-quality session summaries for the correct namespace and
+  service name.
+- The hierarchy design decision (column on existing table vs. new
+  concept table) should be settled at session start, not mid-implementation.
 
 ## If blocked
 
-- If the MCP server deploy is problematic, the `describe_ontology`
-  tool can be developed and tested locally against mcp-test-mcp
-  without deploying.
-- If onboard_source.py is mid-refactor from another epic, the
-  auto-populate can be a standalone script (like the seed script)
-  that reads a source slug and populates its registry entries.
-- Phase 3 (hierarchical concepts) is independent of Phase 2's
-  MCP tool and could be started in parallel if needed.
+- If Memgraph is unreachable, the schema + migration + retrieval
+  expansion can all be developed and tested without SNOMED data.
+  Use synthetic hierarchy data in tests (e.g., Disease→Condition→
+  Hypertension chain). Seed from Memgraph in a follow-up.
+- If the hierarchy design turns out to be larger than expected,
+  Phase 4 (relationship types, #54) is independently workable and
+  also benefits from Phase 2's discovery API.
