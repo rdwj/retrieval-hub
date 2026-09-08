@@ -8,150 +8,125 @@ sources without knowing source-specific terminology. Builds on the
 lightweight per-source alias resolution shipped in the graph-quality
 epic.
 
-Issues: #48 (umbrella), #54, #55, #56
+Issues: #48 (umbrella), #55, #56, #57
 
-## Next: Phase 4 — Cross-concept relationship types (#54)
+## Next: Phase 5a — Disambiguation and authority ranking (#55)
 
-The registry captures concept equivalence (Phase 1-2) and hierarchy
-(Phase 3), but not relationships between concepts. Agents can't
-discover that "Compound treats Disease" or ask "how are Compound and
-Disease related?" This session adds canonical relationship types so
-agents can discover traversal paths programmatically.
+The registry has 44 concepts mapped across 5 sources, but all mappings
+are treated equally. When two sources disagree on what "Condition" means,
+there's no signal for which mapping is more authoritative. This session
+adds provenance-based scoring so concept resolution can prefer the most
+reliable mapping when conflicts arise.
 
-1. **#54 — Add cross-concept relationship types to the ontology registry**
+1. **#55 — Disambiguation and authority ranking for concept mappings**
 
-   New `ontology_relationship` table storing canonical relationships
-   between concepts: `(source_concept, relationship, target_concept)`.
-   Source-independent, like `ontology_concept`.
-
-   **Data sources for seeding:**
-   - Memgraph has 30 distinct edge types. The Hetionet-style edges
-     use a `Subject___verb___Object` naming pattern (e.g.,
-     `Compound___treats___Disease`, `Disease___associates___Gene`)
-     which maps directly to (source_concept, relationship,
-     target_concept) triples.
-   - FHIR edges use structural names (`HAS_SUBJECT`,
-     `PART_OF_ENCOUNTER`, `DIAGNOSED_WITH`) that also encode
-     concept relationships but need translation to canonical form.
-   - No sources currently have `relationship_hints` in their
-     `semantic_context`, so seeding comes from Memgraph edge types.
+   Add an `authority_score` column to `ontology_mapping` (default 1.0)
+   that ranks mappings by provenance quality. Higher scores win when
+   multiple sources map different local names to the same canonical
+   concept and a consumer needs to pick one.
 
    Implementation steps:
 
-   a. **Schema + migration.** New `OntologyRelationship` model in
-      `src/retrieval_hub/models/ontology_relationship.py` with
-      columns: `id` (PK, auto), `source_concept` (FK to
-      ontology_concept.name), `relationship` (String),
-      `target_concept` (FK to ontology_concept.name), `source_slug`
-      (nullable — null means cross-source canonical, non-null means
-      observed in that source), `created_at`. Unique constraint on
-      `(source_concept, relationship, target_concept, source_slug)`.
-      New Alembic migration extending head `a1b2c3d4e5f6`.
+   a. **Schema + migration.** New `authority_score` column on
+      `ontology_mapping` (Float, default 1.0, not null). New Alembic
+      migration extending head `b2c3d4e5f6a7`.
 
-   b. **Seed from Memgraph.** Write
-      `scripts/seed_ontology_relationships.py` that reads distinct
-      edge types from Memgraph, parses the `Subject___verb___Object`
-      pattern, maps subjects and objects to ontology_concept names,
-      and inserts relationship rows. Include a `--synthetic` flag
-      that seeds from the known Hetionet edge types without requiring
-      a live Memgraph connection. Also handle FHIR-style structural
-      edges (map `DIAGNOSED_WITH` to a canonical
-      `(Patient, diagnosed_with, Condition)` relationship, etc.).
+   b. **Scoring heuristics.** Script or library function that computes
+      authority scores based on available signals:
+      - Source status weight: `published` > `curated` > `draft`
+      - Mapping count: concepts with more cross-source agreement
+        score higher per source
+      - Source family weight: domain-specific sources (e.g., SNOMED
+        for clinical terms) rank higher than general-purpose ones
+      Scores are relative within a canonical concept group, not
+      globally comparable.
 
-   c. **Extend describe_ontology MCP tool.** Add optional
-      `include_relationships` parameter (default false). When true,
-      each concept includes its relationships (both outgoing and
-      incoming). Also consider a standalone query mode: when
-      `concept` is provided with `include_relationships=True`,
-      return all relationships involving that concept.
+   c. **Extend describe_ontology.** When a concept has multiple
+      source mappings, sort by authority_score descending. Add
+      `authority_score` to the `OntologyConceptMapping` Pydantic
+      schema so agents can see the ranking.
 
-   d. **Tests.** Unit tests for the model and relationship queries
-      in `tests/test_ontology/test_relationships.py`. MCP tool tests
-      for the relationship parameter in
-      `retrieval-hub-mcp/tests/test_server.py`.
+   d. **Seed initial scores.** Script that computes scores for all
+      existing mappings using the heuristics above. Idempotent
+      (re-running updates, doesn't duplicate).
 
-**Sequencing.** Schema first (a), then seed (b), then MCP tool (c).
-Tests (d) alongside each step. The MCP tool update is the most
-visible deliverable — it's what agents consume.
+   e. **Tests.** Unit tests for scoring heuristics. MCP tool tests
+      verifying sort order reflects authority scores.
 
-**Design decisions to settle at session start:**
-- Should `source_slug` be on the relationship table (tracking which
-  source a relationship was observed in) or should relationships be
-  purely canonical (source-independent)? Leaning toward including
-  `source_slug` nullable — canonical relationships have null slug,
-  source-specific observations have a slug. This parallels how
-  ontology_mapping works (source-specific) vs ontology_concept
-  (source-independent).
-- Should the `relationship` column store a verb string ("treats",
-  "associates") or a structured name ("Compound_treats_Disease")?
-  Leaning toward the verb alone since source and target concepts
-  are already separate columns.
+**Sequencing.** Schema first (a), then scoring logic (b), then MCP
+tool (c), then seed (d). Tests alongside each step.
 
 **Constraints for the session:**
-- Alembic migration chain — current head is `a1b2c3d4e5f6`.
-  Check `alembic/versions/` before creating the new migration.
-- MCP server imports: `OntologyConcept` (Pydantic schema) name
-  collides with the ORM model. The current code uses
-  `OntologyConceptModel` alias for the ORM import. Follow the
-  same pattern for any new ORM model used in the MCP server.
-- No sources have `relationship_hints` in semantic_context yet.
-  Seeding comes from Memgraph edge types only.
+- Alembic migration chain — current head is `b2c3d4e5f6a7`.
+- MCP server import alias pattern: `OntologyRelationshipModel` for
+  ORM models used alongside Pydantic schemas of similar names.
+- Authority scores are advisory, not enforced — agents see them but
+  the platform doesn't filter out low-scoring mappings.
+- Do not change the existing `expand_doc_section_via_registry`
+  behavior. Hierarchy expansion should continue to return all
+  matching concepts regardless of score.
 
 **Session start protocol:**
-- Premise checks: confirm `ontology_concept` table has 44 rows and
-  25 parent edges on cluster DB (port-forward 5434). Confirm
-  Memgraph is reachable (port-forward 7687) and has the expected
-  30 edge types. Run `git log --oneline -5` to verify no unexpected
-  commits. Check Alembic head matches `a1b2c3d4e5f6`.
+- Premise checks: confirm ontology_mapping table has expected row
+  count on cluster DB (port-forward 5434). Run `git log --oneline -5`
+  to verify no unexpected commits. Check Alembic head matches
+  `b2c3d4e5f6a7`. Verify MCP server is running with relationship
+  support (`describe_ontology` with `include_relationships=True`
+  returns data).
 - Rules with history: MCP server deploys to gpt-oss-120b cluster
   context (not mcp-rhoai). Container deploys need explicit dep
   verification and memory sizing. Use `127.0.0.1` not `localhost`
-  for local Postgres connections. ORM model name collisions in the
-  MCP server need aliased imports.
-- Stop-and-ask before: any changes to ontology_concept's existing
+  for local Postgres connections.
+- Stop-and-ask before: any changes to ontology_mapping's existing
   columns or constraints. Any Alembic migration that drops or
-  renames existing columns. Adding FKs from ontology_relationship
-  to ontology_concept (confirm the concept names in the seed data
-  all exist in ontology_concept before inserting).
+  renames existing columns.
 - Close ritual: session summary + `/plan-next-session` per
   convention.
 
 ### Definition of done
 
-- `ontology_relationship` table stores canonical relationship types
-  between concepts.
-- Alembic migration applied to cluster DB.
-- Relationships seeded from Memgraph edge types (or synthetic).
-- `describe_ontology` MCP tool returns relationships when requested.
-- Agents can ask "how are Compound and Disease related?" and get
-  back "treats", "palliates", etc.
-- All existing tests pass, new tests for relationship queries.
+- `authority_score` column on `ontology_mapping` with default 1.0.
+- Scoring heuristics compute scores from source status, mapping
+  count, and source family.
+- `describe_ontology` returns mappings sorted by authority_score.
+- Agents can see which mapping is most authoritative for a concept.
+- All existing tests pass, new tests for scoring logic.
 
 ## Remaining epic phases
 
 The arc goes from lightweight registry (Phase 1-2) through biomedical
 hierarchy support (Phase 3-4) to production governance (Phase 5-6).
-Phases 1-2 are the minimum viable ontology. Phases 3-4 make it
-competitive with Apache Atlas and Stardog. Phases 5-6 approach
-Palantir/Databricks territory. The coupling between RAG and ontology
-tightens incrementally — direct source access never goes away.
+Phases 1-4 are done. Phases 5-6 are production hardening and
+concept-first retrieval. #57 (benchmarking) validates the foundation
+before further investment.
 
 See `docs/research-enterprise-ontology-platforms.md` for the landscape
 research informing this design.
 
-### Phase 5: Quality and governance (#55, #56)
+### Phase 5b: Drift detection (#56)
 
-Disambiguation ranking (score mappings by provenance and usage) and
-drift detection (periodic validation that mapped local_names still
-exist in source data). Production hardening for when source count
-grows.
+Periodic validation that mapped local_names still exist in source
+data. A CronJob that queries each source's semantic_context entities
+and flags stale mappings (local_name no longer in the source's
+entity list). Alerts on stale mappings.
 
-**Definition of done:** Validation CronJob runs, alerts on stale
-mappings. Authority scores influence concept resolution when
-conflicts arise.
+**Definition of done:** Validation CronJob runs on schedule, alerts
+on stale mappings. Stale mappings are flagged but not auto-removed.
 
-**Dependencies:** Phases 1-2 (done). Benefits from Phase 3-4 data but
-doesn't require them.
+**Dependencies:** Phases 1-2 (done). Independent of Phase 5a.
+
+### Benchmarking: Ontology-assisted vs. raw retrieval (#57)
+
+Quantitative comparison of agent retrieval quality with and without
+the ontology layer. Tests cross-source concept resolution, hierarchy
+expansion, and relationship discovery. Validates whether the ontology
+investment improves agent outcomes.
+
+**Definition of done:** Benchmark suite with paired query sets.
+Recall@k, query construction success, and agent task completion
+metrics reported with and without ontology tools.
+
+**Dependencies:** Phases 1-4 (done), MCP server redeployed (done).
 
 ### Phase 6 (stretch): Concept-first retrieval
 
@@ -169,43 +144,43 @@ enrich the fan-out with traversal strategies.
 
 ## What landed last session (2026-09-08)
 
-Phase 3 shipped: `ontology_concept` table with parent/child IS-A
-edges, hierarchy-aware `expand_doc_section_via_registry` (BFS,
-depth limit 5), `describe_ontology` `include_hierarchy` parameter,
-seed script with `--synthetic` flag. 25 IS-A edges seeded. 16 new
-tests.
+Phase 4 shipped: `ontology_relationship` table with cross-concept
+relationship types (treats, binds, diagnosed_with, etc.), seed script
+parsing Memgraph and FHIR edges, `describe_ontology`
+`include_relationships` parameter. 13 relationships seeded. Partial
+unique index fix for NULL source_slug idempotency. MCP server
+redeployed.
 
-See `session-summaries/2026-09-08-ontology-hierarchical-concepts.md`.
+See `session-summaries/2026-09-08-ontology-cross-concept-relationships.md`.
 
-**Closed:** #53 — hierarchical concepts
+**Closed:** #54 — cross-concept relationship types
 
-**Commits:** ed13694 — feat: Add hierarchical concepts to ontology
-registry
+**Commits:** 4e66d02, 7bf42fb, 1fded0b, cbb8ef9
 
-**Prior sessions (same day):** Phase 1 (1462889) and Phase 2
-(2e53ed8) also shipped. Closed #49, #50, #51, #52.
+**Prior sessions (same day):** Phases 1-3 also shipped (1462889,
+2e53ed8, ed13694). Closed #49, #50, #51, #52, #53.
+
+**Filed:** #57 — Benchmark ontology-assisted vs. raw retrieval
 
 ## Watch out for
 
-- Alembic migration chain — current head is `a1b2c3d4e5f6`.
-- The MCP server uses `OntologyConceptModel` alias to avoid name
-  collision with the Pydantic `OntologyConcept` schema. Follow
-  the same alias pattern for new ORM models in the server.
-- Memgraph edge types use two naming conventions: Hetionet-style
-  `Subject___verb___Object` (structured, easy to parse) and
-  FHIR-style `SCREAMING_SNAKE` (structural, needs manual mapping).
-  The seed script needs to handle both.
-- The `ontology_concept` table only has 44 rows. FK references from
-  ontology_relationship must match existing concept names. The seed
-  script should validate concept existence before inserting.
+- Alembic migration chain — current head is `b2c3d4e5f6a7`.
+- The MCP server uses alias imports to avoid Pydantic/ORM name
+  collisions: `OntologyConceptModel`, `OntologyRelationshipModel`.
+  Follow the same pattern for any new ORM model used in the server.
+- Authority scores should be advisory — don't gate retrieval on them.
+  Agents see the scores and can choose to weight results accordingly.
+- The scoring heuristics are a starting point. Real-world tuning will
+  come from the benchmarking work (#57).
 - Per-source alias fallback must remain functional for sources not
   yet in the registry.
 
 ## If blocked
 
-- If Memgraph is unreachable, the schema + migration + MCP tool
-  extension can all be developed with synthetic relationship data
-  in tests. Use the known Hetionet edge types as synthetic seed
-  data: Compound treats Disease, Disease associates Gene, etc.
-- If the relationship table design turns out to be larger than
-  expected, Phase 5 (governance, #55/#56) is independently workable.
+- If the authority_score design turns out to be larger than expected,
+  #56 (drift detection) is independently workable.
+- #57 (benchmarking) can start independently — it measures the
+  existing Phase 1-4 features, not Phase 5.
+- If scoring heuristics are unclear, start with a simple
+  source-status-based weight (published=1.0, curated=0.8, draft=0.5)
+  and iterate from benchmarking results.
