@@ -8,99 +8,124 @@ sources without knowing source-specific terminology. Builds on the
 lightweight per-source alias resolution shipped in the graph-quality
 epic.
 
-Issues: #48 (umbrella), #53, #54, #55, #56
+Issues: #48 (umbrella), #54, #55, #56
 
-## Next: Phase 3 — Hierarchical concepts (#53)
+## Next: Phase 4 — Cross-concept relationship types (#54)
 
-The registry is flat: "Hypertension" and "Condition" are separate
-canonical concepts even though Hypertension IS-A Condition in SNOMED.
-This session adds parent/child edges so that searching for "Condition"
-automatically expands to include its subtypes.
+The registry captures concept equivalence (Phase 1-2) and hierarchy
+(Phase 3), but not relationships between concepts. Agents can't
+discover that "Compound treats Disease" or ask "how are Compound and
+Disease related?" This session adds canonical relationship types so
+agents can discover traversal paths programmatically.
 
-1. **#53 — Add parent/child (is-a) edges to the ontology registry**
+1. **#54 — Add cross-concept relationship types to the ontology registry**
 
-   Add a `parent_canonical_name` column to the `ontology_mapping` table
-   (nullable, self-referential on canonical_name). Create an Alembic
-   migration extending the existing `c7a9e2f1d834` head.
+   New `ontology_relationship` table storing canonical relationships
+   between concepts: `(source_concept, relationship, target_concept)`.
+   Source-independent, like `ontology_concept`.
 
-   Design choice: store hierarchy on the canonical concept, not on
-   individual source mappings. A concept's position in the hierarchy
-   is source-independent — "Hypertension" is a subtype of "Condition"
-   regardless of which source mentions it.
+   **Data sources for seeding:**
+   - Memgraph has 30 distinct edge types. The Hetionet-style edges
+     use a `Subject___verb___Object` naming pattern (e.g.,
+     `Compound___treats___Disease`, `Disease___associates___Gene`)
+     which maps directly to (source_concept, relationship,
+     target_concept) triples.
+   - FHIR edges use structural names (`HAS_SUBJECT`,
+     `PART_OF_ENCOUNTER`, `DIAGNOSED_WITH`) that also encode
+     concept relationships but need translation to canonical form.
+   - No sources currently have `relationship_hints` in their
+     `semantic_context`, so seeding comes from Memgraph edge types.
 
    Implementation steps:
 
-   a. **Schema + migration.** Add `parent_canonical_name` to
-      `OntologyMapping` in `src/retrieval_hub/models/ontology.py`.
-      New Alembic migration. Consider whether this should be a
-      separate table (`ontology_concept` with `name` + `parent_name`)
-      or stay on the existing mapping table — the mapping table has
-      one row per (canonical, source, local), so the parent would be
-      repeated across all mappings of the same canonical. A separate
-      concept table is cleaner but adds a join. Discuss with user.
+   a. **Schema + migration.** New `OntologyRelationship` model in
+      `src/retrieval_hub/models/ontology_relationship.py` with
+      columns: `id` (PK, auto), `source_concept` (FK to
+      ontology_concept.name), `relationship` (String),
+      `target_concept` (FK to ontology_concept.name), `source_slug`
+      (nullable — null means cross-source canonical, non-null means
+      observed in that source), `created_at`. Unique constraint on
+      `(source_concept, relationship, target_concept, source_slug)`.
+      New Alembic migration extending head `a1b2c3d4e5f6`.
 
-   b. **Seed from Memgraph.** Write a script
-      `scripts/seed_ontology_hierarchy.py` that reads SNOMED IS_A edges
-      from Memgraph and sets `parent_canonical_name` on matching registry
-      rows. The SNOMED source is `snomed-ct-hypertension`; its entity
-      types map to canonical concepts via the existing registry.
+   b. **Seed from Memgraph.** Write
+      `scripts/seed_ontology_relationships.py` that reads distinct
+      edge types from Memgraph, parses the `Subject___verb___Object`
+      pattern, maps subjects and objects to ontology_concept names,
+      and inserts relationship rows. Include a `--synthetic` flag
+      that seeds from the known Hetionet edge types without requiring
+      a live Memgraph connection. Also handle FHIR-style structural
+      edges (map `DIAGNOSED_WITH` to a canonical
+      `(Patient, diagnosed_with, Condition)` relationship, etc.).
 
-   c. **Expand doc_section via hierarchy.** Extend
-      `expand_doc_section_via_registry()` in
-      `src/retrieval_hub/retrieval/api.py` to walk parent→child edges.
-      When a user searches for "Condition", the expansion should include
-      "Hypertension" (and any other children). Depth limit to prevent
-      runaway traversal on deep hierarchies.
+   c. **Extend describe_ontology MCP tool.** Add optional
+      `include_relationships` parameter (default false). When true,
+      each concept includes its relationships (both outgoing and
+      incoming). Also consider a standalone query mode: when
+      `concept` is provided with `include_relationships=True`,
+      return all relationships involving that concept.
 
-   d. **Extend describe_ontology.** Add optional `include_hierarchy`
-      parameter (default false) to the `describe_ontology` MCP tool.
-      When true, each concept includes its parent and children. This
-      lets agents browse the hierarchy programmatically.
+   d. **Tests.** Unit tests for the model and relationship queries
+      in `tests/test_ontology/test_relationships.py`. MCP tool tests
+      for the relationship parameter in
+      `retrieval-hub-mcp/tests/test_server.py`.
 
-   e. **Tests.** Unit tests for hierarchy traversal in
-      `tests/test_ontology/`. MCP tool tests for the hierarchy parameter
-      in `retrieval-hub-mcp/tests/test_server.py`.
+**Sequencing.** Schema first (a), then seed (b), then MCP tool (c).
+Tests (d) alongside each step. The MCP tool update is the most
+visible deliverable — it's what agents consume.
 
-**Sequencing.** Schema first (a), then seed (b), then retrieval
-expansion (c) and MCP tool update (d) can be parallel. Tests (e)
-alongside each step.
+**Design decisions to settle at session start:**
+- Should `source_slug` be on the relationship table (tracking which
+  source a relationship was observed in) or should relationships be
+  purely canonical (source-independent)? Leaning toward including
+  `source_slug` nullable — canonical relationships have null slug,
+  source-specific observations have a slug. This parallels how
+  ontology_mapping works (source-specific) vs ontology_concept
+  (source-independent).
+- Should the `relationship` column store a verb string ("treats",
+  "associates") or a structured name ("Compound_treats_Disease")?
+  Leaning toward the verb alone since source and target concepts
+  are already separate columns.
 
 **Constraints for the session:**
-- The Alembic migration chain — current head is `c7a9e2f1d834`.
+- Alembic migration chain — current head is `a1b2c3d4e5f6`.
   Check `alembic/versions/` before creating the new migration.
-- Memgraph connectivity — need port-forward or direct access to
-  the cluster's Memgraph instance to read IS_A edges. If Memgraph
-  is unreachable, the seed script can be developed against a mock
-  and tested later.
-- Do not modify the existing `expand_doc_section_via_registry`
-  behavior for flat lookups — hierarchy expansion should be additive.
+- MCP server imports: `OntologyConcept` (Pydantic schema) name
+  collides with the ORM model. The current code uses
+  `OntologyConceptModel` alias for the ORM import. Follow the
+  same pattern for any new ORM model used in the MCP server.
+- No sources have `relationship_hints` in semantic_context yet.
+  Seeding comes from Memgraph edge types only.
 
 **Session start protocol:**
-- Premise checks: confirm `ontology_mapping` table has 53 rows on
-  cluster DB (port-forward 5434). Confirm Memgraph is reachable
-  (port-forward 7687) and has IS_A edges in the SNOMED source.
-  Run `git log --oneline -5` to verify no unexpected commits landed.
-  Check the Alembic head matches `c7a9e2f1d834`.
-- Rules with history: the MCP server deploys to gpt-oss-120b cluster
+- Premise checks: confirm `ontology_concept` table has 44 rows and
+  25 parent edges on cluster DB (port-forward 5434). Confirm
+  Memgraph is reachable (port-forward 7687) and has the expected
+  30 edge types. Run `git log --oneline -5` to verify no unexpected
+  commits. Check Alembic head matches `a1b2c3d4e5f6`.
+- Rules with history: MCP server deploys to gpt-oss-120b cluster
   context (not mcp-rhoai). Container deploys need explicit dep
-  verification and memory sizing (see CLAUDE.md lessons learned).
-  Use `127.0.0.1` not `localhost` for local Postgres connections.
-- Stop-and-ask before: any changes to the `ontology_mapping` table's
-  existing columns or unique constraint. Any Alembic migration that
-  drops or renames existing columns. Any changes to
-  `expand_doc_section_via_registry`'s existing flat-lookup behavior.
-- Close ritual: session summary + `/plan-next-session` per convention.
+  verification and memory sizing. Use `127.0.0.1` not `localhost`
+  for local Postgres connections. ORM model name collisions in the
+  MCP server need aliased imports.
+- Stop-and-ask before: any changes to ontology_concept's existing
+  columns or constraints. Any Alembic migration that drops or
+  renames existing columns. Adding FKs from ontology_relationship
+  to ontology_concept (confirm the concept names in the seed data
+  all exist in ontology_concept before inserting).
+- Close ritual: session summary + `/plan-next-session` per
+  convention.
 
 ### Definition of done
 
-- `ontology_mapping` (or a new `ontology_concept` table) supports
-  parent/child relationships between canonical concepts.
+- `ontology_relationship` table stores canonical relationship types
+  between concepts.
 - Alembic migration applied to cluster DB.
-- SNOMED IS_A hierarchy seeded into the registry.
-- `expand_doc_section_via_registry` walks parent→child edges when
-  expanding doc_section filters (with depth limit).
-- `describe_ontology` MCP tool can return hierarchy information.
-- All existing tests pass, new tests for hierarchy traversal.
+- Relationships seeded from Memgraph edge types (or synthetic).
+- `describe_ontology` MCP tool returns relationships when requested.
+- Agents can ask "how are Compound and Disease related?" and get
+  back "treats", "palliates", etc.
+- All existing tests pass, new tests for relationship queries.
 
 ## Remaining epic phases
 
@@ -113,19 +138,6 @@ tightens incrementally — direct source access never goes away.
 
 See `docs/research-enterprise-ontology-platforms.md` for the landscape
 research informing this design.
-
-### Phase 4: Cross-concept relationship types (#54)
-
-Registry captures relationship types between concepts ("Compound
-treats Disease", "Gene associates Disease"). Agents discover traversal
-paths programmatically instead of relying on hardcoded refine
-strategies.
-
-**Definition of done:** Registry stores canonical relationship types.
-MCP tool returns relationships between concepts. Agents can ask "how
-are Compound and Disease related?"
-
-**Dependencies:** Phase 2 (done). Benefits from Phase 3 hierarchy.
 
 ### Phase 5: Quality and governance (#55, #56)
 
@@ -152,48 +164,48 @@ remains the default.
 to matching sources. Results tagged with source provenance. Direct
 source access unchanged.
 
-**Dependencies:** Phases 1-3 minimum.
+**Dependencies:** Phases 1-3 minimum (done). Phase 4 relationships
+enrich the fan-out with traversal strategies.
 
 ## What landed last session (2026-09-08)
 
-Phase 2 shipped: `describe_ontology` MCP tool with concept/source_slug
-filters, shared `populate_ontology_for_source()` library for incremental
-registry population, onboard_source.py hook. 15 new tests.
+Phase 3 shipped: `ontology_concept` table with parent/child IS-A
+edges, hierarchy-aware `expand_doc_section_via_registry` (BFS,
+depth limit 5), `describe_ontology` `include_hierarchy` parameter,
+seed script with `--synthetic` flag. 25 IS-A edges seeded. 16 new
+tests.
 
-See `session-summaries/2026-09-08-ontology-discovery-api.md`.
+See `session-summaries/2026-09-08-ontology-hierarchical-concepts.md`.
 
-**Closed:** #50 — MCP tool, #52 — auto-populate during onboarding
+**Closed:** #53 — hierarchical concepts
 
-**Commits:** 2e53ed8 — feat: Add describe_ontology MCP tool and
-ontology auto-populate library
+**Commits:** ed13694 — feat: Add hierarchical concepts to ontology
+registry
 
-**Prior session (same day):** Phase 1 shipped — ontology_mapping table
-with Alembic migration, seed script with union-find cross-source
-grouping, expand_doc_section_via_registry(). 53 rows seeded across
-5 sources.
-
-**Closed:** #49 — schema and migration, #51 — retrieve uses registry
+**Prior sessions (same day):** Phase 1 (1462889) and Phase 2
+(2e53ed8) also shipped. Closed #49, #50, #51, #52.
 
 ## Watch out for
 
-- The Alembic migration chain — current head is `c7a9e2f1d834`.
-  Check before creating new migrations.
-- The MCP server package (`retrieval-hub-mcp/`) has its own
-  `requirements-deploy.txt` — any new dependencies need adding there.
+- Alembic migration chain — current head is `a1b2c3d4e5f6`.
+- The MCP server uses `OntologyConceptModel` alias to avoid name
+  collision with the Pydantic `OntologyConcept` schema. Follow
+  the same alias pattern for new ORM models in the server.
+- Memgraph edge types use two naming conventions: Hetionet-style
+  `Subject___verb___Object` (structured, easy to parse) and
+  FHIR-style `SCREAMING_SNAKE` (structural, needs manual mapping).
+  The seed script needs to handle both.
+- The `ontology_concept` table only has 44 rows. FK references from
+  ontology_relationship must match existing concept names. The seed
+  script should validate concept existence before inserting.
 - Per-source alias fallback must remain functional for sources not
-  yet in the registry. The registry is additive, not a replacement.
-- Memgraph connection details may need port-forward setup. Check
-  the graph-quality session summaries for the correct namespace and
-  service name.
-- The hierarchy design decision (column on existing table vs. new
-  concept table) should be settled at session start, not mid-implementation.
+  yet in the registry.
 
 ## If blocked
 
-- If Memgraph is unreachable, the schema + migration + retrieval
-  expansion can all be developed and tested without SNOMED data.
-  Use synthetic hierarchy data in tests (e.g., Disease→Condition→
-  Hypertension chain). Seed from Memgraph in a follow-up.
-- If the hierarchy design turns out to be larger than expected,
-  Phase 4 (relationship types, #54) is independently workable and
-  also benefits from Phase 2's discovery API.
+- If Memgraph is unreachable, the schema + migration + MCP tool
+  extension can all be developed with synthetic relationship data
+  in tests. Use the known Hetionet edge types as synthetic seed
+  data: Compound treats Disease, Disease associates Gene, etc.
+- If the relationship table design turns out to be larger than
+  expected, Phase 5 (governance, #55/#56) is independently workable.
