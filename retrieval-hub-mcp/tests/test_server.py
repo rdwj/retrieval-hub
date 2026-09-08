@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastmcp.exceptions import ToolError
 from retrieval_hub_mcp.schemas import (
-    OntologyRelationshipInfo,
     OntologyResponse,
     RefineHit,
     RefineResponse,
