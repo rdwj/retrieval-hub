@@ -17,19 +17,22 @@ class TestExpandDocSectionViaRegistry:
     def test_none_passthrough(self, session):
         """None input returns None unchanged."""
         result = expand_doc_section_via_registry(session, "any-source", None)
-        assert result is None
+        assert result.doc_section is None
+        assert result.query_terms == []
 
     def test_empty_list_passthrough(self, session):
         """Empty list returns empty list."""
         result = expand_doc_section_via_registry(session, "any-source", [])
-        assert result == []
+        assert result.doc_section == []
+        assert result.query_terms == []
 
     def test_no_registry_entries(self, session):
         """With no ontology_mapping rows, returns original values."""
         result = expand_doc_section_via_registry(
             session, "fhir-hypertension", ["Disorder"],
         )
-        assert set(result) == {"Disorder"}
+        assert set(result.doc_section) == {"Disorder"}
+        assert result.query_terms == []
 
     def test_direct_local_name_match(self, session):
         """Querying with a local_name that belongs to the current source returns it."""
@@ -45,7 +48,8 @@ class TestExpandDocSectionViaRegistry:
         result = expand_doc_section_via_registry(
             session, "fhir-hypertension", ["Condition"],
         )
-        assert "Condition" in result
+        assert "Condition" in result.doc_section
+        assert result.query_terms == []
 
     def test_cross_source_expansion(self, session):
         """Querying FHIR with 'Disorder' (SNOMED's local name) expands to FHIR's 'Condition'."""
@@ -66,8 +70,9 @@ class TestExpandDocSectionViaRegistry:
         result = expand_doc_section_via_registry(
             session, "fhir-hypertension", ["Disorder"],
         )
-        assert "Condition" in result, "FHIR's local name should be added"
-        assert "Disorder" in result, "Original query value should be preserved"
+        assert "Condition" in result.doc_section, "FHIR's local name should be added"
+        assert "Disorder" in result.doc_section, "Original query value should be preserved"
+        assert result.query_terms == []
 
     def test_canonical_name_input(self, session):
         """Querying with a canonical name directly resolves to the target source's local name."""
@@ -84,7 +89,8 @@ class TestExpandDocSectionViaRegistry:
         result = expand_doc_section_via_registry(
             session, "fhir-hypertension", ["Condition"],
         )
-        assert "Condition" in result
+        assert "Condition" in result.doc_section
+        assert result.query_terms == []
 
     def test_multiple_values(self, session):
         """Expanding multiple doc_section values at once works correctly."""
@@ -115,7 +121,7 @@ class TestExpandDocSectionViaRegistry:
         result = expand_doc_section_via_registry(
             session, "fhir-hypertension", ["Disorder", "Compound"],
         )
-        result_set = set(result)
+        result_set = set(result.doc_section)
         # "Disorder" -> canonical "Condition" -> FHIR "Condition"
         assert "Condition" in result_set
         # "Compound" -> canonical "Medication" -> FHIR "MedicationStatement"
@@ -123,6 +129,7 @@ class TestExpandDocSectionViaRegistry:
         # Originals preserved
         assert "Disorder" in result_set
         assert "Compound" in result_set
+        assert result.query_terms == []
 
     def test_case_sensitivity(self, session):
         """The SQL query is case-sensitive; mismatched case does not expand.
@@ -154,4 +161,5 @@ class TestExpandDocSectionViaRegistry:
         # SQLite's default NOCASE collation on text comparisons means IN
         # may or may not be case-sensitive depending on the column collation.
         # We document observed behavior: the original value is always present.
-        assert "disorder" in result
+        assert "disorder" in result.doc_section
+        assert result.query_terms == []

@@ -3,8 +3,17 @@
 ## Benchmark summary
 
 Ran 12 paired queries comparing retrieval with vs. without the ontology
-registry, across three dimensions. Full results in
-`eval/ontology_benchmark/runs/20260908-213957/`.
+registry, across three dimensions. Latest results (after the family-aware
+hierarchy fix) in `eval/ontology_benchmark/runs/20260908-220904/`.
+
+| Dimension | Queries | Win Rate | Avg Hit Lift | Avg Source Lift |
+|-----------|---------|----------|-------------|----------------|
+| Cross-source | 5 | 80% | +6.2 | +1.4 |
+| Hierarchy | 4 | 100% | +10.2 | +0.0 |
+| Relationship | 3 | 100% | +7.0 | +0.7 |
+| **Overall** | **12** | **91.7%** | **+7.8** | **+0.8** |
+
+### Before the family-aware fix (2026-09-08, first benchmark run)
 
 | Dimension | Queries | Win Rate | Avg Hit Lift | Avg Source Lift |
 |-----------|---------|----------|-------------|----------------|
@@ -34,50 +43,53 @@ lets an agent query entity types it wouldn't otherwise know to search.
 The strongest signal was rel-02 (Patient → Condition): +15 hits because
 the relationship pointed the agent at Condition data across 3 sources.
 
-## What doesn't work
+## What was fixed
 
-### Hierarchy expansion via doc_section filtering
+### Hierarchy expansion: family-aware routing
 
-All 4 hierarchy queries returned fewer hits with the ontology than
-without. The cause: the benchmark uses child concept names as
-`doc_section` filters, but doc_section values only match entity type
-names in graph-family sources. For clinical_document sources (VA CPG),
-doc_section values are document structural headings ("Management of
-Hypertension", "Pharmacotherapy"), not concept types ("Metformin",
-"PHQ-9").
+The initial benchmark (2026-09-08) showed 0% win rate for hierarchy
+queries because child concept names were added as `doc_section` filters
+for all sources, including document-family sources where doc_section
+values are structural headings, not concept types.
 
-When the hierarchy expansion produces `doc_section=["Metformin"]` on
-VA CPG, the filter matches nothing. The "without ontology" path, which
-uses no doc_section filter at all, gets 5 hits from the full-text search.
+The fix introduced `ExpansionResult`, a return type that separates
+doc_section filter values from query expansion terms.
+`expand_doc_section_via_registry` now accepts a `source_family`
+parameter and routes hierarchy children by family:
+
+- **Graph sources**: children go into the `doc_section` filter (entity
+  types are doc_section values)
+- **Document sources**: children go into `query_terms` (appended to
+  the query text before embedding)
+
+Flat/alias expansion (stage 1) is family-agnostic and always goes into
+`doc_section` since those are real local names.
+
+The benchmark's `run_hierarchy` function was also updated to be
+family-aware: for document sources, child names are used as query text
+enrichment instead of doc_section filters.
+
+Result: hierarchy went from 0% win rate / -4.5 avg hit lift to 100%
+win rate / +10.2 avg hit lift with no regression on other dimensions.
+
+## Remaining gaps
 
 ### Authority score correlation
 
-Authority scores show no statistically significant correlation with
-retrieval quality (r=0.04, p=0.77). The scores are clustered in too
-narrow a range (1.04–1.248) to differentiate. All five multi-source
-concepts share the same maximum score (1.248). To produce a meaningful
-signal, we would need either more variation in the scoring formula or
-more sources with genuinely different authority levels.
+Authority scores now show a weak positive correlation with retrieval
+quality (r=0.36, p=0.006), up from the initial non-significant result
+(r=0.04, p=0.77). The improvement comes from the larger hit sample
+size after the hierarchy fix. The scores are still clustered in a
+narrow range (1.04-1.248), and all five multi-source concepts share
+the same maximum score. Widening the range would require new scoring
+signals (formal terminology flag, entity count coverage).
 
 ## Recommendations
 
-### 1. Family-aware hierarchy expansion
+### 1. Family-aware hierarchy expansion (DONE)
 
-The hierarchy expansion logic should be aware of the target source's
-family. For graph-family sources, child concept names work as
-doc_section filters because entity types ARE doc_sections. For
-document-family sources, child concept names should be injected into
-the query text rather than the doc_section filter.
-
-Concrete proposal: when `expand_doc_section_via_registry` detects that
-the source is a clinical_document or technical_document family, it
-should skip hierarchy expansion on doc_section and instead return the
-child names as supplementary query terms. The retrieval API could
-accept an optional `expanded_terms` parameter that gets appended to
-the query text before embedding.
-
-This would make the hierarchy expansion work across both source
-families, turning the 0% win rate into a positive signal.
+Shipped in the same session as the benchmark. See "What was fixed"
+above. Hierarchy went from 0% to 100% win rate.
 
 ### 2. Widen authority score range
 

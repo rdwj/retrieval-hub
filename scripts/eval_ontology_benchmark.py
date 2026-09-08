@@ -19,12 +19,16 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine, func, or_, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+import retrieval_hub.retrieval.api as _retrieval_api
+from retrieval_hub.adapters.base import SourceAdapter
+from retrieval_hub.models import Source
+from retrieval_hub.models.enums import SourceFamily
 from retrieval_hub.models.ontology import OntologyMapping
 from retrieval_hub.models.ontology_concept import (
     OntologyConcept as OntologyConceptModel,
@@ -32,9 +36,15 @@ from retrieval_hub.models.ontology_concept import (
 from retrieval_hub.models.ontology_relationship import (
     OntologyRelationship as OntologyRelationshipModel,
 )
-import retrieval_hub.retrieval.api as _retrieval_api
-from retrieval_hub.adapters.base import SourceAdapter
+from retrieval_hub.retrieval.api import ExpansionResult
 from retrieval_hub.retrieval.api import query as retrieval_query
+
+_DOC_FAMILIES = frozenset({
+    SourceFamily.DOCUMENT,
+    SourceFamily.CLINICAL_DOCUMENT,
+    SourceFamily.TECHNICAL_DOCUMENT,
+    SourceFamily.CODE,
+})
 
 logger = logging.getLogger("eval_ontology_benchmark")
 
@@ -157,7 +167,7 @@ def do_retrieve(
     """
     if raw:
         _retrieval_api.expand_doc_section_via_registry = (
-            lambda _sess, _slug, ds: ds
+            lambda _sess, _slug, ds, **_kw: ExpansionResult(doc_section=ds, query_terms=[])
         )
         SourceAdapter._expand_doc_section = lambda _self, ds: ds
     try:
@@ -281,11 +291,24 @@ def run_hierarchy(
             if not child_onto["concepts"]:
                 continue
             for mapping in child_onto["concepts"][0]["source_mappings"]:
-                hits = do_retrieve(
-                    db_session, query_text, mapping["source_slug"],
-                    child_top_k, doc_section=[mapping["local_name"]],
-                    vectors_db_url=vectors_db_url,
-                )
+                slug = mapping["source_slug"]
+                local_name = mapping["local_name"]
+                source = db_session.query(Source).filter(
+                    Source.slug == slug,
+                ).one_or_none()
+                if source and source.family in _DOC_FAMILIES:
+                    hits = do_retrieve(
+                        db_session,
+                        f"{query_text} {local_name}",
+                        slug, child_top_k,
+                        vectors_db_url=vectors_db_url,
+                    )
+                else:
+                    hits = do_retrieve(
+                        db_session, query_text, slug,
+                        child_top_k, doc_section=[local_name],
+                        vectors_db_url=vectors_db_url,
+                    )
                 with_hits.extend(hits)
 
     without_hits: list[dict] = []
@@ -435,7 +458,7 @@ def compute_authority_correlation(results: list[dict]) -> dict:
 
     try:
         from scipy.stats import spearmanr
-        auth_scores, sim_scores = zip(*pairs)
+        auth_scores, sim_scores = zip(*pairs, strict=False)
         corr, pvalue = spearmanr(auth_scores, sim_scores)
         return {"r": round(corr, 4), "p": round(pvalue, 4), "n": len(pairs)}
     except ImportError:
@@ -549,7 +572,7 @@ def run_benchmark(args: argparse.Namespace) -> int:
 
     logger.info("Loaded %d query(ies)", len(queries))
 
-    run_id = datetime.now(tz=timezone.utc).strftime("%Y%m%d-%H%M%S")
+    run_id = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
     output_dir = (
         Path(args.output_dir) if args.output_dir
         else EVAL_DIR / "runs" / run_id
@@ -616,7 +639,7 @@ def run_benchmark(args: argparse.Namespace) -> int:
         "db_url": args.db_url,
         "vectors_db_url": args.vectors_db_url,
         "top_k": args.top_k,
-        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "timestamp": datetime.now(tz=UTC).isoformat(),
         "query_count": len(results),
         "total_sources": len({
             src

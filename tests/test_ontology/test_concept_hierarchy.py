@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from retrieval_hub.models.enums import SourceFamily
 from retrieval_hub.models.ontology import OntologyMapping
 from retrieval_hub.models.ontology_concept import OntologyConcept
 from retrieval_hub.retrieval.api import (
@@ -192,8 +193,11 @@ class TestHierarchyExpansionInRetrievalApi:
         """Searching for 'Condition' expands to include 'Hypertension' and 'PTSD'."""
         self._seed_hierarchy(session)
 
-        result = expand_doc_section_via_registry(session, "fhir", ["Condition"])
-        result_set = set(result)
+        result = expand_doc_section_via_registry(
+            session, "fhir", ["Condition"],
+            source_family=SourceFamily.GRAPH,
+        )
+        result_set = set(result.doc_section)
 
         assert "Condition" in result_set
         assert "Hypertension" in result_set
@@ -203,8 +207,11 @@ class TestHierarchyExpansionInRetrievalApi:
         """Searching snomed for 'Condition' expands to include snomed's local names for children."""
         self._seed_hierarchy(session)
 
-        result = expand_doc_section_via_registry(session, "snomed", ["Condition"])
-        result_set = set(result)
+        result = expand_doc_section_via_registry(
+            session, "snomed", ["Condition"],
+            source_family=SourceFamily.GRAPH,
+        )
+        result_set = set(result.doc_section)
 
         assert "Disorder" in result_set
         assert "Essential hypertension" in result_set
@@ -214,8 +221,11 @@ class TestHierarchyExpansionInRetrievalApi:
         """Searching for a leaf concept does not add unrelated concepts."""
         self._seed_hierarchy(session)
 
-        result = expand_doc_section_via_registry(session, "fhir", ["Hypertension"])
-        result_set = set(result)
+        result = expand_doc_section_via_registry(
+            session, "fhir", ["Hypertension"],
+            source_family=SourceFamily.GRAPH,
+        )
+        result_set = set(result.doc_section)
 
         assert "Hypertension" in result_set
         assert "PTSD" not in result_set
@@ -224,8 +234,11 @@ class TestHierarchyExpansionInRetrievalApi:
         """Flat cross-source expansion (no hierarchy) continues to work."""
         self._seed_hierarchy(session)
 
-        result = expand_doc_section_via_registry(session, "fhir", ["Disorder"])
-        result_set = set(result)
+        result = expand_doc_section_via_registry(
+            session, "fhir", ["Disorder"],
+            source_family=SourceFamily.GRAPH,
+        )
+        result_set = set(result.doc_section)
 
         assert "Disorder" in result_set
         assert "Condition" in result_set
@@ -249,8 +262,11 @@ class TestHierarchyExpansionInRetrievalApi:
         ])
         session.flush()
 
-        result = expand_doc_section_via_registry(session, "fhir", ["Condition"])
-        result_set = set(result)
+        result = expand_doc_section_via_registry(
+            session, "fhir", ["Condition"],
+            source_family=SourceFamily.GRAPH,
+        )
+        result_set = set(result.doc_section)
 
         assert "Condition" in result_set
         # Without hierarchy, Hypertension should NOT appear
@@ -260,5 +276,123 @@ class TestHierarchyExpansionInRetrievalApi:
         """None and empty list still pass through unchanged."""
         self._seed_hierarchy(session)
 
-        assert expand_doc_section_via_registry(session, "fhir", None) is None
-        assert expand_doc_section_via_registry(session, "fhir", []) == []
+        assert expand_doc_section_via_registry(session, "fhir", None).doc_section is None
+        assert expand_doc_section_via_registry(session, "fhir", []).doc_section == []
+
+
+class TestFamilyAwareHierarchyExpansion:
+    """Tests that hierarchy expansion routes by source family."""
+
+    def _seed_hierarchy(self, session):
+        """Seed a small hierarchy + mappings for testing."""
+        session.add_all([
+            OntologyConcept(name="Condition"),
+            OntologyConcept(name="Compound"),
+            OntologyConcept(name="Finding"),
+        ])
+        session.flush()
+        session.add_all([
+            OntologyConcept(name="Hypertension", parent_name="Condition"),
+            OntologyConcept(name="PTSD", parent_name="Condition"),
+            OntologyConcept(name="Metformin", parent_name="Compound"),
+        ])
+        session.flush()
+
+        session.add_all([
+            OntologyMapping(
+                canonical_name="Condition", source_slug="va-cpg",
+                local_name="Condition",
+            ),
+            OntologyMapping(
+                canonical_name="Hypertension", source_slug="va-cpg",
+                local_name="Hypertension",
+            ),
+            OntologyMapping(
+                canonical_name="PTSD", source_slug="va-cpg",
+                local_name="PTSD",
+            ),
+            OntologyMapping(
+                canonical_name="Condition", source_slug="hetionet",
+                local_name="Disease",
+            ),
+            OntologyMapping(
+                canonical_name="Hypertension", source_slug="hetionet",
+                local_name="Hypertension",
+            ),
+            OntologyMapping(
+                canonical_name="PTSD", source_slug="hetionet",
+                local_name="PTSD",
+            ),
+        ])
+        session.flush()
+
+    def test_graph_source_hierarchy_in_doc_section(self, session):
+        """For graph sources, hierarchy children go into doc_section."""
+        self._seed_hierarchy(session)
+
+        result = expand_doc_section_via_registry(
+            session, "hetionet", ["Condition"],
+            source_family=SourceFamily.GRAPH,
+        )
+
+        assert "Hypertension" in result.doc_section
+        assert "PTSD" in result.doc_section
+        assert "Disease" in result.doc_section
+        assert result.query_terms == []
+
+    def test_document_source_hierarchy_in_query_terms(self, session):
+        """For document sources, hierarchy children go into query_terms."""
+        self._seed_hierarchy(session)
+
+        result = expand_doc_section_via_registry(
+            session, "va-cpg", ["Condition"],
+            source_family=SourceFamily.CLINICAL_DOCUMENT,
+        )
+
+        # Flat expansion: Condition stays in doc_section
+        assert "Condition" in result.doc_section
+        # Hierarchy children should NOT be in doc_section
+        assert "Hypertension" not in result.doc_section
+        assert "PTSD" not in result.doc_section
+        # Hierarchy children should be in query_terms
+        assert "Hypertension" in result.query_terms
+        assert "PTSD" in result.query_terms
+
+    def test_flat_expansion_same_for_all_families(self, session):
+        """Flat (alias) expansion works the same regardless of family."""
+        self._seed_hierarchy(session)
+
+        # Add cross-source mapping
+        session.add(OntologyMapping(
+            canonical_name="Condition", source_slug="snomed",
+            local_name="Disorder",
+        ))
+        session.flush()
+
+        graph_result = expand_doc_section_via_registry(
+            session, "hetionet", ["Disorder"],
+            source_family=SourceFamily.GRAPH,
+        )
+        doc_result = expand_doc_section_via_registry(
+            session, "hetionet", ["Disorder"],
+            source_family=SourceFamily.CLINICAL_DOCUMENT,
+        )
+
+        # Flat expansion (alias resolution) should work the same
+        assert "Disease" in graph_result.doc_section
+        assert "Disease" in doc_result.doc_section
+        assert "Disorder" in graph_result.doc_section
+        assert "Disorder" in doc_result.doc_section
+
+    def test_technical_document_family(self, session):
+        """TECHNICAL_DOCUMENT family also routes hierarchy to query_terms."""
+        self._seed_hierarchy(session)
+
+        result = expand_doc_section_via_registry(
+            session, "va-cpg", ["Condition"],
+            source_family=SourceFamily.TECHNICAL_DOCUMENT,
+        )
+
+        assert "Condition" in result.doc_section
+        assert "Hypertension" not in result.doc_section
+        assert "Hypertension" in result.query_terms

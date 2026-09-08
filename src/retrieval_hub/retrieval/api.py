@@ -69,6 +69,20 @@ class RefineOutput:
     context: str | None = None
 
 
+@dataclass(frozen=True)
+class ExpansionResult:
+    """Separates doc_section filter values from query expansion terms.
+
+    For graph-family sources, hierarchy children go into ``doc_section``
+    (entity types are doc_section values). For document-family sources,
+    hierarchy children go into ``query_terms`` (appended to query text
+    before embedding).
+    """
+
+    doc_section: list[str] | None
+    query_terms: list[str]
+
+
 class SourceNotFoundError(LookupError):
     """Raised when ``query`` cannot find a source by slug."""
 
@@ -216,7 +230,9 @@ def expand_doc_section_via_registry(
     session: Session,
     source_slug: str,
     doc_section: list[str] | None,
-) -> list[str] | None:
+    *,
+    source_family: SourceFamily | None = None,
+) -> ExpansionResult:
     """Expand doc_section values using the ontology_mapping registry.
 
     Performs a self-join on ontology_mapping to find local names in the
@@ -225,18 +241,41 @@ def expand_doc_section_via_registry(
     the union of original values and any registry-discovered expansions.
 
     When the ontology_concept table contains hierarchy data, the expansion
-    also walks parent→child edges: searching for "Condition" will include
+    also walks parent->child edges: searching for "Condition" will include
     children like "Hypertension", "PTSD", etc.
 
-    Returns ``doc_section`` unchanged when it is ``None`` or empty.
+    For graph-family sources, hierarchy children go into the doc_section
+    filter (entity types are doc_section values). For document-family
+    sources, hierarchy children go into ``query_terms`` (appended to the
+    query text before embedding) since doc_sections are structural
+    headings, not concept types.
+
+    Returns an ``ExpansionResult`` with ``doc_section`` unchanged and
+    empty ``query_terms`` when the input is ``None`` or empty.
     """
     if not doc_section:
-        return doc_section
+        return ExpansionResult(doc_section=doc_section, query_terms=[])
+
+    # Resolve source family for routing hierarchy expansion.
+    if source_family is None:
+        source_obj = (
+            session.query(Source).filter(Source.slug == source_slug).one_or_none()
+        )
+        family = source_obj.family if source_obj else SourceFamily.GRAPH
+    else:
+        family = source_family
+
+    is_doc_family = family in (
+        SourceFamily.DOCUMENT,
+        SourceFamily.CLINICAL_DOCUMENT,
+        SourceFamily.TECHNICAL_DOCUMENT,
+        SourceFamily.CODE,
+    )
 
     om_any = aliased(OntologyMapping)
     om_target = aliased(OntologyMapping)
 
-    # Flat expansion: find canonical names matching the input values.
+    # Stage 1: Flat expansion (alias names ARE real doc_section values).
     stmt = (
         select(om_target.local_name)
         .select_from(om_any)
@@ -252,10 +291,10 @@ def expand_doc_section_via_registry(
     rows = session.execute(stmt).scalars().all()
     expanded = set(doc_section) | set(rows)
 
-    # Hierarchy expansion: resolve input values to canonical names, walk
-    # children, then find local names in the target source for those children.
+    # Stage 2: Hierarchy expansion -- route by family.
     # Wrapped in try/except so that deployments without the ontology_concept
     # migration fall back to flat expansion only.
+    query_terms: list[str] = []
     try:
         input_canonicals_stmt = (
             select(OntologyMapping.canonical_name)
@@ -289,16 +328,24 @@ def expand_doc_section_via_registry(
                     )
                     .distinct()
                 )
-                child_locals = session.execute(child_locals_stmt).scalars().all()
-                expanded |= set(child_locals)
-                expanded |= new_concepts
+                child_locals = set(
+                    session.execute(child_locals_stmt).scalars().all()
+                )
+
+                if is_doc_family:
+                    # Document sources: hierarchy children -> query terms
+                    query_terms = sorted(child_locals | new_concepts)
+                else:
+                    # Graph sources: hierarchy children -> doc_section filter
+                    expanded |= child_locals
+                    expanded |= new_concepts
     except Exception:
         logger.debug(
             "ontology_concept table not available; skipping hierarchy expansion",
             exc_info=True,
         )
 
-    return list(expanded)
+    return ExpansionResult(doc_section=list(expanded), query_terms=query_terms)
 
 
 def query(
@@ -385,16 +432,23 @@ def query(
 
     effective_request_id = request_id or str(uuid.uuid4())
 
-    expanded_doc_section = expand_doc_section_via_registry(
+    expansion = expand_doc_section_via_registry(
         session, source_slug, doc_section,
+        source_family=source.family,
     )
-    if expanded_doc_section != doc_section:
+    if expansion.doc_section != doc_section or expansion.query_terms:
         logger.info(
-            "retrieval.query ontology expansion source=%s original=%s expanded=%s",
+            "retrieval.query ontology expansion source=%s original=%s "
+            "doc_section=%s query_terms=%s",
             source_slug,
             doc_section,
-            expanded_doc_section,
+            expansion.doc_section,
+            expansion.query_terms,
         )
+
+    effective_query = query_text
+    if expansion.query_terms:
+        effective_query = f"{query_text} {' '.join(expansion.query_terms)}"
 
     logger.info(
         "retrieval.query source=%s top_k=%d request_id=%s",
@@ -404,10 +458,10 @@ def query(
     )
 
     results = adapter.retrieve(
-        query_text,
+        effective_query,
         top_k=top_k,
         request_id=effective_request_id,
-        doc_section=expanded_doc_section,
+        doc_section=expansion.doc_section,
         scope_entity_id=scope_entity_id,
     )
     return [replace(r, source_slug=source_slug) for r in results]
