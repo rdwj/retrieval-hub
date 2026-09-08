@@ -78,7 +78,9 @@ class TestExpandConceptsViaHierarchy:
         session.flush()
         session.add(OntologyConcept(name="Substance Use Disorder", parent_name="Condition"))
         session.flush()
-        session.add(OntologyConcept(name="Alcohol Use Disorder", parent_name="Substance Use Disorder"))
+        session.add(OntologyConcept(
+            name="Alcohol Use Disorder", parent_name="Substance Use Disorder",
+        ))
         session.flush()
 
         result = _expand_concepts_via_hierarchy(session, {"Condition"})
@@ -151,14 +153,38 @@ class TestHierarchyExpansionInRetrievalApi:
         session.flush()
 
         session.add_all([
-            OntologyMapping(canonical_name="Condition", source_slug="fhir", local_name="Condition"),
-            OntologyMapping(canonical_name="Hypertension", source_slug="fhir", local_name="Hypertension"),
-            OntologyMapping(canonical_name="PTSD", source_slug="fhir", local_name="PTSD"),
-            OntologyMapping(canonical_name="Condition", source_slug="snomed", local_name="Disorder"),
-            OntologyMapping(canonical_name="Hypertension", source_slug="snomed", local_name="Essential hypertension"),
-            OntologyMapping(canonical_name="Compound", source_slug="hetionet", local_name="Compound"),
-            OntologyMapping(canonical_name="Metformin", source_slug="hetionet", local_name="Metformin"),
-            OntologyMapping(canonical_name="Finding", source_slug="fhir", local_name="Observation"),
+            OntologyMapping(
+                canonical_name="Condition", source_slug="fhir",
+                local_name="Condition",
+            ),
+            OntologyMapping(
+                canonical_name="Hypertension", source_slug="fhir",
+                local_name="Hypertension",
+            ),
+            OntologyMapping(
+                canonical_name="PTSD", source_slug="fhir",
+                local_name="PTSD",
+            ),
+            OntologyMapping(
+                canonical_name="Condition", source_slug="snomed",
+                local_name="Disorder",
+            ),
+            OntologyMapping(
+                canonical_name="Hypertension", source_slug="snomed",
+                local_name="Essential hypertension",
+            ),
+            OntologyMapping(
+                canonical_name="Compound", source_slug="hetionet",
+                local_name="Compound",
+            ),
+            OntologyMapping(
+                canonical_name="Metformin", source_slug="hetionet",
+                local_name="Metformin",
+            ),
+            OntologyMapping(
+                canonical_name="Finding", source_slug="fhir",
+                local_name="Observation",
+            ),
         ])
         session.flush()
 
@@ -212,8 +238,14 @@ class TestHierarchyExpansionInRetrievalApi:
         ])
         session.flush()
         session.add_all([
-            OntologyMapping(canonical_name="Condition", source_slug="fhir", local_name="Condition"),
-            OntologyMapping(canonical_name="Hypertension", source_slug="fhir", local_name="Hypertension"),
+            OntologyMapping(
+                canonical_name="Condition", source_slug="fhir",
+                local_name="Condition",
+            ),
+            OntologyMapping(
+                canonical_name="Hypertension", source_slug="fhir",
+                local_name="Hypertension",
+            ),
         ])
         session.flush()
 

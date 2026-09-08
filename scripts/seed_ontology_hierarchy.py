@@ -8,7 +8,8 @@ seed a reasonable biomedical hierarchy for testing.
 Usage:
     python scripts/seed_ontology_hierarchy.py [--db-url URL] [--dry-run]
     python scripts/seed_ontology_hierarchy.py --synthetic [--db-url URL] [--dry-run]
-    python scripts/seed_ontology_hierarchy.py --memgraph-host HOST --memgraph-port PORT [--db-url URL]
+    python scripts/seed_ontology_hierarchy.py \\
+        --memgraph-host HOST --memgraph-port PORT [--db-url URL]
 """
 
 from __future__ import annotations
