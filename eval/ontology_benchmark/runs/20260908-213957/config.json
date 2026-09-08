@@ -1,0 +1,9 @@
+{
+  "db_url": "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub",
+  "vectors_db_url": "postgresql+psycopg://retrievalhub:retrievalhub@127.0.0.1:5434/retrievalhub_vectors",
+  "top_k": 5,
+  "timestamp": "2026-09-08T21:41:36.065976+00:00",
+  "query_count": 12,
+  "total_sources": 4,
+  "elapsed_seconds": 97.67
+}

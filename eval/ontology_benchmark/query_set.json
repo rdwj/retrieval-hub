@@ -1,0 +1,194 @@
+{
+  "version": "1.0",
+  "description": "Paired query set for ontology-assisted vs. raw retrieval benchmark",
+  "queries": [
+    {
+      "id": "xsrc-01",
+      "dimension": "cross_source",
+      "concept": "Condition",
+      "query_text": "hypertension conditions and disorders",
+      "sources": {
+        "hetionet-hypertension": {"local_names": ["Disease"]},
+        "snomed-ct-hypertension": {"local_names": ["Disorder"]},
+        "fhir-hypertension": {"local_names": ["Condition"]}
+      },
+      "description": "Find Condition data across all three graph sources"
+    },
+    {
+      "id": "xsrc-02",
+      "dimension": "cross_source",
+      "concept": "Compound",
+      "query_text": "drug treatments and medications for hypertension",
+      "sources": {
+        "hetionet-hypertension": {"local_names": ["Compound"]},
+        "snomed-ct-hypertension": {"local_names": ["Substance"]},
+        "fhir-hypertension": {"local_names": ["MedicationRequest"]}
+      },
+      "description": "Find Compound data across all three graph sources"
+    },
+    {
+      "id": "xsrc-03",
+      "dimension": "cross_source",
+      "concept": "Finding",
+      "query_text": "clinical findings and symptoms of hypertension",
+      "sources": {
+        "hetionet-hypertension": {"local_names": ["Symptom"]},
+        "snomed-ct-hypertension": {"local_names": ["Observable Entity", "Finding"]},
+        "fhir-hypertension": {"local_names": ["Observation"]}
+      },
+      "description": "Find Finding data across all three graph sources (SNOMED has two mapped types)"
+    },
+    {
+      "id": "xsrc-04",
+      "dimension": "cross_source",
+      "concept": "Anatomy",
+      "query_text": "cardiovascular anatomical structures",
+      "sources": {
+        "hetionet-hypertension": {"local_names": ["Anatomy"]},
+        "snomed-ct-hypertension": {"local_names": ["Body Structure"]}
+      },
+      "description": "Find Anatomy data across two graph sources"
+    },
+    {
+      "id": "xsrc-05",
+      "dimension": "cross_source",
+      "concept": "Procedure",
+      "query_text": "clinical procedures for hypertension management",
+      "sources": {
+        "fhir-hypertension": {"local_names": ["Procedure"]},
+        "snomed-ct-hypertension": {"local_names": ["Procedure"]}
+      },
+      "description": "Find Procedure data across two graph sources"
+    },
+    {
+      "id": "hier-01",
+      "dimension": "hierarchy",
+      "concept": "Condition",
+      "query_text": "types of medical conditions",
+      "children": [
+        "Hypertension", "PTSD", "MDD", "Obesity",
+        "Type 2 Diabetes Mellitus", "COPD", "Insomnia",
+        "Chronic Low Back Pain", "Mild Traumatic Brain Injury",
+        "Substance Use Disorder"
+      ],
+      "child_sources": {
+        "Hypertension": {"va-cpg-clinical-guidelines": {"local_names": ["Hypertension"]}},
+        "PTSD": {"va-cpg-clinical-guidelines": {"local_names": ["PTSD"]}},
+        "MDD": {"va-cpg-clinical-guidelines": {"local_names": ["MDD"]}},
+        "Obesity": {"va-cpg-clinical-guidelines": {"local_names": ["Obesity"]}},
+        "Type 2 Diabetes Mellitus": {"va-cpg-clinical-guidelines": {"local_names": ["Type 2 Diabetes Mellitus"]}},
+        "COPD": {"va-cpg-clinical-guidelines": {"local_names": ["COPD"]}},
+        "Insomnia": {"va-cpg-clinical-guidelines": {"local_names": ["Insomnia"]}},
+        "Chronic Low Back Pain": {"va-cpg-clinical-guidelines": {"local_names": ["Chronic Low Back Pain"]}},
+        "Mild Traumatic Brain Injury": {"va-cpg-clinical-guidelines": {"local_names": ["Mild Traumatic Brain Injury"]}},
+        "Substance Use Disorder": {"va-cpg-clinical-guidelines": {"local_names": ["Substance Use Disorder"]}}
+      },
+      "sources": {
+        "va-cpg-clinical-guidelines": {"local_names": ["Condition"]}
+      },
+      "description": "Expand Condition hierarchy to find all child condition types in VA CPG"
+    },
+    {
+      "id": "hier-02",
+      "dimension": "hierarchy",
+      "concept": "Compound",
+      "query_text": "medication classes for treatment",
+      "children": ["Metformin", "SSRIs", "Statins", "ACE Inhibitors"],
+      "child_sources": {
+        "Metformin": {"va-cpg-clinical-guidelines": {"local_names": ["Metformin"]}},
+        "SSRIs": {"va-cpg-clinical-guidelines": {"local_names": ["SSRIs"]}},
+        "Statins": {"va-cpg-clinical-guidelines": {"local_names": ["Statins"]}},
+        "ACE Inhibitors": {"va-cpg-clinical-guidelines": {"local_names": ["ACE Inhibitors"]}}
+      },
+      "sources": {
+        "va-cpg-clinical-guidelines": {"local_names": ["Compound"]}
+      },
+      "description": "Expand Compound hierarchy to find medication classes in VA CPG"
+    },
+    {
+      "id": "hier-03",
+      "dimension": "hierarchy",
+      "concept": "Substance Use Disorder",
+      "query_text": "substance use disorder subtypes",
+      "children": ["Alcohol Use Disorder", "Opioid Use Disorder"],
+      "child_sources": {
+        "Alcohol Use Disorder": {"va-cpg-clinical-guidelines": {"local_names": ["Alcohol Use Disorder"]}},
+        "Opioid Use Disorder": {"va-cpg-clinical-guidelines": {"local_names": ["Opioid Use Disorder"]}}
+      },
+      "sources": {
+        "va-cpg-clinical-guidelines": {"local_names": ["Substance Use Disorder"]}
+      },
+      "description": "Expand Substance Use Disorder to find AUD and OUD subtypes"
+    },
+    {
+      "id": "hier-04",
+      "dimension": "hierarchy",
+      "concept": "Finding",
+      "query_text": "clinical assessment and screening tools",
+      "children": ["PHQ-9", "GAD-7", "PCL-5", "AUDIT-C", "C-SSRS", "Morphologic Abnormality"],
+      "child_sources": {
+        "PHQ-9": {"va-cpg-clinical-guidelines": {"local_names": ["PHQ-9"]}},
+        "GAD-7": {"va-cpg-clinical-guidelines": {"local_names": ["GAD-7"]}},
+        "PCL-5": {"va-cpg-clinical-guidelines": {"local_names": ["PCL-5"]}},
+        "AUDIT-C": {"va-cpg-clinical-guidelines": {"local_names": ["AUDIT-C"]}},
+        "C-SSRS": {"va-cpg-clinical-guidelines": {"local_names": ["C-SSRS"]}},
+        "Morphologic Abnormality": {"snomed-ct-hypertension": {"local_names": ["Morphologic Abnormality"]}}
+      },
+      "sources": {
+        "va-cpg-clinical-guidelines": {"local_names": ["Finding"]},
+        "snomed-ct-hypertension": {"local_names": ["Finding"]}
+      },
+      "description": "Expand Finding hierarchy to find screening tools and morphologic findings"
+    },
+    {
+      "id": "rel-01",
+      "dimension": "relationship",
+      "start_concept": "Compound",
+      "relationships": ["binds", "upregulates", "downregulates"],
+      "target_concept": "Gene",
+      "query_text": "genes affected by hypertension compounds",
+      "start_sources": {
+        "hetionet-hypertension": {"local_names": ["Compound"]},
+        "snomed-ct-hypertension": {"local_names": ["Substance"]},
+        "fhir-hypertension": {"local_names": ["MedicationRequest"]}
+      },
+      "target_sources": {
+        "hetionet-hypertension": {"local_names": ["Gene"]}
+      },
+      "description": "Discover Compound-Gene relationships and query both entity types"
+    },
+    {
+      "id": "rel-02",
+      "dimension": "relationship",
+      "start_concept": "Patient",
+      "relationships": ["diagnosed_with"],
+      "target_concept": "Condition",
+      "query_text": "patients diagnosed with hypertension conditions",
+      "start_sources": {
+        "fhir-hypertension": {"local_names": ["Patient"]}
+      },
+      "target_sources": {
+        "fhir-hypertension": {"local_names": ["Condition"]},
+        "hetionet-hypertension": {"local_names": ["Disease"]},
+        "snomed-ct-hypertension": {"local_names": ["Disorder"]}
+      },
+      "description": "Discover Patient-Condition relationship and query both entity types"
+    },
+    {
+      "id": "rel-03",
+      "dimension": "relationship",
+      "start_concept": "Anatomy",
+      "relationships": ["expresses", "upregulates", "downregulates"],
+      "target_concept": "Gene",
+      "query_text": "gene expression in cardiovascular anatomy",
+      "start_sources": {
+        "hetionet-hypertension": {"local_names": ["Anatomy"]},
+        "snomed-ct-hypertension": {"local_names": ["Body Structure"]}
+      },
+      "target_sources": {
+        "hetionet-hypertension": {"local_names": ["Gene"]}
+      },
+      "description": "Discover Anatomy-Gene relationships and query both entity types"
+    }
+  ]
+}
