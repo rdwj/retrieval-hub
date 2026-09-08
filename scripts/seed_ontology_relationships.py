@@ -131,16 +131,30 @@ def insert_relationships(
             inserted += 1
             continue
 
-        cur = conn.execute(
-            "INSERT INTO ontology_relationship "
-            "    (source_concept, relationship, target_concept,"
-            "     source_slug, created_at) "
-            "VALUES (%s, %s, %s, %s, NOW()) "
-            "ON CONFLICT ON CONSTRAINT "
-            "    uq_ontology_rel_src_rel_tgt_slug "
-            "DO NOTHING",
-            (src, verb, tgt, source_slug),
-        )
+        if source_slug is None:
+            cur = conn.execute(
+                "INSERT INTO ontology_relationship "
+                "    (source_concept, relationship,"
+                "     target_concept, source_slug, created_at)"
+                " VALUES (%s, %s, %s, NULL, NOW()) "
+                "ON CONFLICT "
+                "    (source_concept, relationship,"
+                "     target_concept) "
+                "    WHERE source_slug IS NULL "
+                "DO NOTHING",
+                (src, verb, tgt),
+            )
+        else:
+            cur = conn.execute(
+                "INSERT INTO ontology_relationship "
+                "    (source_concept, relationship,"
+                "     target_concept, source_slug, created_at)"
+                " VALUES (%s, %s, %s, %s, NOW()) "
+                "ON CONFLICT ON CONSTRAINT "
+                "    uq_ontology_rel_src_rel_tgt_slug "
+                "DO NOTHING",
+                (src, verb, tgt, source_slug),
+            )
         if cur.rowcount:
             logger.info(
                 "Inserted %s -[%s]-> %s (source=%s)",

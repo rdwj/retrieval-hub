@@ -52,9 +52,21 @@ def upgrade() -> None:
         "ontology_relationship",
         ["source_slug"],
     )
+    # Partial unique index for canonical (NULL source_slug) rows — PostgreSQL
+    # unique constraints treat NULLs as distinct, so the constraint above
+    # won't prevent duplicate canonical relationships.
+    op.execute(
+        "CREATE UNIQUE INDEX uq_ontology_rel_canonical "
+        "ON ontology_relationship "
+        "(source_concept, relationship, target_concept) "
+        "WHERE source_slug IS NULL"
+    )
 
 
 def downgrade() -> None:
+    op.execute(
+        "DROP INDEX IF EXISTS uq_ontology_rel_canonical"
+    )
     op.drop_index(
         "ix_ontology_relationship_source_slug",
         table_name="ontology_relationship",
