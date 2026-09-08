@@ -10,54 +10,74 @@ epic.
 
 Issues: #48 (umbrella), #49, #50, #51, #52, #53, #54, #55, #56
 
-## Next: Phase 1 — Registry foundation (#49, #51)
+## Next: Phase 2 — Discovery API + onboarding auto-populate (#50, #52)
 
-The schema and migration work is the foundation. Build the
-`ontology_mapping` table, seed it from the existing SemanticContext
-entity aliases, and wire `retrieve` to resolve doc_section values
-against the registry instead of (or in addition to) per-source aliases.
+The registry exists and is seeded (53 rows, 5 sources), but agents
+can't see it and new sources don't populate it automatically. This
+session makes the registry visible and self-maintaining.
 
-### Work
+1. **#50 — MCP tool to describe cross-source concept mappings**
+   Add a `describe_ontology` tool to the MCP server that returns all
+   canonical concepts with their per-source local names. The tool
+   should accept an optional `concept` parameter to filter to a single
+   canonical name, and an optional `source_slug` to show only mappings
+   for one source. Without parameters, it returns the full registry.
+   The response should be agent-friendly: grouped by canonical concept,
+   each listing its source mappings with local names.
 
-1. Design the `ontology_mapping` table: `id`, `canonical_name`,
-   `source_slug`, `local_name`, unique constraint on
-   (canonical_name, source_slug). Consider whether to add
-   `relationship_type` (equivalence vs. broader/narrower) now or
-   defer to Phase 3.
-2. Write the Alembic migration.
-3. Write a seed script that reads existing SemanticContext entity
-   aliases from all sources and populates the registry. The three
-   graph sources (FHIR, SNOMED, Hetionet) were seeded with aliases
-   in the graph-quality epic — these should populate automatically.
-4. Update `_expand_doc_section` in `SourceAdapter` (base.py) to
-   check the ontology registry in addition to per-source aliases.
-   The registry lookup should be a single SQL query per retrieve
-   call, not N queries.
-5. Add tests: registry CRUD, seed idempotency, doc_section expansion
-   via registry.
-6. Verify with the integration test suite (the 8-test treatment plan
-   workflow should still pass with the registry path active).
+   Key files: `retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`
+   (existing MCP tool definitions), `src/retrieval_hub/models/ontology.py`
+   (OntologyMapping model). Follow the pattern of existing tools like
+   `list_sources` or `describe_source`.
+
+2. **#52 — Auto-populate registry during source onboarding**
+   When `scripts/onboard_source.py` completes onboarding (after ingestion
+   and eval), read the source's `semantic_context.entities` and upsert
+   ontology_mapping rows. Reuse the union-find grouping logic from
+   `scripts/seed_ontology_registry.py` — but only for the new source's
+   entities against existing registry entries, not a full re-seed.
+
+   The auto-populate should also work when `semantic_context` is set
+   after onboarding (e.g., via `seed_graph_entity_aliases.py` or
+   `seed_va_cpg_semantic_context.py`). Consider extracting the
+   grouping + upsert logic into a library function in
+   `src/retrieval_hub/ontology/` that both the seed script and
+   onboard script can call.
+
+**Sequencing.** #50 first (the MCP tool is independent and immediately
+testable). #52 second (auto-populate hooks into onboard_source.py and
+benefits from the MCP tool for verification).
+
+**Constraints for the session:**
+- The MCP server code is in `retrieval-hub-mcp/`, a separate package
+  from the core `src/retrieval_hub/`. The tool handler gets a catalog
+  session via `Depends(get_catalog_session)` — same pattern as retrieve.
+- Do not modify the existing seed script's behavior — the library
+  extraction should be additive, keeping the CLI script working as-is.
+
+**Session start protocol:**
+- Premise checks: confirm `ontology_mapping` table has 53 rows on
+  cluster DB (port-forward 5434). Confirm the MCP server's tool list
+  in `server.py` — check for any tools added by parallel sessions.
+  Run `git log --oneline -5` to verify no unexpected commits landed.
+- Rules with history: the MCP server deploys to gpt-oss-120b cluster
+  context (not mcp-rhoai). Container deploys need explicit dep
+  verification and memory sizing (see CLAUDE.md lessons learned).
+- Stop-and-ask before: any changes to the Source model or existing
+  Alembic migration chain. Any modifications to onboard_source.py's
+  existing flow (the ontology hook should be additive, not restructuring).
+- Close ritual: session summary + `/plan-next-session` per convention.
 
 ### Definition of done
 
-- `ontology_mapping` table exists with Alembic migration
-- Registry seeded from existing entity aliases (19 entities across
-  3 graph sources)
-- `retrieve` resolves doc_section via registry (with per-source
-  alias as fallback)
-- All existing tests pass, new registry tests pass
-- Integration tests pass against live cluster
-
-### Constraints
-
-- The per-source alias resolution in `_expand_doc_section` should
-  remain as a fallback for sources that haven't been registered.
-  The registry is additive, not a replacement.
-- No schema changes to `SemanticContext` — the registry is a
-  separate table, not a modification of the existing per-source
-  metadata.
-- Stop-and-ask before: any changes to the Source model or existing
-  Alembic migration chain.
+- `describe_ontology` MCP tool returns canonical concepts with
+  per-source mappings. Tested via mcp-test-mcp or direct invocation.
+- New source onboarding writes ontology_mapping rows automatically
+  when the source has semantic_context.entities.
+- Grouping + upsert logic extracted to a shared function usable by
+  both the seed script and onboard pipeline.
+- All existing tests pass, new tests for the MCP tool and
+  auto-populate logic.
 
 ## Remaining epic phases
 
@@ -71,34 +91,6 @@ tightens incrementally — direct source access never goes away.
 See `docs/research-enterprise-ontology-platforms.md` for the landscape
 research informing this design.
 
-### Phase 1: Registry foundation (#49, #51)
-
-Schema, migration, seed from existing aliases, wire retrieve to use
-the registry for doc_section expansion. Replaces the per-source alias
-hack with a real table while keeping aliases as fallback.
-
-**Definition of done:** `ontology_mapping` table exists, seeded, and
-retrieve uses it. Integration tests pass.
-
-**Dependencies:** None. The per-source aliases from graph-quality
-provide the seed data.
-
-**Parallel-ok:** Yes — independent of all other epics.
-
-### Phase 2: Discovery API + onboarding auto-populate (#50, #52)
-
-MCP tool (`list_concepts` or `describe_ontology`) for agents to query
-the registry at runtime. Auto-populate registry entries when a new
-source is onboarded via the ingestion pipeline.
-
-**Definition of done:** Agents can call the MCP tool and get back all
-canonical concepts with per-source mappings. New source onboarding
-writes registry entries automatically.
-
-**Dependencies:** Phase 1 (registry must exist).
-
-**Parallel-ok:** No — requires Phase 1's table.
-
 ### Phase 3: Hierarchical concepts (#53)
 
 Add parent/child (is-a) edges between canonical concepts. Query-time
@@ -110,10 +102,8 @@ automatically includes "Hypertension" subtypes. SNOMED-CT's hierarchy
 expands doc_section by walking the hierarchy. SNOMED-CT hierarchy
 navigable via concept-level queries.
 
-**Dependencies:** Phase 1 (registry table). Phase 2 nice-to-have
-(discovery API makes hierarchy browsable).
-
-**Parallel-ok:** Yes with Phase 2.
+**Dependencies:** Phase 1 (done). Phase 2 nice-to-have (discovery API
+makes hierarchy browsable).
 
 ### Phase 4: Cross-concept relationship types (#54)
 
@@ -129,8 +119,6 @@ are Compound and Disease related?"
 **Dependencies:** Phase 2 (needs the discovery API to surface
 relationships).
 
-**Parallel-ok:** Yes with Phase 3.
-
 ### Phase 5: Quality and governance (#55, #56)
 
 Disambiguation ranking (score mappings by provenance and usage) and
@@ -145,8 +133,6 @@ conflicts arise.
 **Dependencies:** Phases 1-2. Benefits from Phase 3-4 data but
 doesn't require them.
 
-**Parallel-ok:** Yes — can run concurrently with Phases 3-4.
-
 ### Phase 6 (stretch): Concept-first retrieval
 
 `retrieve(concept="Condition")` without naming a source. The platform
@@ -160,37 +146,37 @@ source access unchanged.
 
 **Dependencies:** Phases 1-3 minimum.
 
-**Parallel-ok:** No — culmination of the arc.
+## What landed last session (2026-09-08)
 
----
+Phase 1 shipped: ontology_mapping table with Alembic migration, seed
+script with union-find cross-source grouping, and
+expand_doc_section_via_registry() in retrieval/api.py. 53 rows seeded
+across 5 sources. Migration and seed applied to cluster DB.
 
-## What this covers (and what it doesn't)
+**Closed:** #49 — schema and migration, #51 — retrieve uses registry
 
-**In scope:**
-- Ontology registry schema and API (#48, #49, #50)
-- Retrieve integration with registry (#51)
-- Source onboarding auto-populate (#52)
-- Hierarchical concepts (#53)
-- Cross-concept relationships (#54)
-- Disambiguation and drift detection (#55, #56)
-- Concept-first retrieval (stretch, no issue yet)
-
-**Out of scope (other epics own):**
-- Production ingestion runners (#27, platform-reliability)
-- Operator with CRDs (#25)
-- CLI/SDK peer components (#17, #18)
+**Commits:** 1462889 — feat: Add ontology_mapping registry for
+cross-source concept resolution
 
 ## Watch out for
 
 - The Alembic migration chain — check `alembic/versions/` for the
-  latest head before creating a new migration.
-- The registry seed script should be idempotent (safe to re-run).
+  latest head (currently `c7a9e2f1d834`) before creating new migrations.
+- The MCP server package (`retrieval-hub-mcp/`) has its own
+  `requirements-deploy.txt` — any new dependencies need adding there.
 - Per-source alias fallback must remain functional for sources not
-  yet in the registry.
+  yet in the registry. The registry is additive, not a replacement.
+- The integration/conftest.py `pytest_collection_modifyitems` hook
+  skips ALL tests when catalog DB is unreachable. Run tests with
+  `--ignore=tests/integration` for unit tests.
 
 ## If blocked
 
-- If Alembic migration is complex, prototype with raw SQL first
-  and formalize later.
-- Phase 2 (MCP tool) can be developed against a hardcoded registry
-  before Phase 1's migration lands.
+- If the MCP server deploy is problematic, the `describe_ontology`
+  tool can be developed and tested locally against mcp-test-mcp
+  without deploying.
+- If onboard_source.py is mid-refactor from another epic, the
+  auto-populate can be a standalone script (like the seed script)
+  that reads a source slug and populates its registry entries.
+- Phase 3 (hierarchical concepts) is independent of Phase 2's
+  MCP tool and could be started in parallel if needed.
