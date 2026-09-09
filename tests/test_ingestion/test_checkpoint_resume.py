@@ -7,13 +7,11 @@ from dataclasses import dataclass
 import pytest
 
 from retrieval_hub.ingestion.write import (
-    WriteStats,
     clear_table,
     count_rows,
     ensure_pgvector_schema,
     get_existing_chunks,
     write_chunk_batch,
-    write_chunks,
 )
 
 
@@ -143,7 +141,7 @@ class TestCheckpointResumeFlow:
 
         pending = [
             (c, e)
-            for c, e in zip(all_chunks, all_embeddings)
+            for c, e in zip(all_chunks, all_embeddings, strict=True)
             if (c.doc_url, c.chunk_index) not in existing
         ]
         assert len(pending) == 5
