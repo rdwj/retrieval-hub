@@ -1,8 +1,15 @@
 # RetrievalHub Retrieval Family Roadmap
 
+> **Stale as of 2026-09-09.** This document was written 2026-08-14.
+> The status table below is outdated: all families except external are
+> now shipped, VA CPG uses Nomic v1.5 (not PubMedBERT), and the
+> process family enum was added. The retrieval patterns and architecture
+> sections remain accurate. See `docs/onboarding-journey-va-cpg.md`
+> for the current embedding model decision.
+
 RetrievalHub supports multiple retrieval families, each with its own chunking, embedding, and query strategy. This document captures the current state, planned families, retrieval pattern taxonomy, build order, and demo dataset candidates as decided on 2026-08-14.
 
-## Current State
+## Current State (as of 2026-08-14, see note above)
 
 | Family | Status | Details |
 |---|---|---|
