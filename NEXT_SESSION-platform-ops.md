@@ -9,40 +9,60 @@ built in the ontology and graph-quality epics.
 
 Issues: #27, #66, #67, #70
 
-## Next: Deploy MCP server (#70)
+## Next: Deploy MCP server and apply CronJob (#70)
 
-Build and deploy the MCP server with all accumulated features from the
-ontology and graph-quality epics. Verify with a smoke test.
+Rebuild and deploy the MCP server to pick up all ontology and
+graph-quality features (shipped Sep 4-Sep 9, never deployed). Also
+apply the ontology doctor CronJob manifest.
+
+1. **#70 — Deploy MCP server with latest features**
+   Run `retrieval-hub-mcp/deploy.sh retrieval-hub --context=gpt-oss-120b`.
+   Last successful build was Sep 4 (build 19). Two subsequent builds
+   failed due to node ephemeral-storage pressure (BuildPodEvicted),
+   not code issues — a retry should succeed.
+
+   After deploy, smoke test:
+   - `describe_ontology` with `include_hierarchy=true` and
+     `include_relationships=true`
+   - `retrieve` with an ontology-assisted query (verify doc_section
+     expansion works)
+   - Confidence elicitation on a low-relevance query
+
+2. **Apply ontology doctor CronJob**
+   `oc apply -f deploy/openshift/retrieval-hub/ontology-doctor-cronjob.yaml --context=gpt-oss-120b -n retrieval-hub`
+   Verify the first scheduled run completes (or trigger manually:
+   `oc create job ontology-doctor-manual --from=cronjob/ontology-doctor --context=gpt-oss-120b -n retrieval-hub`).
+
+**Sequencing.** Deploy MCP server first (it's the image the CronJob
+uses). Then apply the CronJob manifest.
+
+**Constraints for the session:**
+- Build may fail again if the node is under storage pressure. If so,
+  check node capacity (`oc describe node`) and retry after cleanup.
+- The deploy script creates a filtered build context (core-lib/ +
+  mcp-server/). Do NOT use `oc start-build --from-dir=<repo-root>`.
+- The CronJob uses the same MCP server image — it must be the freshly
+  built one, not the stale Sep 4 image.
+
+**Session start protocol:**
+- Premise checks: `oc get pods --context=gpt-oss-120b -n retrieval-hub`
+  (cluster healthy? DB pod running?). `oc get builds --context=gpt-oss-120b
+  -n retrieval-hub --sort-by=.metadata.creationTimestamp | tail -3`
+  (any in-progress builds?). `git log --oneline -3` (no surprise merges?).
+- Rules with history: use `deploy.sh` for MCP builds, not raw
+  `oc start-build`. Use `127.0.0.1` not `localhost` for any port-
+  forwarded verification. Build failures on this cluster have been
+  node-pressure related, not code-related — retry before investigating.
+- Stop-and-ask before: any changes to the Containerfile or build
+  config; any `oc delete` of existing deployments or services.
+- Close ritual: session summary + `/plan-next-session platform-ops`
 
 ## Remaining epic phases
 
-### Phase 1: Deploy MCP server (#70)
-
-Rebuild and redeploy the MCP server image to pick up ontology discovery,
-hierarchy, relationships, confidence elicitation, and all other features
-that shipped since the last deploy.
-
-**Work:**
-1. Run `deploy.sh` to build and push a new image
-2. Verify the deployed server exposes `describe_ontology` with `include_hierarchy` and `include_relationships`
-3. Smoke test: `retrieve` with ontology-assisted doc_section expansion
-4. Verify confidence elicitation on low-score results
-
-**Definition of done:** Deployed MCP server returns ontology-enriched
-responses. An agent can call `describe_ontology` and get the full
-concept hierarchy.
-
-**Dependencies:** None.
-
 ### Phase 2: TEI memory leak mitigation (#66)
 
-Evaluate alternatives to the leaky TEI CPU container for batch embedding.
-
-**Work:**
-1. Benchmark vLLM embedding endpoint (v0.8.5, `--task embed`) for Nomic v1.5
-2. Compare throughput and memory stability against TEI under batch load
-3. If vLLM is viable, deploy alongside or replace TEI
-4. If not, document the workaround pattern and accept the limitation
+Evaluate vLLM embedding endpoint (v0.8.5, `--task embed`) as an
+alternative to the leaky TEI CPU container for batch embedding.
 
 **Definition of done:** Batch ingestion of 1000+ chunks completes
 without pod OOM restarts, or the limitation is documented with a
@@ -55,44 +75,47 @@ viable workaround.
 Add checkpoint-resume to the ingestion pipeline so long runs survive
 interruptions.
 
-**Work:**
-1. Save intermediate embeddings to disk after each batch
-2. Resume from last completed batch on restart
-3. Add retry logic for DB writes
-4. Test with a simulated port-forward drop
-
 **Definition of done:** An ingestion run interrupted at 50% resumes
 from the checkpoint without re-embedding completed chunks.
 
-**Dependencies:** Benefits from Phase 2 (stable embedding endpoint
-reduces the need for checkpointing) but not gated on it.
+**Dependencies:** Benefits from Phase 2 (stable embedding endpoint).
 
 ### Phase 4: Production ingestion runners (#27)
 
-Deploy ingestion as Tekton pipelines or Kubernetes Jobs running
-in-cluster.
-
-**Work:**
-1. Write Job manifests for each ingestion script
-2. Configure in-cluster DB and embedding endpoint connections
-3. Add CronJob triggers for sources with refresh cadence
-4. Test with one source end-to-end
+Deploy ingestion as Tekton pipelines or Kubernetes Jobs in-cluster.
 
 **Definition of done:** At least one source can be re-ingested via
 `oc create job` without local port-forwards.
 
-**Dependencies:** Phase 2 (embedding endpoint must be stable for
-in-cluster use). Phase 3 (checkpoint-resume for long jobs).
+**Dependencies:** Phase 2 + Phase 3.
 
-## What this covers (and what it doesn't)
+## What landed last session (2026-09-09)
 
-**In scope:**
-- #27 Production ingestion runners
-- #66 TEI memory leak
-- #67 Ingestion checkpoint-resume
-- #70 Deploy MCP server
+Ontology epic closed. Doctor (9 checks, CLI, 22 tests), all 11
+sources onboarded, CronJob manifest written, retro completed. Three
+completed epics archived. Six new issues filed (#65-70). Three new
+epic files bootstrapped (platform-ops, ontology-v2, platform-quality).
 
-**Out of scope (other epics own):**
-- Ontology v2 (NEXT_SESSION-ontology-v2.md): #61-64, #68
-- Platform quality (NEXT_SESSION-platform-quality.md): #65
-- Auth (#24, #69), SDK (#17), CLI (#18), Grafana (#23), Operator (#25): future/unepiced
+**Commits:** 10b0a3b..961a64b (main)
+**Closed:** #48 (umbrella), #56, #58, #59, #60
+
+## Watch out for
+
+- Build failures on gpt-oss-120b have been ephemeral-storage related
+  (builds 20, 21, 22 all BuildPodEvicted). Retry before investigating.
+- The deploy.sh script (~34 min for build 19) takes significant time.
+  Start the build early in the session.
+- OpenShift route path must NOT have a trailing slash for FastMCP
+  (path: /mcp, not /mcp/). Current manifest is correct.
+- The CronJob runs weekly (Mon 06:23 UTC). First scheduled run after
+  applying will be the next Monday.
+
+## If blocked
+
+- If the cluster is down or builds keep failing, work on Phase 2
+  (TEI evaluation) or Phase 3 (ingestion checkpointing) locally —
+  both are code-only work that doesn't need the cluster.
+- If the MCP server deploys but smoke tests fail, check the
+  `FastMCP cache_ttl` behavior — stale tool lists from the prior
+  image can persist (#37, closed but the caching behavior is still
+  relevant post-deploy).
