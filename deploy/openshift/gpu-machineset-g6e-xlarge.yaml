@@ -1,0 +1,88 @@
+# Single-GPU MachineSet for embedding workloads (g6e.xlarge: 1x L40S, 4 vCPU, 32 GiB)
+#
+# Separate from the quad-GPU g6e.12xlarge used by the LLM predictor.
+# Hosts vLLM embedding service for nomic-embed-text-v1.5.
+---
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  annotations:
+    machine.openshift.io/GPU: "1"
+    machine.openshift.io/memoryMb: "32768"
+    machine.openshift.io/vCPU: "4"
+  labels:
+    machine.openshift.io/cluster-api-cluster: cluster-z9hbt-2hdjl
+  name: gpu-g6e1-cluster-z9hbt-2hdjl-worker-us-east-2c
+  namespace: openshift-machine-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: cluster-z9hbt-2hdjl
+      machine.openshift.io/cluster-api-machineset: gpu-g6e1-cluster-z9hbt-2hdjl-worker-us-east-2c
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: cluster-z9hbt-2hdjl
+        machine.openshift.io/cluster-api-machine-role: worker
+        machine.openshift.io/cluster-api-machine-type: worker
+        machine.openshift.io/cluster-api-machineset: gpu-g6e1-cluster-z9hbt-2hdjl-worker-us-east-2c
+    spec:
+      metadata: {}
+      providerSpec:
+        value:
+          ami:
+            id: ami-066f6520fec24bf28
+          apiVersion: machine.openshift.io/v1beta1
+          blockDevices:
+            - ebs:
+                encrypted: true
+                iops: 0
+                kmsKey:
+                  arn: ""
+                volumeSize: 200
+                volumeType: gp3
+          credentialsSecret:
+            name: aws-cloud-credentials
+          deviceIndex: 0
+          iamInstanceProfile:
+            id: cluster-z9hbt-2hdjl-worker-profile
+          instanceType: g6e.xlarge
+          kind: AWSMachineProviderConfig
+          placement:
+            availabilityZone: us-east-2c
+            region: us-east-2
+          securityGroups:
+            - filters:
+                - name: tag:Name
+                  values:
+                    - cluster-z9hbt-2hdjl-node
+            - filters:
+                - name: tag:Name
+                  values:
+                    - cluster-z9hbt-2hdjl-lb
+          subnet:
+            filters:
+              - name: tag:Name
+                values:
+                  - cluster-z9hbt-2hdjl-subnet-private-us-east-2c
+          tags:
+            - name: kubernetes.io/cluster/cluster-z9hbt-2hdjl
+              value: owned
+            - name: Stack
+              value: project ocp4-cluster-z9hbt
+            - name: env_type
+              value: ocp4-cluster
+            - name: guid
+              value: z9hbt
+            - name: owner
+              value: unknown
+            - name: platform
+              value: RHPDS
+            - name: uuid
+              value: d955ab2d-0ae1-5e3a-8a26-cac06601b441
+          userDataSecret:
+            name: worker-user-data
+      taints:
+        - effect: NoSchedule
+          key: nvidia.com/gpu

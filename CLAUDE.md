@@ -218,3 +218,38 @@ script at `/tmp/pf-watchdog.sh` (created during sessions) alongside
 ingestion. If the ingestion fails after exhausting 10 retries, restart
 it — no data is written to the vectors DB until all chunks are embedded,
 so a fresh run is safe.
+
+### vLLM v0.8.5 NomicBert rope_scaling bug workaround
+
+vLLM v0.8.5's `NomicBertEmbeddingModel` unconditionally creates a
+`rope_scaling` dict with `factor: config.rotary_scaling_factor`, even
+when `rotary_scaling_factor` is None (its default). This crashes
+`DynamicNTKScalingRotaryEmbedding` with `TypeError: unsupported
+operand type(s) for *: 'int' and 'NoneType'`.
+
+The workaround is `--hf-overrides '{"rotary_scaling_factor": 1.0}'`
+which makes the dynamic scaling a no-op (factor 1.0 = no scaling)
+while avoiding the None crash. This is applied in the
+`vllm-nomic.yaml` deployment manifest.
+
+**How to apply:** When deploying nomic-embed-text-v1.5 on vLLM
+v0.8.5, always include `--hf-overrides '{"rotary_scaling_factor": 1.0}'`
+in the serve args. Also use `Recreate` deployment strategy since
+single-GPU nodes can't surge (old pod holds the GPU, blocking the
+new pod from scheduling).
+
+### Single-GPU nodes for embedding workloads
+
+The gpt-oss-120b cluster's quad-GPU g6e.12xlarge node is fully consumed
+by the LLM predictor (4 GPUs, 96Gi). Embedding models like
+nomic-embed-text-v1.5 only need 1 GPU. A separate g6e.xlarge
+MachineSet (`gpu-g6e1-*`) provides a single L40S GPU for embedding
+at ~$1.25/hr instead of ~$6.50/hr for a quad-GPU node.
+
+The MachineSet manifest is at
+`deploy/openshift/gpu-machineset-g6e-xlarge.yaml`.
+
+**How to apply:** When the embedding workload doesn't need GPUs
+(e.g., vLLM is down), scale the g6e1 MachineSet to 0 to save cost:
+`oc scale machineset gpu-g6e1-cluster-z9hbt-2hdjl-worker-us-east-2c
+--replicas=0 -n openshift-machine-api --context=gpt-oss-120b`
