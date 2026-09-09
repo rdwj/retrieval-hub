@@ -1,12 +1,14 @@
 # Next Session -- Platform Ops
 
-## Epic: Operational reliability and deployment catchup
+## Epic: Operational reliability and deployment catchup — COMPLETE
 
 Ship the accumulated features to the deployed MCP server, fix the
 recurring TEI/ingestion pain points, and set up production ingestion
 runners.
 
-Issues: #27 (open), #66 (closed), #67 (closed), #70 (closed)
+Issues: #27 (closed), #66 (closed), #67 (closed), #70 (closed)
+
+All phases complete. Run `/retro platform-ops` to close the epic.
 
 ## Next: Production ingestion runners (#27) — final epic phase
 
