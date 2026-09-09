@@ -10,15 +10,15 @@ in structural order.
 
 **Yes, with qualifications.** Embedding the entity name and filtering to
 one document with `WHERE doc_title = %s` produces semantically relevant
-results when using the correct embedding model (PubMedBERT for VA CPG
-data). Scores range from 0.39-0.56 for entity names like "SSRIs" and
-0.52 for specific drugs like "prazosin."
+results when using the correct embedding model. Scores range from
+0.39-0.56 for entity names like "SSRIs" and 0.52 for specific drugs
+like "prazosin."
 
 The critical prerequisite is using the same embedding model that produced
 the stored vectors. The recipe version's `embedding.model` field
-(retrieved from the catalog DB) must be used — not hardcoded. The VA CPG
-data uses `NeuML/pubmedbert-base-embeddings` with no query/document
-prefix, not the Nomic v1.5 model used by the code source.
+(retrieved from the catalog DB) must be used -- not hardcoded. VA CPG
+data currently uses `nomic-ai/nomic-embed-text-v1.5` with
+`search_document:` / `search_query:` prefixes.
 
 When ordered by `chunk_index`, the top-20 vector results for "SSRIs"
 trace a recognizable pathway through the PTSD CPG: treatment selection
