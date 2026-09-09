@@ -1,91 +1,65 @@
-# Session Summary: Family-Aware Hierarchy Expansion + Ontology Doctor Design
+# Session Summary -- 2026-09-08 - Ontology - Family-aware hierarchy expansion + doctor design
 
-**Date**: 2026-09-08 (second session)
-**Epic**: Ontology (#48)
-**Issues**: #57
+**Plan:** NEXT_SESSION-ontology.md / #57   **Commits:** 2c7dbde..466892d (main)
+**Deployed:** none   **Model:** Opus 4.6
 
-## What shipped
+## Plan vs. actual
 
-### Family-aware hierarchy expansion (Phase 5c)
+Planned: fix hierarchy expansion for document-family sources, design /ontology-doctor skill.
+Shipped: both tracks. Scope stayed tight.
 
-The benchmark (earlier session) showed hierarchy expansion had a 0% win
-rate because child concept names were used as `doc_section` filters for
-all sources. Document-family sources use structural headings as
-doc_section values, not concept names, so the filter matched nothing.
+## Shipped
 
-**Fix**: Introduced `ExpansionResult` dataclass that separates
-`doc_section` filter values from `query_terms` (appended to query text
-before embedding). `expand_doc_section_via_registry` now accepts a
-`source_family` parameter and routes hierarchy children per family:
+- `2c7dbde` feat: Family-aware hierarchy expansion. `ExpansionResult` dataclass separates
+  doc_section filter values from query_terms. `expand_doc_section_via_registry` routes hierarchy
+  children by source family. Benchmark's `run_hierarchy` updated to be family-aware.
+  Hierarchy win rate: 0% -> 100%. Overall: 58% -> 91.7%.
+- `d59f72f` docs: /ontology-doctor skill spec. 9-check catalog, report-first with --apply.
+- `466892d` docs: Session summary and NEXT_SESSION update.
 
-- Graph sources: children go into `doc_section` filter
-- Document sources: children go into `query_terms`
+## Verification & confidence
 
-Flat/alias expansion (cross-source name resolution) is family-agnostic
-and always goes into `doc_section`.
+- Unit tests: 28 targeted tests (8 updated, 4 new family-aware tests), all pass.
+- Full suite: 515 pass, 0 fail, 0 skip.
+- Benchmark: full 12-query run against cluster data (real embeddings, real DB). Hierarchy
+  dimension went from 0%/−4.5 to 100%/+10.2 lift. Cross-source and relationship unchanged.
+- Confidence: **high** for the hierarchy fix (proven against live data with before/after
+  measurement). Medium for the doctor spec (design only, no implementation to verify).
 
-The benchmark script's `run_hierarchy` function was also updated to be
-family-aware when simulating agent behavior.
+## Judgment calls & deviations
 
-**Results**:
+- Benchmark's `run_hierarchy` needed family-aware updates too (not just `expand_doc_section_via_registry`).
+  The benchmark simulates agent behavior at a higher level than the expansion function, so it
+  needed its own family dispatch when constructing per-child queries. This was discovered during
+  the first smoke test and fixed.
+- NEXT_SESSION doc claimed `refine()` also calls `expand_doc_section_via_registry`. Verified it
+  does not. Corrected in the updated NEXT_SESSION.
+- Default to GRAPH behavior when source_family is unknown (backward compat for callers that
+  don't pass family explicitly). Reviewer confirmed this is safe.
 
-| Dimension | Before | After |
-|-----------|--------|-------|
-| Cross-source | 80% win, +6.2 lift | 80% win, +6.2 lift |
-| Hierarchy | 0% win, -4.5 lift | 100% win, +10.2 lift |
-| Relationship | 100% win, +7.0 lift | 100% win, +7.0 lift |
-| Overall | 58% win, +2.8 lift | 91.7% win, +7.8 lift |
+## Backlog delta
 
-Authority score correlation improved from r=0.04 (not significant)
-to r=0.36, p=0.006 (significant), likely due to larger hit sample size.
+Filed: none. Closed: none. Deferred: #56 (drift detection) pending doctor implementation.
 
-**Files changed**:
-- `src/retrieval_hub/retrieval/api.py` (ExpansionResult, family-aware expansion, query() integration)
-- `tests/test_ontology/test_concept_hierarchy.py` (4 new family-aware tests)
-- `tests/test_retrieval/test_registry_expansion.py` (assertions updated)
-- `scripts/eval_ontology_benchmark.py` (family-aware hierarchy runner, monkey-patch update)
-- `docs/ontology-benchmark-findings.md` (updated with fix results)
+## Drift & forward-collisions
 
-**Commits**: 2c7dbde
+- Backward: none.
+- Forward: the ontology doctor spec (Phase 5d) overlaps with #56 (drift detection). The doctor's
+  stale mapping check (check 2) IS the drift detection use case. NEXT_SESSION notes this: the
+  CronJob would run the doctor in --skip-retrieval mode. No comment needed on #56 since it's
+  already documented in the planning file.
 
-### Ontology doctor skill spec (Phase 5d design)
+## For the reviewer
 
-Designed `/ontology-doctor` Claude Code skill with 9-check catalog:
+- Sanity-check: the doc-family set is defined inline in `api.py` (lines 268-273) and duplicated
+  as `_DOC_FAMILIES` in the benchmark. If a new document family is added, both need updating.
+  Worth extracting to a constant in `enums.py`?
+- Thin verification: no unit test for `query()` actually appending `query_terms` to query text.
+  The benchmark validates this end-to-end but a targeted unit test would be more robust.
+- Wants guidance: none.
 
-1. Missing mappings (static)
-2. Stale mappings (static + vectors DB)
-3. Family mismatches (static)
-4. Score clustering (static)
-5. Coverage gaps (static)
-6. Dead mappings (requires embedding service)
-7. Duplicate mappings (static)
-8. Orphan concepts (static)
-9. Dangling relationship references (static)
+## Risks / watch-fors
 
-Report-first with `--apply` for safe fixes (exact canonical name
-matches only, authority scores re-computed after adding). Direct DB
-access via port-forward. Embedding service optional (`--skip-retrieval`).
-
-**Commits**: d59f72f
-
-## What didn't ship
-
-- Ontology doctor implementation (spec only, follow-on session)
-- Authority score formula improvements (recommendation 2 from findings)
-
-## Key decisions
-
-- `query()` signature unchanged. Expansion is internal logic.
-- Flat expansion stays family-agnostic. Only hierarchy expansion
-  routes by family.
-- Default to GRAPH behavior when source_family is unknown (backward
-  compat for callers that don't pass family explicitly).
-
-## Review findings (non-blocking)
-
-- NEXT_SESSION doc incorrectly claimed `refine()` calls
-  `expand_doc_section_via_registry`. It doesn't.
-- Doc-family set duplicated between api.py (inline) and benchmark
-  (_DOC_FAMILIES). Acceptable for a script.
-- No unit test for query() appending query_terms to query text
-  (covered by benchmark end-to-end validation).
+- Authority score correlation improved (r=0.36, p=0.006) but the score range is still narrow
+  (1.04-1.248). The score formula needs new signals (formal terminology, entity count) to
+  provide real differentiation. This is recommendation 2 in the findings doc.
