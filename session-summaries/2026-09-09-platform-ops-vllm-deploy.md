@@ -22,33 +22,51 @@
    2000 chunks in 25.5s (78.5 chunks/sec). Zero pod restarts.
    TEI OOM'd every ~25 min under the same load.
 
-4. **Worker MachineSet EBS updated** — us-east-2b MachineSet changed
-   from 100GB gp2 to 200GB gp3 for future nodes. Existing nodes not
-   replaced (deferred to maintenance window).
+4. **Worker node scaling** — us-east-2b MachineSet updated to 200GB
+   gp3 for new nodes, then scaled from 2 to 3 replicas. New 200GB
+   node joined the cluster; existing 100GB nodes stay as-is.
 
-## Manifests created
+5. **Model endpoint registry updated** — nomic endpoint switched from
+   TEI to vLLM (`vllm-nomic-embedding:8000`). Snowflake endpoint
+   updated to khsm8 external cluster. All source recipes now include
+   `embedding.model` so the MCP server routes queries through served
+   endpoints instead of loading models locally (which would OOM the
+   1Gi pod).
 
-- `deploy/openshift/gpu-machineset-g6e-xlarge.yaml`
-- `deploy/openshift/retrieval-hub/embedding/vllm-nomic.yaml`
-- `scripts/test_batch_embed_vllm.py`
+6. **Nomic TEI retired** — Scaled to 0 replicas. vLLM handles all
+   nomic query-time and batch embedding. PubMedBERT TEI kept running
+   for va-cpg and pubmed-hypertension sources.
+
+## Manifests created/modified
+
+- `deploy/openshift/gpu-machineset-g6e-xlarge.yaml` — new
+- `deploy/openshift/retrieval-hub/embedding/vllm-nomic.yaml` — new
+- `deploy/openshift/retrieval-hub/embedding/tei-nomic.yaml` — retired (replicas: 0)
+- `scripts/test_batch_embed_vllm.py` — new
+
+## Database changes (cluster only, not in code)
+
+- `model_endpoint`: nomic → vLLM URL, snowflake → khsm8 URL
+- `recipe_version`: created for 10 sources missing recipes, linked
+  `embedding.model` so registry lookup works at query time
 
 ## Key decisions
 
 - g6e.xlarge (1 GPU) over g6e.12xlarge (4 GPUs) to avoid competing
   with the LLM predictor
-- Deferred worker node replacement to avoid StatefulSet disruption
+- Added 3rd worker node instead of replacing existing ones
 - Added lessons to CLAUDE.md: vLLM rope_scaling workaround,
   single-GPU node strategy
 
 ## Issue status
 
-- #66: Partially done — vLLM deployed and tested, EBS config edited
-  but nodes not replaced yet
+- #66: Done — vLLM deployed, tested, registry updated, TEI retired,
+  worker node added
 
 ## Cluster state at session end
 
 - `vllm-nomic-embedding`: 1/1 Running, 0 restarts, g6e.xlarge GPU node
+- `retrieval-hub-embedding-nomic` (TEI): 0 replicas (retired)
 - All retrieval-hub services: healthy
-- 5 worker nodes (4 original + 1 new GPU)
-- MachineSet count: 2 regular (us-east-2b), 1 regular (us-east-2c),
-  1 quad-GPU (us-east-2c), 1 single-GPU (us-east-2c, new)
+- 6 worker nodes (3 regular in us-east-2b [1 with 200GB], 1 regular
+  in us-east-2c, 1 quad-GPU, 1 single-GPU)

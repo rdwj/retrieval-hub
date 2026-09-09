@@ -1,6 +1,8 @@
 # Nomic v1.5 embedding model service — Text Embeddings Inference (TEI).
 #
-# VA CPG source uses this model (decided via eval sweep, Phase 3).
+# RETIRED: Replaced by vLLM GPU serving (vllm-nomic.yaml) as of 2026-09-09.
+# Scaled to 0 replicas. Keep manifest for reference; TEI had a memory leak
+# that caused OOM restarts every ~25 min under batch load.
 # Endpoint:      http://retrieval-hub-embedding-nomic:8080
 # API:           POST /embed  {"inputs": ["text1", "text2"]}
 ---
@@ -30,7 +32,7 @@ metadata:
     component: embedding-nomic
     model: nomic-v1.5
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: retrieval-hub
