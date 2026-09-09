@@ -1,0 +1,72 @@
+# Ingestion Job — re-ingest the Hetionet hypertension subgraph.
+#
+# Creates chunks in pgvector and graph structure in Memgraph.
+# Data is baked into the image (700KB, two TSV files).
+#
+# Usage:
+#   oc create -f ingestion-job-hetionet.yaml -n retrieval-hub --context=gpt-oss-120b
+#
+# Monitor:
+#   oc logs job/ingest-hetionet -f -n retrieval-hub --context=gpt-oss-120b
+#
+# Re-run (delete old Job first):
+#   oc delete job ingest-hetionet -n retrieval-hub --context=gpt-oss-120b
+#   oc create -f ingestion-job-hetionet.yaml -n retrieval-hub --context=gpt-oss-120b
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ingest-hetionet
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: ingestion
+    source: hetionet-hypertension
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app: retrieval-hub
+        component: ingestion
+        source: hetionet-hypertension
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: ingest
+        image: image-registry.openshift-image-registry.svc:5000/retrieval-hub/retrieval-hub-ingestion:latest
+        command: ["python"]
+        args:
+        - "scripts/ingest_hetionet.py"
+        - "--db-url"
+        - "$(RETRIEVAL_HUB_DB_URL)"
+        - "--vectors-db-url"
+        - "$(RETRIEVAL_HUB_VECTORS_DB_URL)"
+        - "--data-dir"
+        - "/opt/app-root/src/data/hetionet"
+        - "--embedding-endpoint"
+        - "http://vllm-nomic-embedding:8000"
+        - "--embedding-batch-size"
+        - "32"
+        - "--resume"
+        env:
+        - name: RETRIEVAL_HUB_DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-pg
+              key: RETRIEVAL_HUB_DB_URL
+        - name: RETRIEVAL_HUB_VECTORS_DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-hub-pg
+              key: RETRIEVAL_HUB_VECTORS_DB_URL
+        - name: MEMGRAPH_BOLT_URI
+          value: "bolt://memgraph:7687"
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 250m
+          limits:
+            memory: 512Mi
+            cpu: 500m

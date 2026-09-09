@@ -253,3 +253,21 @@ The MachineSet manifest is at
 (e.g., vLLM is down), scale the g6e1 MachineSet to 0 to save cost:
 `oc scale machineset gpu-g6e1-cluster-z9hbt-2hdjl-worker-us-east-2c
 --replicas=0 -n openshift-machine-api --context=gpt-oss-120b`
+
+### Lazy imports for optional chunker dependencies
+
+The `code_ast` chunker requires `tree-sitter` and `tree-sitter-python`,
+which are not in the core library's dependencies (they're large C
+extensions only needed for the `code` source family). The chunking
+`__init__.py` must not eagerly import `code_ast`, and `pipeline.py`
+must import it lazily inside the `_CODE_FAMILIES` branch.
+
+The same pattern applies to any future chunker that pulls in heavy or
+optional dependencies (e.g., Docling for document parsing). Keep
+top-level imports limited to modules whose dependencies are in
+`pyproject.toml[dependencies]`.
+
+**How to apply:** When adding a new chunker that requires dependencies
+not in the core library's `dependencies` list, use a lazy import inside
+the family-specific branch in `pipeline.py` and do not re-export from
+`chunking/__init__.py`.

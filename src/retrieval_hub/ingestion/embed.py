@@ -213,13 +213,6 @@ class ChunkEmbedder:
                 vecs = _remote_embed(self._endpoint, self.model_name, batch)
                 all_vectors.extend(vecs)
                 batch_num += 1
-                if i + self.batch_size < len(prefixed):
-                    # Periodic cooldown to prevent TEI memory buildup
-                    if batch_num % 50 == 0:
-                        logger.info("embed.cooldown after %d batches", batch_num)
-                        time.sleep(5.0)
-                    else:
-                        time.sleep(0.5)
             if self._remote_dim is None and all_vectors:
                 self._remote_dim = len(all_vectors[0])
             return all_vectors

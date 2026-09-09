@@ -26,7 +26,6 @@ from typing import Any
 
 from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
 from retrieval_hub.ingestion.chunking.bioc_section import chunk_bioc_document
-from retrieval_hub.ingestion.chunking.code_ast import chunk_code_files
 from retrieval_hub.ingestion.chunking.token_fixed import Chunk, chunk_document
 from retrieval_hub.ingestion.embed import ChunkEmbedder
 from retrieval_hub.ingestion.fetch import FetchedDocument
@@ -340,6 +339,8 @@ def ingest(
             chunks.extend(doc_chunks)
 
     elif family in _CODE_FAMILIES:
+        from retrieval_hub.ingestion.chunking.code_ast import chunk_code_files
+
         code_files = _load_code_files(data_dir)
         doc_count = len(code_files)
         chunks = chunk_code_files(

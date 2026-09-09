@@ -1,0 +1,41 @@
+# BuildConfig for the ingestion Job runner image.
+#
+# Uses binary (local directory) input — deploy.sh stages the build context
+# and runs `oc start-build --from-dir`.
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: retrieval-hub-ingestion
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: ingestion
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: retrieval-hub-ingestion:latest
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  resources:
+    limits:
+      memory: 2Gi
+      cpu: "2"
+    requests:
+      memory: 1Gi
+      cpu: "1"
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: retrieval-hub-ingestion
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: ingestion

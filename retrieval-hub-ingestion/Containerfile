@@ -1,0 +1,36 @@
+# Ingestion Job runner — executes ingest_*.py scripts in-cluster.
+#
+# Installs the core library (no [ingest] extras — uses remote embedding
+# via vLLM, not local sentence-transformers). Source data is either baked
+# into the image at build time or mounted via PVC.
+#
+# Build (on Mac, for OpenShift):
+#   podman build --platform linux/amd64 -t retrieval-hub-ingestion:latest \
+#     -f Containerfile .
+
+FROM registry.redhat.io/ubi9/python-311:latest
+
+LABEL name="retrieval-hub-ingestion" \
+      summary="RetrievalHub ingestion Job runner" \
+      io.k8s.description="Runs ingestion scripts against in-cluster PG + vLLM." \
+      io.openshift.tags="retrieval-hub,ingestion,python"
+
+WORKDIR /opt/app-root/src
+
+# --- Core library ------------------------------------------------------------
+COPY --chown=1001:0 core-lib/ ./core-lib/
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir ./core-lib/
+
+# --- Ingestion scripts -------------------------------------------------------
+COPY --chown=1001:0 scripts/ ./scripts/
+
+# --- Source data (optional — added per-source by deploy.sh) ------------------
+COPY --chown=1001:0 data/ ./data/
+
+RUN find . -name "*.py" -exec chmod 644 {} \;
+
+USER 1001
+
+# No default CMD — the Job spec overrides with the appropriate ingest script.
+CMD ["python", "-c", "import retrieval_hub; print('ingestion image ready:', retrieval_hub.__version__)"]
