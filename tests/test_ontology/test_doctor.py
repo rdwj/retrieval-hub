@@ -98,7 +98,7 @@ def _session_with_queries(*query_results):
 
 def test_missing_mappings_all_mapped():
     src = _make_source("s", semantic_context={
-        "entities": [{"entity_type": "Condition"}, {"entity_type": "Medication"}],
+        "entities": [{"name": "Condition", "entity_type": "condition"}, {"name": "Medication", "entity_type": "treatment"}],
     })
     session = _session_with_queries(
         [src],
@@ -110,9 +110,9 @@ def test_missing_mappings_all_mapped():
 def test_missing_mappings_partial():
     src = _make_source("s", semantic_context={
         "entities": [
-            {"entity_type": "Condition"},
-            {"entity_type": "Medication"},
-            {"entity_type": "Procedure"},
+            {"name": "Condition", "entity_type": "condition"},
+            {"name": "Medication", "entity_type": "treatment"},
+            {"name": "Procedure", "entity_type": "procedure"},
         ],
     })
     session = _session_with_queries(
@@ -128,7 +128,7 @@ def test_missing_mappings_partial():
 
 def test_missing_mappings_zero_mapped():
     src = _make_source("s", semantic_context={
-        "entities": [{"entity_type": "Condition"}],
+        "entities": [{"name": "Condition", "entity_type": "condition"}],
     })
     session = _session_with_queries([src], [])
     findings = check_missing_mappings(session)
@@ -138,7 +138,7 @@ def test_missing_mappings_zero_mapped():
 
 def test_missing_mappings_retired_excluded_by_default():
     src = _make_source("s", status="retired", semantic_context={
-        "entities": [{"entity_type": "Condition"}],
+        "entities": [{"name": "Condition", "entity_type": "condition"}],
     })
     session = _session_with_queries([src])
     assert check_missing_mappings(session) == []
@@ -146,7 +146,7 @@ def test_missing_mappings_retired_excluded_by_default():
 
 def test_missing_mappings_retired_included():
     src = _make_source("s", status="retired", semantic_context={
-        "entities": [{"entity_type": "Condition"}],
+        "entities": [{"name": "Condition", "entity_type": "condition"}],
     })
     session = _session_with_queries([src], [])
     findings = check_missing_mappings(session, include_retired=True)
@@ -161,7 +161,7 @@ def test_missing_mappings_no_semantic_context():
 
 def test_missing_mappings_source_slug_filter():
     src = _make_source("target", semantic_context={
-        "entities": [{"entity_type": "Condition"}],
+        "entities": [{"name": "Condition", "entity_type": "condition"}],
     })
     session = _session_with_queries(
         [src],

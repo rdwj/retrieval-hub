@@ -25,7 +25,7 @@ def check_missing_mappings(
     source_slug: str | None = None,
     include_retired: bool = False,
 ) -> list[dict[str, Any]]:
-    """Find source entity types that have no ontology mapping."""
+    """Find source entities that have no ontology mapping."""
     query = session.query(Source)
     if source_slug is not None:
         query = query.filter(Source.slug == source_slug)
@@ -42,8 +42,8 @@ def check_missing_mappings(
         if not entities:
             continue
 
-        entity_types = {e["entity_type"] for e in entities if "entity_type" in e}
-        if not entity_types:
+        entity_names = {e["name"] for e in entities if "name" in e}
+        if not entity_names:
             continue
 
         mapped_local_names = {
@@ -53,7 +53,7 @@ def check_missing_mappings(
             )
         }
 
-        unmapped = sorted(entity_types - mapped_local_names)
+        unmapped = sorted(entity_names - mapped_local_names)
         if not unmapped:
             continue
 
@@ -62,7 +62,7 @@ def check_missing_mappings(
             "source_slug": source.slug,
             "severity": "INFO" if not mapped_local_names else "WARN",
             "mapped_count": len(mapped_local_names),
-            "total_entity_types": len(entity_types),
+            "total_entities": len(entity_names),
             "unmapped": unmapped,
         })
 

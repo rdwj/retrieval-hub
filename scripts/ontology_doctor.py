@@ -147,11 +147,11 @@ def _fmt_finding(check: str, f: dict) -> list[str]:
     """Return indented lines for a single finding."""
     sev = f.get("severity", "INFO")
     if check == "missing_mappings":
-        total = f['total_entity_types']
+        total = f['total_entities']
         unmapped_n = len(f['unmapped'])
         mapped_n = total - unmapped_n
         return [
-            f"  {f['source_slug']}: {mapped_n} of {total} entity types mapped "
+            f"  {f['source_slug']}: {mapped_n} of {total} entities mapped "
             f"({f['mapped_count']} mapping rows) [{sev}]",
             f"    Unmapped: {', '.join(f['unmapped'])}",
         ]
