@@ -56,6 +56,10 @@ def main() -> None:
         "--embedding-endpoint",
         help="Override embedding endpoint URL (bypasses model registry)",
     )
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="Resume an interrupted run (skip already-embedded chunks)",
+    )
     args = parser.parse_args()
 
     if not args.data_dir.exists():
@@ -106,6 +110,7 @@ def main() -> None:
         embedding_model="nomic-ai/nomic-embed-text-v1.5",
         embedding_endpoint=args.embedding_endpoint,
         embedding_batch_size=args.embedding_batch_size,
+        resume=args.resume,
         renderer="fhir",
     )
 

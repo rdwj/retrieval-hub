@@ -33,7 +33,12 @@ from retrieval_hub.ingestion.fetch import FetchedDocument
 from retrieval_hub.ingestion.normalize import normalize_document
 from retrieval_hub.ingestion.parse import parse_document
 from retrieval_hub.ingestion.register import RegistrationResult, register_document_source
-from retrieval_hub.ingestion.write import ensure_pgvector_schema, write_chunks
+from retrieval_hub.ingestion.write import (
+    clear_table,
+    ensure_pgvector_schema,
+    get_existing_chunks,
+    write_chunk_batch,
+)
 from retrieval_hub.model_registry import try_resolve_endpoint
 from retrieval_hub.models.enums import SourceFamily
 
@@ -215,6 +220,8 @@ def ingest(
     usage_rules: dict[str, Any] | None = None,
     embedding_batch_size: int = 2,
     renderer: str = "default",
+    resume: bool = False,
+    checkpoint_batch_size: int = 64,
 ) -> RegistrationResult:
     """Run the full ingestion pipeline: data directory to registered source.
 
@@ -255,6 +262,13 @@ def ingest(
         Optional (llm_family_pattern, prompt_text) pairs.
     usage_rules:
         Optional usage rules dict for the source.
+    resume:
+        If True, skip chunks already written to the vectors table from
+        a previous interrupted run. If False (default), clear the table
+        before writing.
+    checkpoint_batch_size:
+        Number of chunks to embed and write per checkpoint batch.
+        Controls how much work is lost on interruption.
     """
     data_dir = Path(data_dir)
     owner_contacts = owner_contacts or []
@@ -378,7 +392,7 @@ def ingest(
         slug, doc_count, len(chunks),
     )
 
-    # --- Stage 5: Embed ---
+    # --- Stage 5+6: Embed and write incrementally ---
     if embedding_endpoint is None:
         embedding_endpoint = try_resolve_endpoint(db_url, embedding_model)
 
@@ -388,15 +402,38 @@ def ingest(
         document_prefix=document_prefix,
         batch_size=embedding_batch_size,
     )
-    embeddings = embedder.embed_chunks(chunks)
     dimension = embedder.dimension
 
-    # --- Stage 6: Write to pgvector ---
     ensure_pgvector_schema(vectors_db_url, table_name, dimension)
-    stats = write_chunks(vectors_db_url, table_name, chunks, embeddings)
+
+    if resume:
+        existing = get_existing_chunks(vectors_db_url, table_name)
+        pending = [c for c in chunks
+                   if (c.doc_url, c.chunk_index) not in existing]
+        logger.info(
+            "pipeline.ingest resume slug=%s skipped=%d pending=%d",
+            slug, len(chunks) - len(pending), len(pending),
+        )
+    else:
+        clear_table(vectors_db_url, table_name)
+        pending = list(chunks)
+
+    rows_written = 0
+    total_tokens = 0
+    for batch_start in range(0, len(pending), checkpoint_batch_size):
+        batch = pending[batch_start:batch_start + checkpoint_batch_size]
+        batch_embeddings = embedder.embed_chunks(batch)
+        write_chunk_batch(vectors_db_url, table_name, batch, batch_embeddings)
+        rows_written += len(batch)
+        total_tokens += sum(c.token_count for c in batch)
+        logger.info(
+            "pipeline.ingest checkpoint slug=%s %d/%d chunks written",
+            slug, rows_written, len(pending),
+        )
+
     logger.info(
         "pipeline.ingest write table=%s rows=%d tokens=%d",
-        stats.table, stats.rows_written, stats.total_tokens,
+        table_name, rows_written, total_tokens,
     )
 
     # --- Stage 7: Register in catalog ---

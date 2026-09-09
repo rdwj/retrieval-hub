@@ -135,6 +135,72 @@ def write_chunks(
     )
 
 
+def clear_table(vectors_db_url: str, table: str) -> None:
+    """Delete all rows from the pgvector table."""
+    import psycopg
+
+    with psycopg.connect(_psycopg_url(vectors_db_url)) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"DELETE FROM {table}")
+        conn.commit()
+    logger.info("write.clear_table table=%s", table)
+
+
+def get_existing_chunks(vectors_db_url: str, table: str) -> set[tuple[str, int]]:
+    """Return (doc_url, chunk_index) pairs already in the table."""
+    import psycopg
+
+    with psycopg.connect(_psycopg_url(vectors_db_url)) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT doc_url, chunk_index FROM {table}")
+            return {(row[0], row[1]) for row in cur.fetchall()}
+
+
+def write_chunk_batch(
+    vectors_db_url: str,
+    table: str,
+    chunks: list[Chunk],
+    embeddings: list[list[float]],
+) -> int:
+    """Write a batch of chunks + embeddings to pgvector. Returns rows written."""
+    import uuid as _uuid
+
+    import psycopg
+    from pgvector.psycopg import register_vector
+
+    if len(chunks) != len(embeddings):
+        raise ValueError(
+            f"chunks/embeddings length mismatch: {len(chunks)} vs {len(embeddings)}"
+        )
+
+    with psycopg.connect(_psycopg_url(vectors_db_url)) as conn:
+        register_vector(conn)
+        with conn.cursor() as cur:
+            insert_sql = (
+                f"INSERT INTO {table} "
+                "(id, chunk_text, chunk_tokens, doc_title, doc_url, "
+                "doc_section, chunk_index, embedding) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            )
+            for chunk, vector in zip(chunks, embeddings, strict=True):
+                cur.execute(
+                    insert_sql,
+                    (
+                        str(_uuid.uuid4()),
+                        chunk.text,
+                        chunk.token_count,
+                        chunk.doc_title,
+                        chunk.doc_url,
+                        chunk.doc_section,
+                        chunk.chunk_index,
+                        vector,
+                    ),
+                )
+        conn.commit()
+
+    return len(chunks)
+
+
 def count_rows(vectors_db_url: str, table: str) -> int:
     """Return the number of rows currently in the table."""
     import psycopg
