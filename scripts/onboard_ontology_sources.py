@@ -131,6 +131,112 @@ _TRIALS_SC = {
     },
 }
 
+_AIRCRAFT_PROCESS_SC = {
+    "entities": [
+        {
+            "name": "Service Bulletin", "entity_type": "document_type",
+            "definition": "Mandatory or recommended maintenance action, chunked with process-aware section decomposition (instructions, materials, header).",
+            "aliases": ["SB", "bulletin"],
+        },
+        {
+            "name": "Service Letter", "entity_type": "document_type",
+            "definition": "Advisory communication from the manufacturer, chunked with structured sections.",
+            "aliases": ["SL", "letter"],
+        },
+        {
+            "name": "Maintenance Procedure", "entity_type": "procedure",
+            "definition": "Step-by-step instructions decomposed into numbered steps, preambles, and materials lists.",
+            "aliases": ["procedure", "instructions", "work instructions", "steps"],
+        },
+        {
+            "name": "Aircraft Component", "entity_type": "part",
+            "definition": "Physical part, assembly, or system referenced in maintenance documents.",
+            "aliases": ["part", "assembly", "component"],
+        },
+    ],
+    "domain_context": (
+        "Piper Aircraft service bulletins and letters for Cherokee and Saratoga families, "
+        "chunked with a process-aware parser that decomposes documents into structured "
+        "sections: instructions/step-N, materials, header, tail."
+    ),
+    "abbreviations": {
+        "SB": "Service Bulletin", "SL": "Service Letter",
+        "SSL": "Supplemental Service Letter", "VSP": "Vendor Service Publication",
+        "ICA": "Instructions for Continued Airworthiness",
+        "AD": "Airworthiness Directive",
+    },
+}
+
+_AIRCRAFT_TEST_SC = {
+    "entities": [
+        {
+            "name": "Service Bulletin", "entity_type": "document_type",
+            "definition": "Mandatory or recommended maintenance action for specific aircraft models and serial numbers.",
+            "aliases": ["SB", "bulletin"],
+        },
+        {
+            "name": "Service Letter", "entity_type": "document_type",
+            "definition": "Advisory communication about maintenance best practices or product updates.",
+            "aliases": ["SL", "letter"],
+        },
+        {
+            "name": "Aircraft Component", "entity_type": "part",
+            "definition": "Physical part, assembly, or system: engines, alternators, propellers, landing gear.",
+            "aliases": ["part", "assembly", "component"],
+        },
+        {
+            "name": "Maintenance Procedure", "entity_type": "procedure",
+            "definition": "Inspection, repair, replacement, or overhaul instructions for aircraft components.",
+            "aliases": ["procedure", "instructions", "work instructions"],
+        },
+    ],
+    "domain_context": (
+        "Piper Aircraft service bulletins, service letters, and vendor service "
+        "publications for Cherokee (PA-28) and Saratoga (PA-32) families. "
+        "Test chunking variant with 512-token chunks and 64-token overlap."
+    ),
+    "abbreviations": {
+        "SB": "Service Bulletin", "SL": "Service Letter",
+        "SSL": "Supplemental Service Letter", "VSP": "Vendor Service Publication",
+        "ICA": "Instructions for Continued Airworthiness",
+        "AD": "Airworthiness Directive",
+    },
+}
+
+_CODE_SC = {
+    "entities": [
+        {
+            "name": "API Endpoint", "entity_type": "api",
+            "definition": "REST or MCP endpoint handler in the retrieval-hub server code.",
+            "aliases": ["route", "handler", "endpoint"],
+        },
+        {
+            "name": "Data Model", "entity_type": "model",
+            "definition": "SQLAlchemy ORM model or Pydantic schema defining a database table or API contract.",
+            "aliases": ["model", "schema", "table"],
+        },
+        {
+            "name": "Adapter", "entity_type": "adapter",
+            "definition": "Source adapter implementing the retrieval interface for a specific source family.",
+            "aliases": ["retrieval adapter", "backend adapter"],
+        },
+        {
+            "name": "Ingestion Pipeline", "entity_type": "pipeline",
+            "definition": "Script or module that ingests, chunks, embeds, and indexes source data.",
+            "aliases": ["ingest", "pipeline", "ingestion script"],
+        },
+    ],
+    "domain_context": (
+        "The retrieval-hub source code repository itself, parsed with tree-sitter "
+        "AST-aware chunking at the function/class scope level."
+    ),
+    "abbreviations": {
+        "ORM": "object-relational mapping",
+        "MCP": "Model Context Protocol",
+        "AST": "abstract syntax tree",
+    },
+}
+
 SOURCE_DEFINITIONS: list[dict] = [
     {
         "slug": "pubmed-hypertension",
@@ -171,6 +277,45 @@ SOURCE_DEFINITIONS: list[dict] = [
             {"canonical_name": "Condition", "local_name": "Eligibility Criteria"},
             {"canonical_name": "Compound", "local_name": "Intervention"},
             {"canonical_name": "Clinical Trial", "local_name": "Clinical Trial"},
+        ],
+    },
+    {
+        "slug": "aircraft-sb-process",
+        "semantic_context": _AIRCRAFT_PROCESS_SC,
+        "new_concepts": [],
+        "mappings": [
+            {"canonical_name": "Service Bulletin", "local_name": "Service Bulletin"},
+            {"canonical_name": "Service Letter", "local_name": "Service Letter"},
+            {"canonical_name": "Aircraft Component", "local_name": "Aircraft Component"},
+            {"canonical_name": "Maintenance Procedure", "local_name": "Maintenance Procedure"},
+        ],
+    },
+    {
+        "slug": "aircraft-sb-test",
+        "semantic_context": _AIRCRAFT_TEST_SC,
+        "new_concepts": [],
+        "mappings": [
+            {"canonical_name": "Service Bulletin", "local_name": "Service Bulletin"},
+            {"canonical_name": "Service Letter", "local_name": "Service Letter"},
+            {"canonical_name": "Aircraft Component", "local_name": "Aircraft Component"},
+            {"canonical_name": "Maintenance Procedure", "local_name": "Maintenance Procedure"},
+        ],
+    },
+    {
+        "slug": "retrieval-hub-code",
+        "semantic_context": _CODE_SC,
+        "new_concepts": [
+            {"name": "Software", "parent_name": None},
+            {"name": "API Endpoint", "parent_name": "Software"},
+            {"name": "Data Model", "parent_name": "Software"},
+            {"name": "Adapter", "parent_name": "Software"},
+            {"name": "Ingestion Pipeline", "parent_name": "Software"},
+        ],
+        "mappings": [
+            {"canonical_name": "API Endpoint", "local_name": "API Endpoint"},
+            {"canonical_name": "Data Model", "local_name": "Data Model"},
+            {"canonical_name": "Adapter", "local_name": "Adapter"},
+            {"canonical_name": "Ingestion Pipeline", "local_name": "Ingestion Pipeline"},
         ],
     },
 ]
