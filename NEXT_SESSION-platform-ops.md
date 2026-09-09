@@ -4,108 +4,126 @@
 
 Ship the accumulated features to the deployed MCP server, fix the
 recurring TEI/ingestion pain points, and set up production ingestion
-runners. The quick win (#70) unblocks agents from using everything
-built in the ontology and graph-quality epics.
+runners.
 
-Issues: #27, #66, #67, #70
+Issues: #27 (open), #66 (closed), #67 (closed), #70 (closed)
 
-## Next: Ingestion config update + TEI retirement path (#66 remainder)
+## Next: Production ingestion runners (#27) — final epic phase
 
-vLLM is deployed and tested. Remaining work from #66:
+Deploy ingestion as Kubernetes Jobs so sources can be re-ingested
+in-cluster without local port-forwards. This is the last item in
+the platform-ops epic.
 
-1. **Update ingestion scripts to default to vLLM endpoint**
-   The ingestion scripts currently require `--endpoint` to use remote
-   embedding. Update the default endpoint in ingestion scripts to
-   point to `http://vllm-nomic-embedding:8000` when running in-cluster,
-   or document the port-forward command for local runs.
+1. **Containerize the ingestion pipeline**
+   Create a Containerfile for the ingestion code. The image needs
+   `src/retrieval_hub/` (core library), `scripts/` (ingestion
+   scripts), and the Python dependencies. Base on UBI9 Python.
+   The container connects to in-cluster services directly
+   (`retrieval-hub-pg:5432`, `vllm-nomic-embedding:8000`) — no
+   port-forwards.
 
-2. **Replace worker nodes with 200GB gp3 disks**
-   MachineSet is already updated to 200GB gp3 for new nodes, but
-   existing nodes still have 100GB gp2. Plan a maintenance window
-   to do rolling node replacement (scale to 3, drain old, delete,
-   repeat). This requires coordinating with PostgreSQL and Memgraph
-   StatefulSet downtime.
+2. **Create a Job manifest template**
+   A parameterized Job manifest that takes the source slug, data
+   directory (PVC-mounted or fetched), and optional `--resume` flag.
+   The Job runs the appropriate `ingest_*.py` script with in-cluster
+   DB URLs. Use a ConfigMap or Job args for per-source config.
 
-3. **TEI retirement path**
-   TEI (CPU) is still running for query-time embedding. Options:
-   - Switch MCP server's query-time embedding to vLLM (same endpoint)
-   - Keep TEI as CPU fallback if GPU node is scaled down for cost
-   - Document the migration path in deploy/openshift/retrieval-hub/embedding/README.md
+   Start with one concrete Job for a small source (tale-of-two-cities
+   or hetionet) to prove the pattern, then generalize.
+
+3. **Test end-to-end: `oc create job` → query via MCP**
+   Create the Job, watch it complete, verify chunks land in pgvector,
+   query the source through the MCP server.
+
+4. **Cleanup: remove TEI cooldown sleeps from embed.py**
+   The 0.5s inter-batch sleep and 5s/50-batch cooldown in
+   `ChunkEmbedder.embed_chunks()` were TEI memory-leak mitigations.
+   vLLM doesn't need them. Remove or gate behind a flag.
+
+5. **Cleanup: fix model health probe CronJob**
+   The probe is failing (Error pods in retrieval-hub namespace).
+   Update it to check vLLM nomic at port 8000 in addition to TEI
+   endpoints. Drop the nomic TEI check since it's scaled to 0.
+
+**Sequencing.** Items 1-3 are the core deliverable (sequential).
+Items 4-5 are independent cleanups — do them first as warmup or
+last as polish.
+
+**Constraints for the session:**
+- Use Red Hat UBI9 base image for the container.
+- `--platform linux/amd64` for container builds (Mac → OpenShift).
+- The ingestion container needs the `psycopg[binary]` and `pgvector`
+  packages for DB writes, plus `httpx` for remote embedding.
+- In-cluster DB URLs use service DNS: `postgresql://retrievalhub:
+  <password>@retrieval-hub-pg:5432/retrievalhub`. The password is
+  in the `retrieval-hub-pg` secret.
+- Use `127.0.0.1` not `localhost` if any port-forwarding is needed
+  during testing.
 
 **Session start protocol:**
 - Premise checks: `oc get pods --context=gpt-oss-120b -n retrieval-hub`
-  (vLLM still running?). Check GPU node and embedding pod health.
-- vLLM serves on `http://vllm-nomic-embedding:8000` (in-cluster) or
-  `http://127.0.0.1:18000` via port-forward.
-- The g6e.xlarge GPU node costs ~$1.25/hr. Scale to 0 when not needed.
+  (vLLM and PG still running?). `oc get nodes --context=gpt-oss-120b`
+  (GPU node still up?). `git log --oneline -5` (no surprise merges?).
+- Rules with history: vLLM needs `--hf-overrides
+  '{"rotary_scaling_factor": 1.0}'` and `--task embed` (CLAUDE.md).
+  Container builds need `chmod 644` on source files (CLAUDE.md).
+  Use `--context=gpt-oss-120b -n retrieval-hub` on every oc command.
+- Stop-and-ask before: deleting existing pgvector tables; scaling
+  down GPU or worker MachineSets; any changes to the PostgreSQL
+  StatefulSet.
 - Close ritual: session summary + `/plan-next-session platform-ops`
+  (or `/retro platform-ops` if #27 is complete and the epic is done)
 
 ## Remaining epic phases
 
-### Phase 2: vLLM embedding + worker node scale-up (#66) — IN PROGRESS
+### Phase 4: Production ingestion runners (#27) — NEXT (final phase)
 
-vLLM deployed and batch-tested (2000 chunks, 78.5 chunks/sec, 0
-restarts). Worker MachineSet config updated to 200GB gp3 for future
-nodes. Remaining: replace existing 100GB nodes (maintenance window),
-update ingestion defaults, document TEI retirement path.
-
-**Definition of done:** vLLM serves nomic-embed-text-v1.5 on
-gpt-oss-120b, batch ingestion of 1000+ chunks completes without
-OOM, worker nodes have 200GB EBS (no more BuildPodEvicted).
-
-**Dependencies:** None.
-
-### Phase 3: Ingestion checkpoint-resume (#67)
-
-Add checkpoint-resume to the ingestion pipeline so long runs survive
-interruptions.
-
-**Definition of done:** An ingestion run interrupted at 50% resumes
-from the checkpoint without re-embedding completed chunks.
-
-**Dependencies:** Benefits from Phase 2 (stable embedding endpoint).
-
-### Phase 4: Production ingestion runners (#27)
-
-Deploy ingestion as Tekton pipelines or Kubernetes Jobs in-cluster.
+Deploy ingestion as Kubernetes Jobs in-cluster.
 
 **Definition of done:** At least one source can be re-ingested via
 `oc create job` without local port-forwards.
 
-**Dependencies:** Phase 2 + Phase 3.
+**Dependencies:** Phase 2 (done) + Phase 3 (done).
 
-## What landed last session (2026-09-09, second session)
+## What landed last session (2026-09-09)
 
-Platform-ops Phase 2 in progress. Deployed vLLM v0.8.5 with
-nomic-embed-text-v1.5 on a new single-GPU g6e.xlarge node (separate
-from the quad-GPU LLM node). Batch embedding tested: 2000 chunks in
-25.5s (78.5 chunks/sec), zero restarts. Worker MachineSet updated
-to 200GB gp3 for future nodes (existing nodes unchanged). Fixed
-vLLM NomicBert rope_scaling crash with `--hf-overrides
-'{"rotary_scaling_factor": 1.0}'`.
+Phases 2 and 3 both completed. vLLM v0.8.5 deployed on a dedicated
+g6e.xlarge GPU node (78.5 chunks/sec, zero OOM). Model registry
+updated (nomic→vLLM, snowflake→khsm8). All 11 source recipes linked
+with embedding.model. Nomic TEI retired. 200GB worker node added.
+Checkpoint-resume implemented in pipeline.py with DB-based checkpoint
+and --resume flag. #66 and #67 closed.
 
-**See:** session-summaries/2026-09-09-platform-ops-vllm-deploy.md
+**Closed:** #66 — TEI memory leak (replaced by vLLM)
+           #67 — Checkpoint-resume (incremental embed+write)
+
+**Commits:** b48f8dd..285ea78 (main)
+
+**See:** session-summaries/2026-09-09-platform-ops-phase2-3.md
 
 ## Watch out for
 
-- Worker node replacement (when done) causes pod evictions. Plan
-  the scale-down/up when other workloads can tolerate disruption.
-  PostgreSQL and Memgraph are StatefulSets with PVCs — they survive
-  rescheduling, but verify data integrity after node replacement.
 - The g6e.xlarge GPU node costs ~$1.25/hr. Scale to 0 when not
-  actively needed for embedding: `oc scale machineset
+  actively needed: `oc scale machineset
   gpu-g6e1-cluster-z9hbt-2hdjl-worker-us-east-2c --replicas=0
   -n openshift-machine-api --context=gpt-oss-120b`
-- vLLM requires `--hf-overrides '{"rotary_scaling_factor": 1.0}'`
-  for nomic-embed-text-v1.5 (see CLAUDE.md lesson).
-- `truncate_prompt_tokens: 512` must be set in vLLM embedding
-  requests (see CLAUDE.md lesson on tokenizer mismatch).
+- PubMedBERT TEI endpoint is marked unhealthy. The model health
+  probe CronJob pods are in Error state — item 5 above addresses
+  this.
+- Custom-flow ingestion scripts (aircraft, code, va-cpg, pubmed,
+  tale-of-two-cities) still use all-at-once embed+write — no
+  --resume support. Only pipeline-based scripts (fhir, hetionet,
+  snomed) have it. The Job template should use pipeline-based
+  scripts where possible.
+- embed.py still has TEI cooldown sleeps that slow batch embedding
+  unnecessarily with vLLM — item 4 above addresses this.
 
 ## If blocked
 
-- If the GPU node is unavailable or vLLM won't start, TEI (CPU)
-  is still running as a fallback. The TEI resilience workaround
-  (batch_size=2, 10 retries, watchdog port-forward) is documented
-  in CLAUDE.md.
-- If worker node replacement causes issues, the MachineSet is
-  already updated — just scale to 3, drain one old node at a time.
+- If container builds fail (registry auth, build eviction), use
+  the remote-builder agent on ec2-dev-2 or try an OpenShift
+  BuildConfig.
+- If the ingestion Job can't connect to vLLM (GPU node down),
+  the --resume flag means you can restart the Job later without
+  losing progress. Or fall back to local embedding in the
+  container (heavier image, slower, but no GPU dependency).
