@@ -206,8 +206,15 @@ def check_stale_mappings(
             if not sc or not isinstance(sc, dict):
                 continue
             entities = sc.get("entities") or []
-            entity_types = {e["entity_type"] for e in entities if "entity_type" in e}
-            if mapping.local_name not in entity_types:
+            known_names = set()
+            for e in entities:
+                if "entity_type" in e:
+                    known_names.add(e["entity_type"])
+                if "name" in e:
+                    known_names.add(e["name"])
+                for alias in e.get("aliases", []):
+                    known_names.add(alias)
+            if mapping.local_name not in known_names:
                 findings.append({
                     "check": "stale_mappings",
                     "source_slug": slug,
