@@ -100,6 +100,59 @@ pod spec: (1) GPU toleration, (2) `enableServiceLinks: false`,
 (3) `HF_HOME` env var pointing to the PVC mount (not `/root/` since
 OpenShift runs non-root), (4) `--task embed` in the serve args.
 
+### Ontology onboarding process for new sources
+
+Adding a new source to the ontology registry requires four steps, each
+building on the previous. The onboarding script at
+`scripts/onboard_ontology_sources.py` handles steps 2-4 and serves as
+a template for new sources.
+
+**Step 1: Analyze the source data** (human judgment required). Examine
+the vectors DB index table to understand what `doc_section` values exist,
+read the ingestion script's docstring, and sample chunk content. Determine
+what concepts the source covers and how they map to existing canonical
+concepts. This step cannot be automated because it requires domain
+understanding.
+
+**Step 2: Define `semantic_context`**. Populate the source's
+`semantic_context` JSON column with entity definitions. Each entity needs
+`name`, `entity_type`, `definition`, and `aliases`. For graph-family
+sources, `entity_type` should match the `doc_section` values used during
+chunking (since ontology expansion uses `doc_section` filtering). For
+document-family sources, `entity_type` is a categorical label (e.g.,
+"condition", "treatment") and the `name` is what maps to canonical
+concepts.
+
+**Step 3: Create new concepts if needed**. If the source introduces a
+new domain (like aircraft maintenance) that doesn't overlap with existing
+canonical concepts, create new `ontology_concept` rows with a parent
+hierarchy. Use INSERT ON CONFLICT DO NOTHING for idempotency.
+
+**Step 4: Add ontology mappings**. Insert `ontology_mapping` rows linking
+the source's entity names to canonical concepts. For document-family
+sources, `local_name` is the entity's name (e.g., "Hypertension"). For
+graph-family sources, `local_name` is the `doc_section` value (e.g.,
+"Disorder"). After all inserts, recompute authority scores.
+
+**Step 5: Verify**. Run `python scripts/ontology_doctor.py --skip-retrieval`
+and confirm: no new stale mappings, missing mappings only for entity_types
+(not names), authority scores recomputed. Optionally run the ontology
+benchmark with new queries targeting the added source.
+
+**Design tension**: The `missing_mappings` check compares
+`semantic_context.entities[].entity_type` against mapping `local_name`
+values. This works for graph sources (where both are `doc_section` values
+like "Disorder") but produces false WARNs for document sources (where
+`entity_type` is "condition" but `local_name` is "Hypertension"). The
+`stale_mappings` check handles this correctly by comparing against names,
+types, and aliases. A future fix should align `missing_mappings` to do
+the same.
+
+**How to apply:** Use `scripts/onboard_ontology_sources.py` as a
+template. Copy a source definition block, fill in the semantic_context
+and mappings, run with `--dry-run` first. The script is idempotent (all
+inserts use ON CONFLICT DO NOTHING) and safe to re-run.
+
 ### Use 127.0.0.1 not localhost for local Postgres connections
 
 When `oc port-forward` runs concurrently with a local Podman Postgres
