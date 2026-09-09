@@ -80,9 +80,10 @@ cp "$REPO_ROOT/retrieval-hub-mcp/pyproject.toml" "$BUILD_DIR/mcp-server/"
 # Prompt templates (needed by RewriterService)
 cp -r "$REPO_ROOT/prompts" "$BUILD_DIR/prompts"
 
-# Probe script (used by the model-health-probe CronJob)
+# Scripts (used by CronJobs: model-health-probe, ontology-doctor)
 mkdir -p "$BUILD_DIR/scripts"
 cp "$REPO_ROOT/scripts/probe_model_endpoints.py" "$BUILD_DIR/scripts/"
+cp "$REPO_ROOT/scripts/ontology_doctor.py" "$BUILD_DIR/scripts/"
 
 # Containerfile and requirements
 cp "$SCRIPT_DIR/Containerfile" "$BUILD_DIR/"
