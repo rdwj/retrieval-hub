@@ -1,0 +1,63 @@
+# Ontology doctor — runs weekly to detect stale/dead mappings, coverage gaps,
+# and other ontology health issues. Writes a JSON report to stdout (captured
+# by OpenShift logging). Alerts are based on the exit code: 0 = clean,
+# 1 = WARNs found (the script exits 1 when warn_count > 0).
+#
+# Uses --skip-retrieval because the embedding service is not guaranteed
+# available from a CronJob context. Dead mapping detection (check 6) is
+# skipped; the remaining 8 static checks cover drift detection.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ontology-doctor
+  namespace: retrieval-hub
+  labels:
+    app: retrieval-hub
+    component: ontology-doctor
+spec:
+  schedule: "23 6 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: retrieval-hub
+            component: ontology-doctor
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: doctor
+            image: image-registry.openshift-image-registry.svc:5000/retrieval-hub/retrieval-hub-mcp:latest
+            command: ["/bin/sh", "-c"]
+            args:
+            - |
+              python scripts/ontology_doctor.py \
+                --db-url "$RETRIEVAL_HUB_DB_URL" \
+                --vectors-db-url "$RETRIEVAL_HUB_VECTORS_DB_URL" \
+                --skip-retrieval \
+                --json /tmp/ontology-report.json && \
+              cat /tmp/ontology-report.json
+            env:
+            - name: RETRIEVAL_HUB_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retrieval-hub-pg
+                  key: RETRIEVAL_HUB_DB_URL
+            - name: RETRIEVAL_HUB_VECTORS_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: retrieval-hub-pg
+                  key: RETRIEVAL_HUB_VECTORS_DB_URL
+            resources:
+              requests:
+                memory: 256Mi
+                cpu: 100m
+              limits:
+                memory: 512Mi
+                cpu: 200m

@@ -312,7 +312,7 @@ def apply_fixes(session, results: dict[str, list[dict]]) -> None:
             print(f"  {s} / {et}")
 
 
-def main() -> None:
+def main() -> int:
     args = build_parser().parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -334,6 +334,8 @@ def main() -> None:
             print("Applying safe fixes...")
             apply_fixes(session, results)
 
+    return 1 if summary["warn_count"] > 0 else 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
