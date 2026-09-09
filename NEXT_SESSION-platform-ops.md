@@ -9,66 +9,98 @@ built in the ontology and graph-quality epics.
 
 Issues: #27, #66, #67, #70
 
-## Next: Deploy MCP server and apply CronJob (#70)
+## Next: vLLM embedding deployment + worker node scale-up (#66)
 
-Rebuild and deploy the MCP server to pick up all ontology and
-graph-quality features (shipped Sep 4-Sep 9, never deployed). Also
-apply the ontology doctor CronJob manifest.
+Replace the leaky TEI CPU embedding with vLLM on the GPU node, and
+increase worker node EBS to stop build evictions. Goal: a cluster
+that can run batch ingestion (1000+ chunks) without OOM restarts and
+build without ephemeral-storage evictions.
 
-1. **#70 — Deploy MCP server with latest features**
-   Run `retrieval-hub-mcp/deploy.sh retrieval-hub --context=gpt-oss-120b`.
-   Last successful build was Sep 4 (build 19). Two subsequent builds
-   failed due to node ephemeral-storage pressure (BuildPodEvicted),
-   not code issues — a retry should succeed.
+1. **Deploy vLLM v0.8.5 with nomic-embed-text-v1.5 on the GPU node**
+   We deployed this same model on vLLM on agent-security-dev-3 in
+   August (session 2026-08-21). That cluster was reclaimed but the
+   recipe is proven. Apply it to gpt-oss-120b.
 
-   After deploy, smoke test:
-   - `describe_ontology` with `include_hierarchy=true` and
-     `include_relationships=true`
-   - `retrieve` with an ontology-assisted query (verify doc_section
-     expansion works)
-   - Confidence elicitation on a low-relevance query
+   Create a Deployment manifest for vLLM with:
+   - Image: `vllm/vllm-openai:v0.8.5` (latest doesn't support
+     `--task embed`)
+   - Args: `vllm serve nomic-ai/nomic-embed-text-v1.5 --task embed`
+   - GPU toleration for `nvidia.com/gpu` NoSchedule taint
+   - `enableServiceLinks: false` (avoids env var collisions)
+   - `HF_HOME` pointing to a PVC or emptyDir (non-root can't use
+     `/root/`)
+   - Resource request: 1 GPU, 16Gi memory
+   - Service: `vllm-nomic-embedding` on port 8000
 
-2. **Apply ontology doctor CronJob**
-   `oc apply -f deploy/openshift/retrieval-hub/ontology-doctor-cronjob.yaml --context=gpt-oss-120b -n retrieval-hub`
-   Verify the first scheduled run completes (or trigger manually:
-   `oc create job ontology-doctor-manual --from=cronjob/ontology-doctor --context=gpt-oss-120b -n retrieval-hub`).
+   Smoke test: `curl http://vllm-nomic-embedding:8000/v1/embeddings`
+   with a short text. Verify 768-dim vector returned.
 
-**Sequencing.** Deploy MCP server first (it's the image the CronJob
-uses). Then apply the CronJob manifest.
+2. **Batch embedding test through vLLM (1000+ chunks)**
+   Port-forward the vLLM service and run a batch embedding test
+   using the existing `embed.py` `_remote_embed()` path. Target:
+   1000+ chunks without pod OOM restarts.
+
+   Compare with TEI: same 1000 chunks, same batch size. TEI should
+   OOM within ~25 min; vLLM should complete cleanly.
+
+3. **Scale worker node EBS from 100GB to 200GB**
+   The 3 worker nodes (m6a.4xlarge) have 100GB gp2 EBS. Docker layer
+   cache from builds fills this up, causing BuildPodEvicted. Increase
+   to 200GB on the us-east-2b MachineSet (2 replicas — this is where
+   builds land).
+
+   `oc edit machineset cluster-z9hbt-2hdjl-worker-us-east-2b -n openshift-machine-api --context=gpt-oss-120b`
+   Change `blockDevices[0].ebs.volumeSize` from 100 to 200. Then
+   scale down/up to get new nodes with the larger disks. This is
+   disruptive — pods on those nodes will be evicted and rescheduled.
+
+4. **If vLLM works: retire TEI for batch, update ingestion config**
+   Update `embed.py` to use the vLLM endpoint for batch embedding.
+   Keep TEI running for now (query-time fallback) but document the
+   migration path.
+
+**Sequencing.** Deploy vLLM first (item 1) — if it doesn't work,
+the TEI workaround from CLAUDE.md is still viable and the session
+pivots to worker node scaling only. Worker node scaling (item 3) is
+independent and can run in parallel with items 1-2. Item 4 only
+happens if items 1-2 succeed.
 
 **Constraints for the session:**
-- Build may fail again if the node is under storage pressure. If so,
-  check node capacity (`oc describe node`) and retry after cleanup.
-- The deploy script creates a filtered build context (core-lib/ +
-  mcp-server/). Do NOT use `oc start-build --from-dir=<repo-root>`.
-- The CronJob uses the same MCP server image — it must be the freshly
-  built one, not the stale Sep 4 image.
+- vLLM v0.8.5 is required; v0.27.1 (latest tag) does not support
+  `--task embed`. Pin the image tag explicitly.
+- The GPU node (g6e.12xlarge, us-east-2c) has 1 GPU. vLLM will
+  claim it — no other GPU workloads can run simultaneously.
+- Worker node scaling (item 3) causes pod evictions on the replaced
+  nodes. Schedule this after verifying all other services are healthy.
+- Use `127.0.0.1` not `localhost` for port-forwarded connections.
 
 **Session start protocol:**
 - Premise checks: `oc get pods --context=gpt-oss-120b -n retrieval-hub`
-  (cluster healthy? DB pod running?). `oc get builds --context=gpt-oss-120b
-  -n retrieval-hub --sort-by=.metadata.creationTimestamp | tail -3`
-  (any in-progress builds?). `git log --oneline -3` (no surprise merges?).
-- Rules with history: use `deploy.sh` for MCP builds, not raw
-  `oc start-build`. Use `127.0.0.1` not `localhost` for any port-
-  forwarded verification. Build failures on this cluster have been
-  node-pressure related, not code-related — retry before investigating.
-- Stop-and-ask before: any changes to the Containerfile or build
-  config; any `oc delete` of existing deployments or services.
+  (cluster healthy?). `oc get nodes --context=gpt-oss-120b` (GPU node
+  ready?). `oc get machineset -n openshift-machine-api --context=gpt-oss-120b`
+  (current replica counts). `git log --oneline -3` (no surprise merges?).
+- Rules with history: vLLM requires `--task embed`, `enableServiceLinks:
+  false`, non-root `HF_HOME`, and GPU toleration — all four, every time
+  (see CLAUDE.md lesson). Use `127.0.0.1` for port-forwards. Don't
+  switch oc context or project.
+- Stop-and-ask before: scaling down MachineSets (causes pod evictions);
+  deleting existing TEI deployments; any changes to the PostgreSQL
+  StatefulSet or PVCs.
 - Close ritual: session summary + `/plan-next-session platform-ops`
 
 ## Remaining epic phases
 
-### Phase 2: TEI memory leak mitigation (#66)
+### Phase 2: vLLM embedding + worker node scale-up (#66) — NEXT
 
-Evaluate vLLM embedding endpoint (v0.8.5, `--task embed`) as an
-alternative to the leaky TEI CPU container for batch embedding.
+Deploy vLLM on the GPU node as the batch embedding endpoint, scale
+worker node EBS to 200GB. Merges the original Phase 2 (TEI
+mitigation) with cluster resource scaling.
 
-**Definition of done:** Batch ingestion of 1000+ chunks completes
-without pod OOM restarts, or the limitation is documented with a
-viable workaround.
+**Definition of done:** vLLM serves nomic-embed-text-v1.5 on
+gpt-oss-120b, batch ingestion of 1000+ chunks completes without
+OOM, worker nodes have 200GB EBS (no more BuildPodEvicted).
 
-**Dependencies:** None. Parallel-ok with Phase 1.
+**Dependencies:** None.
 
 ### Phase 3: Ingestion checkpoint-resume (#67)
 
@@ -91,31 +123,38 @@ Deploy ingestion as Tekton pipelines or Kubernetes Jobs in-cluster.
 
 ## What landed last session (2026-09-09)
 
-Ontology epic closed. Doctor (9 checks, CLI, 22 tests), all 11
-sources onboarded, CronJob manifest written, retro completed. Three
-completed epics archived. Six new issues filed (#65-70). Three new
-epic files bootstrapped (platform-ops, ontology-v2, platform-quality).
+Platform-ops Phase 1 complete. MCP server deployed (build 25) with
+all ontology and graph-quality features. Ontology doctor CronJob
+applied and verified (0 WARNs). Fixed deploy.sh to include
+ontology_doctor.py in the build context. Cleaned up 21 stale builds
+to resolve recurring BuildPodEvicted failures.
 
-**Commits:** 10b0a3b..961a64b (main)
-**Closed:** #48 (umbrella), #56, #58, #59, #60
+**Commits:** 740e08e, 59bb3aa (main)
+**Closed:** #70
+**See:** session-summaries/2026-09-09-platform-ops-mcp-deploy.md
 
 ## Watch out for
 
-- Build failures on gpt-oss-120b have been ephemeral-storage related
-  (builds 20, 21, 22 all BuildPodEvicted). Retry before investigating.
-- The deploy.sh script (~34 min for build 19) takes significant time.
-  Start the build early in the session.
-- OpenShift route path must NOT have a trailing slash for FastMCP
-  (path: /mcp, not /mcp/). Current manifest is correct.
-- The CronJob runs weekly (Mon 06:23 UTC). First scheduled run after
-  applying will be the next Monday.
+- Worker node scaling (MachineSet edit) causes pod evictions. Plan
+  the scale-down/up when other workloads can tolerate disruption.
+  PostgreSQL is a StatefulSet with PVC — it survives rescheduling,
+  but verify data integrity after the node replacement.
+- vLLM v0.8.5 image is ~8GB. First pull to the GPU node will take
+  several minutes. The model download (nomic-embed-text-v1.5, ~550MB)
+  also happens on first start if no PVC cache exists.
+- The GPU node is in us-east-2c; worker pods are mostly in us-east-2b.
+  Cross-AZ latency for embedding calls is ~1-2ms — negligible for
+  batch but worth noting.
+- `truncate_prompt_tokens: 512` must be set in vLLM embedding
+  requests (see CLAUDE.md lesson on tokenizer mismatch).
 
 ## If blocked
 
-- If the cluster is down or builds keep failing, work on Phase 2
-  (TEI evaluation) or Phase 3 (ingestion checkpointing) locally —
-  both are code-only work that doesn't need the cluster.
-- If the MCP server deploys but smoke tests fail, check the
-  `FastMCP cache_ttl` behavior — stale tool lists from the prior
-  image can persist (#37, closed but the caching behavior is still
-  relevant post-deploy).
+- If the GPU node is unavailable or vLLM won't start, the TEI
+  resilience workaround (batch_size=2, 10 retries, watchdog
+  port-forward) is documented in CLAUDE.md and still works for
+  batch ingestion. Skip to worker node scaling (item 3) as
+  standalone value.
+- If MachineSet edits are blocked by cluster policy, try increasing
+  the ephemeral-storage limit on the BuildConfig instead, or add a
+  build-pruning CronJob to keep the existing 100GB nodes clean.
