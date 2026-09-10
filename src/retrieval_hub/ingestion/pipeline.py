@@ -231,6 +231,7 @@ def ingest(
     checkpoint_batch_size: int = 64,
     llm_url: str | None = None,
     llm_model: str = "/mnt/models",
+    review_entities: bool = False,
 ) -> RegistrationResult:
     """Run the full ingestion pipeline: data directory to registered source.
 
@@ -498,7 +499,17 @@ def ingest(
             llm_url=llm_url,
             llm_model=llm_model,
         )
-        if entities:
+        if entities and review_entities:
+            from retrieval_hub.ontology.discover import save_proposal
+
+            proposal_path = save_proposal(slug, entities)
+            logger.info(
+                "pipeline.ingest entities saved for review: %s. "
+                "Run: python scripts/review_ontology_proposal.py "
+                "--slug %s --from-file %s",
+                proposal_path, slug, proposal_path,
+            )
+        elif entities:
             with session_scope(factory) as session:
                 from sqlalchemy.orm.attributes import flag_modified
 
@@ -518,6 +529,26 @@ def ingest(
                     "pipeline.ingest ontology slug=%s entities=%d mappings=%d",
                     slug, len(entities), count,
                 )
+
+                from retrieval_hub.ontology.doctor import (
+                    check_missing_mappings,
+                    check_stale_mappings,
+                )
+
+                stale = check_stale_mappings(
+                    session, source_slug=slug, vectors_db_url=vectors_db_url,
+                )
+                missing = check_missing_mappings(session, source_slug=slug)
+                if stale:
+                    logger.warning(
+                        "pipeline.ingest doctor: %d stale mappings for %s",
+                        len(stale), slug,
+                    )
+                if missing:
+                    logger.warning(
+                        "pipeline.ingest doctor: %d missing mappings for %s",
+                        len(missing), slug,
+                    )
         else:
             logger.info(
                 "pipeline.ingest no entities discovered for %s, skipping ontology",

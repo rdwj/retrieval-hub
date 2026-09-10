@@ -378,6 +378,17 @@ def _populate_ontology(args: argparse.Namespace) -> None:
         if inserted:
             logger.info("Populated %d ontology_mapping row(s) for %s", inserted, args.slug)
 
+        from retrieval_hub.ontology.doctor import check_missing_mappings, check_stale_mappings
+
+        stale = check_stale_mappings(
+            session, source_slug=args.slug, vectors_db_url=args.vectors_db_url,
+        )
+        missing = check_missing_mappings(session, source_slug=args.slug)
+        if stale:
+            logger.warning("Doctor: %d stale mappings for %s", len(stale), args.slug)
+        if missing:
+            logger.warning("Doctor: %d missing mappings for %s", len(missing), args.slug)
+
 
 def _print_report(
     winner_config: dict[str, int],

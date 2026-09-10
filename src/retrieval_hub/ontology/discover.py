@@ -226,3 +226,41 @@ def discover_entities(
         len(valid), len(raw_entities), table,
     )
     return valid
+
+
+def save_proposal(
+    slug: str,
+    entities: list[dict[str, Any]],
+    output_dir: Path | str = Path("."),
+) -> Path:
+    """Write a discovery proposal to a JSON file for later review."""
+    output_dir = Path(output_dir)
+    path = output_dir / f"ontology-proposal-{slug}.json"
+    payload = {
+        "source_slug": slug,
+        "entity_count": len(entities),
+        "entities": entities,
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    logger.info("save_proposal: wrote %d entities to %s", len(entities), path)
+    return path
+
+
+def format_entity_for_review(
+    entity: dict[str, Any],
+    canonical_match: str | None = None,
+) -> str:
+    """Format a single entity for human review."""
+    lines = [
+        f"  Name:       {entity['name']}",
+        f"  Type:       {entity.get('entity_type', '?')}",
+        f"  Definition: {entity.get('definition', '?')}",
+    ]
+    aliases = entity.get("aliases", [])
+    if aliases:
+        lines.append(f"  Aliases:    {', '.join(aliases)}")
+    if canonical_match:
+        lines.append(f"  Maps to:    {canonical_match} (existing concept)")
+    else:
+        lines.append("  Maps to:    (new canonical concept)")
+    return "\n".join(lines)
