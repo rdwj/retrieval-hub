@@ -355,9 +355,12 @@ def _populate_ontology(args: argparse.Namespace) -> None:
                     llm_url=llm_url,
                 )
                 if entities:
-                    sc = sc or {}
+                    from sqlalchemy.orm.attributes import flag_modified
+
+                    sc = dict(sc or {})
                     sc["entities"] = entities
                     source.semantic_context = sc
+                    flag_modified(source, "semantic_context")
                     session.flush()
                     logger.info("Discovered %d entities for %s", len(entities), args.slug)
                 else:

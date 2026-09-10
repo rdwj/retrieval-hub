@@ -500,12 +500,15 @@ def ingest(
         )
         if entities:
             with session_scope(factory) as session:
+                from sqlalchemy.orm.attributes import flag_modified
+
                 from retrieval_hub.models import Source
 
                 source = session.query(Source).filter_by(slug=slug).one()
-                sc = source.semantic_context or {}
+                sc = dict(source.semantic_context or {})
                 sc["entities"] = entities
                 source.semantic_context = sc
+                flag_modified(source, "semantic_context")
                 session.flush()
 
                 from retrieval_hub.ontology import populate_ontology_for_source
