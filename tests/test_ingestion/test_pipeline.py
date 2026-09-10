@@ -134,3 +134,4 @@ class TestHelpers:
         assert recipe["chunker"]["overlap_tokens"] == 64
         assert recipe["embedding"]["model"] == "nomic-ai/nomic-embed-text-v1.5"
         assert recipe["backend"]["table"] == "idx_test_v1"
+        assert recipe["retrieval"]["hybrid"] is True

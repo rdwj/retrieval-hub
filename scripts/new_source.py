@@ -278,6 +278,7 @@ def _recipe_content() -> dict:
         "retrieval": {{
             "default_pattern": "vector_ann",
             "supported_patterns": ["vector_ann"],
+            "hybrid": True,
             "parameters": {{
                 "vector_ann": {{"top_k_default": 10, "top_k_max": 50}},
             }},
