@@ -7,7 +7,7 @@ eval-driven self-improvement, query success monitoring, concept-first
 retrieval, an onboarding pipeline with HITL, and authority score
 improvements.
 
-Issues: #61, #62, #63, #64, #68
+Issues: #61 (closed), #62, #63, #64, #68
 
 ## Next: to be planned via /plan-next-session
 
@@ -65,19 +65,12 @@ report for ops visibility.
 **Dependencies:** Phase 3 (self-improvement pipeline must exist for
 triggers to invoke).
 
-### Phase 5: Onboarding pipeline with HITL (#61)
+### Phase 5: Onboarding pipeline with HITL (#61) -- COMPLETE
 
-Automate entity discovery with LLM-proposed definitions, provide a
-review UI for human approval, feed approved proposals into the
-onboarding script.
-
-**Definition of done:** New source ingestion triggers entity discovery.
-Data owner reviews and approves via UI/CLI. Approved mappings
-auto-applied.
-
-**Dependencies:** Phases 1-4 (the pipeline should incorporate the
-self-improvement feedback). Can start earlier if scoped to the
-mechanical onboarding only.
+Shipped 2026-09-10. Entity discovery via LLM (discover_entities()),
+CLI review wizard (review_ontology_proposal.py), pipeline integration
+(Stage 8 of pipeline.ingest()), doctor validation after ontology
+population. All 5 acceptance criteria met.
 
 ## What this covers (and what it doesn't)
 
