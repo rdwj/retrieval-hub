@@ -229,6 +229,8 @@ def ingest(
     renderer: str = "default",
     resume: bool = False,
     checkpoint_batch_size: int = 64,
+    llm_url: str | None = None,
+    llm_model: str = "/mnt/models",
 ) -> RegistrationResult:
     """Run the full ingestion pipeline: data directory to registered source.
 
@@ -481,4 +483,47 @@ def ingest(
         "pipeline.ingest registered slug=%s source_id=%s created=%s",
         result.source_slug, result.source_id, result.created_source,
     )
+
+    # --- Stage 8: Entity discovery + ontology population ---
+    if llm_url:
+        from retrieval_hub.ontology.discover import discover_entities
+
+        entities = discover_entities(
+            vectors_db_url=vectors_db_url,
+            table=table_name,
+            db_url=db_url,
+            source_name=name,
+            source_family=family,
+            source_description=description_short,
+            llm_url=llm_url,
+            llm_model=llm_model,
+        )
+        if entities:
+            with session_scope(factory) as session:
+                from retrieval_hub.models import Source
+
+                source = session.query(Source).filter_by(slug=slug).one()
+                sc = source.semantic_context or {}
+                sc["entities"] = entities
+                source.semantic_context = sc
+                session.flush()
+
+                from retrieval_hub.ontology import populate_ontology_for_source
+
+                count = populate_ontology_for_source(slug, entities, session)
+                logger.info(
+                    "pipeline.ingest ontology slug=%s entities=%d mappings=%d",
+                    slug, len(entities), count,
+                )
+        else:
+            logger.info(
+                "pipeline.ingest no entities discovered for %s, skipping ontology",
+                slug,
+            )
+    else:
+        logger.info(
+            "pipeline.ingest no llm_url provided, skipping entity discovery for %s",
+            slug,
+        )
+
     return result

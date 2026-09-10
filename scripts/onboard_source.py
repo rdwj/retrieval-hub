@@ -321,7 +321,7 @@ def _promote_winner(
 
 
 def _populate_ontology(args: argparse.Namespace) -> None:
-    """Upsert ontology_mapping rows if the source has semantic_context entities."""
+    """Discover entities (if needed) and upsert ontology_mapping rows."""
     from retrieval_hub.db import create_db_engine, make_session_factory, session_scope
     from retrieval_hub.models import Source
     from retrieval_hub.ontology import populate_ontology_for_source
@@ -336,10 +336,42 @@ def _populate_ontology(args: argparse.Namespace) -> None:
 
         sc = source.semantic_context
         if not sc or not sc.get("entities"):
-            logger.info("Source %s has no entities, skipping ontology population", args.slug)
+            llm_url = getattr(args, "llm_url", None)
+            if llm_url:
+                from retrieval_hub.ontology.discover import discover_entities
+
+                pi = source.active_physical_index
+                if pi is None:
+                    logger.warning("Source %s has no active index, skipping discovery", args.slug)
+                    return
+
+                entities = discover_entities(
+                    vectors_db_url=args.vectors_db_url,
+                    table=pi.location,
+                    db_url=args.db_url,
+                    source_name=source.name,
+                    source_family=source.family.value,
+                    source_description=source.description_short or "",
+                    llm_url=llm_url,
+                )
+                if entities:
+                    sc = sc or {}
+                    sc["entities"] = entities
+                    source.semantic_context = sc
+                    session.flush()
+                    logger.info("Discovered %d entities for %s", len(entities), args.slug)
+                else:
+                    logger.info("No entities discovered for %s", args.slug)
+                    return
+            else:
+                logger.info("Source %s has no entities and no LLM URL, skipping ontology", args.slug)
+                return
+
+        entities = (source.semantic_context or {}).get("entities", [])
+        if not entities:
             return
 
-        inserted = populate_ontology_for_source(args.slug, sc["entities"], session)
+        inserted = populate_ontology_for_source(args.slug, entities, session)
         if inserted:
             logger.info("Populated %d ontology_mapping row(s) for %s", inserted, args.slug)
 

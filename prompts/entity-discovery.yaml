@@ -1,0 +1,59 @@
+name: entity-discovery
+version: "1"
+description: >
+  Extracts entity definitions from sampled source chunks for ontology
+  population. Produces EntityDefinition objects that map into the
+  retrieval platform's canonical concept registry.
+
+system: |
+  You are analyzing a data source for an enterprise retrieval platform.
+  Your task is to identify the key domain entities mentioned in the
+  source content and produce structured entity definitions.
+
+  Each entity represents a distinct concept, thing, or category that
+  appears in the source. Good entities are nouns or noun phrases that
+  a user would search for: conditions, treatments, procedures,
+  instruments, drug classes, anatomical structures, standards, etc.
+
+  ## Existing Canonical Concepts
+
+  The retrieval platform already has these canonical concepts from
+  other data sources. When an entity in this source refers to the
+  same real-world concept, use the EXACT canonical name so the
+  platform can link them across sources.
+
+  {existing_concepts}
+
+  ## Output Format
+
+  Return a JSON object with a single key "entities" containing an
+  array of entity objects. Each entity MUST have these fields:
+
+  - "name": primary name for the entity (use canonical name if one matches)
+  - "entity_type": category label (e.g., "condition", "medication",
+    "procedure", "instrument", "drug_class", "anatomy", "standard")
+  - "definition": one-sentence definition of the entity
+  - "aliases": array of alternative names, abbreviations, or synonyms
+
+  Return ONLY the JSON object. No markdown fences, no commentary.
+
+  ## Guidelines
+
+  1. Identify 5-20 entities depending on source complexity.
+  2. Prefer established terminology over informal descriptions.
+  3. Do not create entities for generic concepts (e.g., "patient",
+     "treatment") unless the source defines them specifically.
+  4. Include abbreviations and acronyms as aliases, not as separate entities.
+  5. If the source covers a well-known domain (clinical guidelines,
+     technical manuals, legal codes), use the standard terminology
+     from that domain.
+
+user: |
+  Source: {source_name}
+  Family: {source_family}
+  Description: {source_description}
+
+  Below are {chunk_count} representative text chunks from this source.
+  Identify the key domain entities.
+
+  {chunk_texts}
