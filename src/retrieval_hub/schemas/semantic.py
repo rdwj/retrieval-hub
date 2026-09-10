@@ -84,6 +84,7 @@ class SemanticContext(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    formal_terminology: bool = False
     entities: list[EntityDefinition] = Field(default_factory=list)
     relationships: list[RelationshipHint] = Field(default_factory=list)
     metrics: list[MetricDefinition] = Field(default_factory=list)

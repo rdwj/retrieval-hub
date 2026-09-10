@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Compute and apply authority scores for all ontology_mapping rows.
 
-Scores are derived from source status, source family, optional explicit
-authority_weight in semantic_context, and cross-source agreement per
-canonical concept.  Idempotent — re-running recalculates all scores.
+Scores are derived from source status, family, cross-source agreement,
+formal terminology, entity coverage, and data freshness.  Idempotent —
+re-running recalculates all scores.
 
 Usage:
     python scripts/seed_authority_scores.py [--db-url URL] [--dry-run]
@@ -14,6 +14,8 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
+from datetime import UTC, datetime
 
 import psycopg
 
@@ -41,6 +43,27 @@ DEFAULT_FAMILY_WEIGHT = 1.0
 AGREEMENT_BONUS_PER_SOURCE = 0.1
 MAX_AGREEMENT_BONUS = 1.3
 
+FORMAL_TERMINOLOGY_BOOST = 1.2
+
+COVERAGE_LOG_SCALE = 0.05
+
+FRESHNESS_THRESHOLDS: list[tuple[int, float]] = [
+    (30, 1.1),
+    (90, 1.05),
+]
+FRESHNESS_DEFAULT = 1.0
+
+
+def _parse_sc(sc_raw) -> dict:
+    if sc_raw is None:
+        return {}
+    if isinstance(sc_raw, str):
+        try:
+            return json.loads(sc_raw)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+    return sc_raw if isinstance(sc_raw, dict) else {}
+
 
 def compute_scores(conn: psycopg.Connection) -> list[tuple[int, float]]:
     """Compute authority scores for all ontology_mapping rows."""
@@ -48,7 +71,7 @@ def compute_scores(conn: psycopg.Connection) -> list[tuple[int, float]]:
     rows = conn.execute(
         """
         SELECT om.id, om.canonical_name, om.source_slug,
-               s.status, s.family, s.semantic_context
+               s.status, s.family, s.semantic_context, s.last_refresh_at
         FROM ontology_mapping om
         LEFT JOIN source s ON s.slug = om.source_slug
         ORDER BY om.id
@@ -59,35 +82,50 @@ def compute_scores(conn: psycopg.Connection) -> list[tuple[int, float]]:
         return []
 
     concept_sources: dict[str, set[str]] = {}
-    for _id, canon, slug, _status, _family, _sc in rows:
+    for _id, canon, slug, *_ in rows:
         concept_sources.setdefault(canon, set()).add(slug)
 
+    now = datetime.now(UTC)
     results: list[tuple[int, float]] = []
-    for mapping_id, canon, _slug, status, family, sc_raw in rows:
+    for mapping_id, canon, _slug, status, family, sc_raw, last_refresh in rows:
         status_w = STATUS_WEIGHTS.get(status or "", DEFAULT_STATUS_WEIGHT)
 
+        sc = _parse_sc(sc_raw)
+
         explicit_weight = None
-        if sc_raw is not None:
-            sc = json.loads(sc_raw) if isinstance(sc_raw, str) else sc_raw
-            raw = sc.get("authority_weight") if isinstance(sc, dict) else None
-            if raw is not None:
-                try:
-                    explicit_weight = float(raw)
-                except (TypeError, ValueError):
-                    pass
+        raw = sc.get("authority_weight")
+        if raw is not None:
+            try:
+                explicit_weight = float(raw)
+            except (TypeError, ValueError):
+                pass
 
         if explicit_weight is not None:
             family_w = explicit_weight
         else:
             family_w = FAMILY_WEIGHTS.get(family or "", DEFAULT_FAMILY_WEIGHT)
 
-        num_sources = len(concept_sources.get(canon, set()))
+        num_sources = len(concept_sources.get(canon, set())) or 1
         agreement = min(
             1.0 + AGREEMENT_BONUS_PER_SOURCE * (num_sources - 1),
             MAX_AGREEMENT_BONUS,
         )
 
-        score = round(status_w * family_w * agreement, 3)
+        terminology = FORMAL_TERMINOLOGY_BOOST if sc.get("formal_terminology") else 1.0
+
+        entities = sc.get("entities", [])
+        entity_count = len(entities) if isinstance(entities, list) else 0
+        coverage = (1.0 + COVERAGE_LOG_SCALE * math.log2(entity_count)) if entity_count > 1 else 1.0
+
+        freshness = FRESHNESS_DEFAULT
+        if last_refresh is not None:
+            age_days = (now - last_refresh).days
+            for threshold_days, boost in FRESHNESS_THRESHOLDS:
+                if age_days <= threshold_days:
+                    freshness = boost
+                    break
+
+        score = round(status_w * family_w * agreement * terminology * coverage * freshness, 3)
         results.append((mapping_id, score))
 
     return results

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections import Counter
+import math
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -31,16 +32,52 @@ DEFAULT_FAMILY_WEIGHT = 1.0
 AGREEMENT_BONUS_PER_SOURCE = 0.1
 MAX_AGREEMENT_BONUS = 1.3
 
+FORMAL_TERMINOLOGY_BOOST = 1.2
+
+COVERAGE_LOG_SCALE = 0.05
+
+FRESHNESS_THRESHOLDS: list[tuple[int, float]] = [
+    (30, 1.1),
+    (90, 1.05),
+]
+FRESHNESS_DEFAULT = 1.0
+
 
 def _agreement_bonus(num_sources: int) -> float:
     return min(1.0 + AGREEMENT_BONUS_PER_SOURCE * (num_sources - 1), MAX_AGREEMENT_BONUS)
+
+
+def _terminology_weight(sc: dict) -> float:
+    if sc.get("formal_terminology"):
+        return FORMAL_TERMINOLOGY_BOOST
+    return 1.0
+
+
+def _coverage_weight(sc: dict) -> float:
+    entities = sc.get("entities", [])
+    count = len(entities) if isinstance(entities, list) else 0
+    if count <= 1:
+        return 1.0
+    return 1.0 + COVERAGE_LOG_SCALE * math.log2(count)
+
+
+def _freshness_weight(src: Source | None, now: datetime) -> float:
+    refresh = getattr(src, "last_refresh_at", None)
+    if refresh is None:
+        return FRESHNESS_DEFAULT
+    age_days = (now - refresh).days
+    for threshold_days, boost in FRESHNESS_THRESHOLDS:
+        if age_days <= threshold_days:
+            return boost
+    return FRESHNESS_DEFAULT
 
 
 def compute_authority_scores(session: Session) -> list[tuple[int, float]]:
     """Compute authority scores for all ontology mappings.
 
     Returns ``[(mapping_id, score), ...]`` where score is a composite of
-    source status weight, source family weight, and cross-source agreement.
+    source status, family, cross-source agreement, formal terminology,
+    entity coverage, and data freshness.
     """
     mappings = session.query(OntologyMapping).all()
     if not mappings:
@@ -54,14 +91,12 @@ def compute_authority_scores(session: Session) -> list[tuple[int, float]]:
     )
     source_by_slug: dict[str, Source] = {s.slug: s for s in sources}
 
-    concept_source_counts: Counter[str] = Counter()
-    for m in mappings:
-        concept_source_counts[m.canonical_name] += 1
-    concept_distinct_sources: dict[str, int] = {}
+    concept_distinct_sources: dict[str, set[str]] = {}
     for m in mappings:
         concept_distinct_sources.setdefault(m.canonical_name, set()).add(m.source_slug)
     concept_source_count = {k: len(v) for k, v in concept_distinct_sources.items()}
 
+    now = datetime.now(UTC)
     results: list[tuple[int, float]] = []
     for m in mappings:
         src = source_by_slug.get(m.source_slug)
@@ -70,14 +105,16 @@ def compute_authority_scores(session: Session) -> list[tuple[int, float]]:
         status_w = STATUS_WEIGHTS.get(str(status), DEFAULT_STATUS_WEIGHT)
 
         sc = getattr(src, "semantic_context", None) or {}
+        if not isinstance(sc, dict):
+            sc = {}
+
         explicit_weight = None
-        if isinstance(sc, dict):
-            raw = sc.get("authority_weight")
-            if raw is not None:
-                try:
-                    explicit_weight = float(raw)
-                except (TypeError, ValueError):
-                    pass
+        raw = sc.get("authority_weight")
+        if raw is not None:
+            try:
+                explicit_weight = float(raw)
+            except (TypeError, ValueError):
+                pass
 
         if explicit_weight is not None:
             family_w = explicit_weight
@@ -85,10 +122,17 @@ def compute_authority_scores(session: Session) -> list[tuple[int, float]]:
             family = getattr(src, "family", None) or ""
             family_w = FAMILY_WEIGHTS.get(str(family), DEFAULT_FAMILY_WEIGHT)
 
-        num_sources = concept_source_count.get(m.canonical_name, 1)
-        agreement = _agreement_bonus(num_sources)
+        agreement = _agreement_bonus(
+            concept_source_count.get(m.canonical_name, 1),
+        )
+        terminology = _terminology_weight(sc)
+        coverage = _coverage_weight(sc)
+        freshness = _freshness_weight(src, now)
 
-        score = round(status_w * family_w * agreement, 3)
+        score = round(
+            status_w * family_w * agreement * terminology * coverage * freshness,
+            3,
+        )
         results.append((m.id, score))
 
     return results

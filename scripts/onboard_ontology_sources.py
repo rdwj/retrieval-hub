@@ -34,6 +34,7 @@ DEFAULT_DB_URL = (
 # -- Source definitions -------------------------------------------------------
 
 _PUBMED_SC = {
+    "formal_terminology": False,
     "entities": [
         {
             "name": "Hypertension", "entity_type": "condition",
@@ -68,6 +69,7 @@ _PUBMED_SC = {
 }
 
 _AIRCRAFT_SC = {
+    "formal_terminology": False,
     "entities": [
         {
             "name": "Service Bulletin", "entity_type": "document_type",
@@ -104,6 +106,7 @@ _AIRCRAFT_SC = {
 }
 
 _TRIALS_SC = {
+    "formal_terminology": True,
     "entities": [
         {
             "name": "Clinical Trial", "entity_type": "study",
@@ -132,6 +135,7 @@ _TRIALS_SC = {
 }
 
 _AIRCRAFT_PROCESS_SC = {
+    "formal_terminology": False,
     "entities": [
         {
             "name": "Service Bulletin", "entity_type": "document_type",
@@ -168,6 +172,7 @@ _AIRCRAFT_PROCESS_SC = {
 }
 
 _AIRCRAFT_TEST_SC = {
+    "formal_terminology": False,
     "entities": [
         {
             "name": "Service Bulletin", "entity_type": "document_type",
@@ -204,6 +209,7 @@ _AIRCRAFT_TEST_SC = {
 }
 
 _CODE_SC = {
+    "formal_terminology": False,
     "entities": [
         {
             "name": "API Endpoint", "entity_type": "api",

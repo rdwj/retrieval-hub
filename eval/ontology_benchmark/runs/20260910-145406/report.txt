@@ -1,0 +1,29 @@
+Ontology-Assisted vs. Raw Retrieval Benchmark
+==============================================
+Run: 2026-09-10T14:56:23.113012+00:00
+DB: 127.0.0.1:5434/retrievalhub
+Queries: 12 | top_k: 5
+
+Dimension             Queries  Win Rate  Avg Hit Lift  Avg Source Lift  Avg Recall Lift
+----------------------  -------  --------  ------------  ---------------  ---------------
+Cross-source                5     80.0%          +6.2             +1.4            0.476
+Hierarchy                   4    100.0%         +12.5             +0.5            0.535
+Relationship                3    100.0%          +7.0             +0.7            0.382
+----------------------  -------  --------  ------------  ---------------  ---------------
+Overall                    12     91.7%          +8.5             +0.9            0.472
+
+Authority Score Correlation: r=0.0956, p=0.4794 (n=57)
+
+Per-Query Results:
+  xsrc-01    Condition                   : with= 15 hits (3 src)  without=  5 hits (1 src)  lift=+10
+  xsrc-02    Compound                    : with= 11 hits (3 src)  without=  5 hits (1 src)  lift=+6
+  xsrc-03    Finding                     : with= 15 hits (3 src)  without=  5 hits (1 src)  lift=+10
+  xsrc-04    Anatomy                     : with= 10 hits (2 src)  without=  5 hits (1 src)  lift=+5
+  xsrc-05    Procedure                   : with=  6 hits (2 src)  without=  6 hits (2 src)  lift=+0
+  hier-01    Condition                   : with= 36 hits (2 src)  without=  5 hits (1 src)  lift=+31
+  hier-02    Compound                    : with= 15 hits (2 src)  without=  5 hits (1 src)  lift=+10
+  hier-03    Substance Use Disorder      : with=  6 hits (1 src)  without=  5 hits (1 src)  lift=+1
+  hier-04    Finding                     : with= 18 hits (2 src)  without= 10 hits (2 src)  lift=+8
+  rel-01     Compound                    : with= 16 hits (3 src)  without= 15 hits (3 src)  lift=+1
+  rel-02     Patient                     : with= 20 hits (3 src)  without=  5 hits (1 src)  lift=+15
+  rel-03     Anatomy                     : with= 15 hits (2 src)  without= 10 hits (2 src)  lift=+5

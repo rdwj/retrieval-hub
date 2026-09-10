@@ -1,0 +1,45 @@
+{
+  "dimensions": {
+    "cross_source": {
+      "dimension": "cross_source",
+      "query_count": 5,
+      "mean_hit_count_lift": 6.2,
+      "mean_source_coverage_lift": 1.4,
+      "mean_recall_lift": 0.4758,
+      "queries_where_ontology_wins": 4,
+      "win_rate": 0.8
+    },
+    "hierarchy": {
+      "dimension": "hierarchy",
+      "query_count": 4,
+      "mean_hit_count_lift": 12.5,
+      "mean_source_coverage_lift": 0.5,
+      "mean_recall_lift": 0.5347,
+      "queries_where_ontology_wins": 4,
+      "win_rate": 1.0
+    },
+    "relationship": {
+      "dimension": "relationship",
+      "query_count": 3,
+      "mean_hit_count_lift": 7.0,
+      "mean_source_coverage_lift": 0.67,
+      "mean_recall_lift": 0.3819,
+      "queries_where_ontology_wins": 3,
+      "win_rate": 1.0
+    },
+    "overall": {
+      "dimension": "overall",
+      "query_count": 12,
+      "mean_hit_count_lift": 8.5,
+      "mean_source_coverage_lift": 0.92,
+      "mean_recall_lift": 0.472,
+      "queries_where_ontology_wins": 11,
+      "win_rate": 0.9167
+    }
+  },
+  "authority_correlation": {
+    "r": 0.0956,
+    "p": 0.4794,
+    "n": 57
+  }
+}
