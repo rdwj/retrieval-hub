@@ -1484,3 +1484,233 @@ def test_retrieve_without_doc_section_is_backward_compatible() -> None:
     fake_cursor = _extract_cursor(fake_conn_ctx)
     executed_sql = fake_cursor.execute.call_args[0][0]
     assert "WHERE" not in executed_sql
+
+
+# ---------------------------------------------------------------------------
+# BM25 hybrid retrieval tests
+# ---------------------------------------------------------------------------
+
+
+def test_rrf_fuse_overlapping_results() -> None:
+    """RRF fuses overlapping chunks by summing their RRF scores."""
+    vector_rows = [
+        {"id": "uuid-1", "chunk_text": "t1", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 0, "score": 0.95},
+        {"id": "uuid-2", "chunk_text": "t2", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 1, "score": 0.90},
+        {"id": "uuid-3", "chunk_text": "t3", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 2, "score": 0.85},
+    ]
+    bm25_rows = [
+        {"id": "uuid-2", "chunk_text": "t2", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 1, "score": 0.08},
+        {"id": "uuid-4", "chunk_text": "t4", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 3, "score": 0.06},
+        {"id": "uuid-1", "chunk_text": "t1", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 0, "score": 0.04},
+    ]
+
+    results = DocumentAdapter._rrf_fuse(vector_rows, bm25_rows, top_k=5)
+
+    assert len(results) == 4
+
+    scores_by_id = {r["id"]: r["score"] for r in results}
+
+    # uuid-2: vector rank 2 (1/62) + bm25 rank 1 (1/61)
+    assert scores_by_id["uuid-2"] == pytest.approx(1 / 62 + 1 / 61)
+    # uuid-1: vector rank 1 (1/61) + bm25 rank 3 (1/63)
+    assert scores_by_id["uuid-1"] == pytest.approx(1 / 61 + 1 / 63)
+    # uuid-4: bm25 rank 2 only (1/62)
+    assert scores_by_id["uuid-4"] == pytest.approx(1 / 62)
+    # uuid-3: vector rank 3 only (1/63)
+    assert scores_by_id["uuid-3"] == pytest.approx(1 / 63)
+
+    # Ordering: uuid-2 > uuid-1 > uuid-4 > uuid-3
+    assert [r["id"] for r in results] == ["uuid-2", "uuid-1", "uuid-4", "uuid-3"]
+
+
+def test_rrf_fuse_disjoint_results() -> None:
+    """Disjoint result sets produce no score summing; top_k limits output."""
+    vector_rows = [
+        {"id": "uuid-1", "chunk_text": "v1", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 0, "score": 0.95},
+        {"id": "uuid-2", "chunk_text": "v2", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 1, "score": 0.90},
+    ]
+    bm25_rows = [
+        {"id": "uuid-3", "chunk_text": "b1", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 2, "score": 0.08},
+        {"id": "uuid-4", "chunk_text": "b2", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 3, "score": 0.06},
+    ]
+
+    results = DocumentAdapter._rrf_fuse(vector_rows, bm25_rows, top_k=3)
+
+    assert len(results) == 3
+    # No score should exceed 1/61 (single-list rank 1)
+    for r in results:
+        assert r["score"] <= 1 / 61 + 1e-12
+
+
+def test_rrf_fuse_empty_bm25() -> None:
+    """Empty BM25 list returns vector results with single-list RRF scores."""
+    vector_rows = [
+        {"id": "uuid-1", "chunk_text": "v1", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 0, "score": 0.95},
+        {"id": "uuid-2", "chunk_text": "v2", "doc_title": "D", "doc_url": "u", "doc_section": "S", "chunk_index": 1, "score": 0.90},
+    ]
+
+    results = DocumentAdapter._rrf_fuse(vector_rows, [], top_k=5)
+
+    assert len(results) == 2
+    assert results[0]["id"] == "uuid-1"
+    assert results[0]["score"] == pytest.approx(1 / 61)
+    assert results[1]["id"] == "uuid-2"
+    assert results[1]["score"] == pytest.approx(1 / 62)
+
+
+def test_bm25_search_sql_structure() -> None:
+    """BM25 search SQL uses tsvector matching and ts_rank scoring."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [("uuid-1", "prazosin text", "Doc", "https://ex/d", "Treatment", 0, 0.08)],
+    )
+
+    with patch("psycopg.connect", return_value=fake_conn_ctx):
+        adapter._bm25_search("prazosin", top_k=5)
+
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "ts_rank(chunk_tsvector, plainto_tsquery" in executed_sql
+    assert "chunk_tsvector @@ plainto_tsquery" in executed_sql
+    assert "ORDER BY score DESC" in executed_sql
+    assert "doc_section = ANY" not in executed_sql
+
+
+def test_bm25_search_with_doc_section() -> None:
+    """BM25 search adds doc_section filter when provided."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [("uuid-1", "prazosin text", "Doc", "https://ex/d", "Treatment", 0, 0.08)],
+    )
+
+    with patch("psycopg.connect", return_value=fake_conn_ctx):
+        adapter._bm25_search("prazosin", top_k=5, doc_section=["Treatment"])
+
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "AND doc_section = ANY(%s)" in executed_sql
+
+
+def test_hybrid_retrieve_calls_both_searches() -> None:
+    """When hybrid is enabled, retrieve() runs both vector and BM25 search, fusing with RRF."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}, "retrieval": {"hybrid": True}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    vector_rows = [
+        {"id": "uuid-1", "chunk_text": "vec text", "doc_title": "Doc", "doc_url": "https://ex/d",
+         "doc_section": "S1", "chunk_index": 0, "score": 0.95},
+    ]
+    bm25_rows = [
+        {"id": "uuid-2", "chunk_text": "bm25 text", "doc_title": "Doc", "doc_url": "https://ex/d",
+         "doc_section": "S2", "chunk_index": 1, "score": 0.08},
+    ]
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch.object(adapter, "_similarity_search", return_value=vector_rows) as mock_sim,
+        patch.object(adapter, "_bm25_search", return_value=bm25_rows) as mock_bm25,
+    ):
+        results = adapter.retrieve("test query", top_k=5, request_id="req-hybrid")
+
+    mock_sim.assert_called_once()
+    mock_bm25.assert_called_once()
+    assert len(results) == 2
+    # Scores should be RRF scores (1/61 each, rank 1 in their list), not raw scores
+    for r in results:
+        assert r.score == pytest.approx(1.0 / 61)
+
+
+def test_hybrid_retrieve_disabled_by_default() -> None:
+    """Without retrieval.hybrid, retrieve() uses only vector search."""
+    source = _make_source()
+    recipe = _make_recipe_version(
+        {"embedding": {"model": "fake-model", "dimension": 768}}
+    )
+    index = _make_physical_index("idx_test_table")
+    adapter = DocumentAdapter(
+        source=source,
+        physical_index=index,
+        recipe_version=recipe,
+        vectors_db_url="postgresql+psycopg://retrievalhub:pw@localhost:5433/rv",
+    )
+
+    fake_embedder = MagicMock()
+    fake_embedder.embed.return_value = [0.1] * 768
+
+    fake_conn_ctx = _make_fake_connection(
+        _RETRIEVE_COLS,
+        [("uuid-1", "any chunk", "Doc", "https://ex/d", "Intro", 0, 0.90)],
+    )
+
+    with (
+        patch("retrieval_hub.ingestion.embed.QueryEmbedder", return_value=fake_embedder),
+        patch("psycopg.connect", return_value=fake_conn_ctx),
+        patch("pgvector.psycopg.register_vector"),
+        patch.object(adapter, "_bm25_search") as mock_bm25,
+    ):
+        results = adapter.retrieve("test query", top_k=5, request_id="req-no-hybrid")
+
+    mock_bm25.assert_not_called()
+    assert len(results) == 1
+
+    fake_cursor = _extract_cursor(fake_conn_ctx)
+    executed_sql = fake_cursor.execute.call_args[0][0]
+    assert "ts_rank" not in executed_sql
+
+
+# ---------------------------------------------------------------------------
+# Ingestion write module tests (tsvector DDL)
+# ---------------------------------------------------------------------------
+
+
+def test_create_table_sql_includes_tsvector() -> None:
+    """_create_table_sql includes a chunk_tsvector TSVECTOR column."""
+    from retrieval_hub.ingestion.write import _create_table_sql
+
+    sql = _create_table_sql("idx_test", 768)
+    assert "chunk_tsvector TSVECTOR" in sql
+
+
+def test_create_gin_index_sql() -> None:
+    """_create_gin_index_sql creates a GIN index on chunk_tsvector."""
+    from retrieval_hub.ingestion.write import _create_gin_index_sql
+
+    sql = _create_gin_index_sql("idx_test")
+    assert "USING GIN (chunk_tsvector)" in sql
+    assert "idx_test_tsvector_idx" in sql

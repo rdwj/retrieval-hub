@@ -90,6 +90,12 @@ class DocumentAdapter(SourceAdapter):
 
     # -- the retrieve entry point -----------------------------------------
 
+    def _is_hybrid_enabled(self) -> bool:
+        """Check if hybrid retrieval is enabled in the recipe config."""
+        content = self.recipe_version.content or {}
+        retrieval = content.get("retrieval") or {}
+        return bool(retrieval.get("hybrid", False))
+
     def retrieve(
         self,
         query_text: str,
@@ -117,7 +123,18 @@ class DocumentAdapter(SourceAdapter):
         )
         query_vec = embedder.embed(query_text)
 
-        rows = self._similarity_search(query_vec, top_k=top_k, doc_section=doc_section)
+        if self._is_hybrid_enabled():
+            vector_rows = self._similarity_search(
+                query_vec, top_k=top_k, doc_section=doc_section
+            )
+            bm25_rows = self._bm25_search(
+                query_text, top_k=top_k, doc_section=doc_section
+            )
+            rows = self._rrf_fuse(vector_rows, bm25_rows, top_k=top_k)
+        else:
+            rows = self._similarity_search(
+                query_vec, top_k=top_k, doc_section=doc_section
+            )
 
         results: list[RetrievalResult] = []
         for row in rows:
@@ -466,6 +483,92 @@ class DocumentAdapter(SourceAdapter):
                 cols = [desc.name for desc in cur.description or []]
                 rows = cur.fetchall()
         return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    def _bm25_search(
+        self,
+        query_text: str,
+        *,
+        top_k: int,
+        doc_section: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Run a BM25 full-text search against the tsvector column.
+
+        Returns a list of row dicts sorted by ts_rank descending.
+        Only returns rows that match the tsquery; if the query produces
+        no tsvector tokens, returns an empty list.
+        """
+        import psycopg
+
+        table = self.physical_index.location
+        logger.info(
+            "document_adapter._bm25_search table=%s top_k=%d doc_section=%s",
+            table,
+            top_k,
+            doc_section,
+        )
+
+        if doc_section is not None:
+            sql = (
+                f"SELECT id, chunk_text, doc_title, doc_url, doc_section, "
+                f"chunk_index, "
+                f"ts_rank(chunk_tsvector, plainto_tsquery('english', %s)) AS score "
+                f"FROM {table} "
+                f"WHERE chunk_tsvector @@ plainto_tsquery('english', %s) "
+                f"AND doc_section = ANY(%s) "
+                f"ORDER BY score DESC "
+                f"LIMIT %s"
+            )
+            params: tuple = (query_text, query_text, doc_section, top_k)
+        else:
+            sql = (
+                f"SELECT id, chunk_text, doc_title, doc_url, doc_section, "
+                f"chunk_index, "
+                f"ts_rank(chunk_tsvector, plainto_tsquery('english', %s)) AS score "
+                f"FROM {table} "
+                f"WHERE chunk_tsvector @@ plainto_tsquery('english', %s) "
+                f"ORDER BY score DESC "
+                f"LIMIT %s"
+            )
+            params = (query_text, query_text, top_k)
+
+        with psycopg.connect(_psycopg_url(self._vectors_db_url)) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                cols = [desc.name for desc in cur.description or []]
+                rows = cur.fetchall()
+        return [dict(zip(cols, row, strict=True)) for row in rows]
+
+    @staticmethod
+    def _rrf_fuse(
+        vector_rows: list[dict[str, Any]],
+        bm25_rows: list[dict[str, Any]],
+        *,
+        k: int = 60,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Merge vector and BM25 ranked lists using Reciprocal Rank Fusion.
+
+        Chunks appearing in both lists get summed RRF scores. Returns
+        top_k rows sorted by fused score descending.
+        """
+        scored: dict[str, tuple[float, dict[str, Any]]] = {}
+
+        for rank, row in enumerate(vector_rows, start=1):
+            chunk_id = str(row["id"])
+            rrf_score = 1.0 / (k + rank)
+            scored[chunk_id] = (rrf_score, row)
+
+        for rank, row in enumerate(bm25_rows, start=1):
+            chunk_id = str(row["id"])
+            rrf_score = 1.0 / (k + rank)
+            if chunk_id in scored:
+                prev_score, prev_row = scored[chunk_id]
+                scored[chunk_id] = (prev_score + rrf_score, prev_row)
+            else:
+                scored[chunk_id] = (rrf_score, row)
+
+        items = sorted(scored.values(), key=lambda x: x[0], reverse=True)[:top_k]
+        return [{**row, "score": fused_score} for fused_score, row in items]
 
     def _filtered_similarity_search(
         self,
