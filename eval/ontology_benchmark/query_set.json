@@ -189,6 +189,30 @@
         "hetionet-hypertension": {"local_names": ["Gene"]}
       },
       "description": "Discover Anatomy-Gene relationships and query both entity types"
+    },
+    {
+      "id": "cfirst-01",
+      "dimension": "concept_first",
+      "concept": "Condition",
+      "query_text": "hypertension diagnosis and management",
+      "sources": ["hetionet-hypertension", "snomed-ct-hypertension", "fhir-hypertension", "va-cpg-clinical-guidelines"],
+      "description": "Concept-first: Condition fans out to medical sources via ontology"
+    },
+    {
+      "id": "cfirst-02",
+      "dimension": "concept_first",
+      "concept": "Compound",
+      "query_text": "drug treatments and pharmacological therapy",
+      "sources": ["hetionet-hypertension", "snomed-ct-hypertension", "fhir-hypertension"],
+      "description": "Concept-first: Compound fans out to sources with drug/medication data"
+    },
+    {
+      "id": "cfirst-03",
+      "dimension": "concept_first",
+      "concept": "Aircraft Component",
+      "query_text": "landing gear inspection and maintenance",
+      "sources": ["aircraft-maintenance", "aircraft-sb-process", "aircraft-sb-test"],
+      "description": "Concept-first: Aircraft Component in the aviation domain"
     }
   ]
 }

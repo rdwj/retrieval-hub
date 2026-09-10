@@ -393,10 +393,57 @@ def _build_result(
     }
 
 
+def run_concept_first(
+    db_session: Session, q: dict, top_k: int, vectors_db_url: str,
+) -> dict:
+    """Compare concept_query fan-out against raw per-source retrieval."""
+    concept = q["concept"]
+    query_text = q["query_text"]
+    sources = q["sources"]
+
+    # WITH ontology: concept_query fans out to all mapped sources
+    with_hits: list[dict] = []
+    try:
+        from retrieval_hub.retrieval.api import concept_query
+
+        merged, source_mappings = concept_query(
+            concept=concept,
+            query_text=query_text,
+            session=db_session,
+            top_k=top_k,
+            vectors_db_url=vectors_db_url,
+        )
+        for r in merged:
+            mapping = source_mappings.get(r.source_slug)
+            with_hits.append({
+                "chunk_id": str(r.chunk_id),
+                "doc_title": r.doc_title,
+                "doc_section": r.doc_section,
+                "score": r.score,
+                "source": r.source_slug,
+                "authority_score": mapping.authority_weight if mapping else 1.0,
+            })
+    except Exception as exc:
+        logger.warning("concept_query(%s) failed: %s", concept, exc)
+
+    # WITHOUT ontology: raw per-source retrieval using concept name literally
+    without_hits: list[dict] = []
+    for src_slug in sources:
+        hits = do_retrieve(
+            db_session, query_text, src_slug, top_k,
+            doc_section=[concept], vectors_db_url=vectors_db_url,
+            raw=True,
+        )
+        without_hits.extend(hits)
+
+    return _build_result(q, "concept_first", with_hits, without_hits)
+
+
 DIMENSION_RUNNERS = {
     "cross_source": run_cross_source,
     "hierarchy": run_hierarchy,
     "relationship": run_relationship,
+    "concept_first": run_concept_first,
 }
 
 
@@ -477,6 +524,7 @@ DIM_DISPLAY = {
     "cross_source": "Cross-source",
     "hierarchy": "Hierarchy",
     "relationship": "Relationship",
+    "concept_first": "Concept-first",
     "overall": "Overall",
 }
 
@@ -514,7 +562,7 @@ def generate_report(
         "", header, sep,
     ]
 
-    for dim in ["cross_source", "hierarchy", "relationship"]:
+    for dim in ["cross_source", "hierarchy", "relationship", "concept_first"]:
         if dim in summaries:
             lines.append(_fmt_row(DIM_DISPLAY.get(dim, dim), summaries[dim]))
 

@@ -36,11 +36,15 @@ from retrieval_hub.models.ontology_relationship import (
 )
 from retrieval_hub.policy.access import can_access
 from retrieval_hub.retrieval.api import (
+    ConceptNotMappedError,
     SourceNotFoundError,
     SourceNotQueryableError,
     UnsupportedFamilyError,
     resolve_chunk_id,
     rrf_merge,
+)
+from retrieval_hub.retrieval.api import (
+    concept_query as retrieval_concept_query,
 )
 from retrieval_hub.retrieval.api import (
     multi_query as retrieval_multi_query,
@@ -573,7 +577,8 @@ def _parse_source_slugs(
 )
 async def retrieve(
     query: str,
-    source: str,
+    source: str | None = None,
+    concept: str | None = None,
     top_k: int = 5,
     file_path: str | None = None,
     ref: str | None = None,
@@ -604,7 +609,16 @@ async def retrieve(
 
     Parameters:
         query: Natural-language search query.
-        source: Source slug (from ``list_sources``).
+        source: Source slug (from ``list_sources``), comma-separated slugs,
+            or ``"*"`` for all queryable sources.  Mutually exclusive with
+            ``concept``.
+        concept: Canonical concept name (e.g., ``"Condition"``, ``"Compound"``).
+            Queries all sources mapped to this concept in the ontology registry,
+            using per-source local names as doc_section filters.  Results are
+            merged using authority-weighted Reciprocal Rank Fusion.  Query
+            rewriting is not applied for concept queries.  Mutually exclusive
+            with ``source``.  Use ``describe_ontology`` to browse available
+            concepts.
         top_k: Number of results to return (default 5, max varies by source).
         file_path: Fetch a specific file from the source's GitHub repository
             instead of running vector search.  Requires the source recipe to
@@ -628,6 +642,80 @@ async def retrieve(
     """
     try:
         identity = get_current_identity()
+
+        if concept and source:
+            raise ToolError(
+                "Provide either 'source' or 'concept', not both. "
+                "'concept' queries all sources mapped to a canonical concept. "
+                "'source' queries specific sources by slug."
+            )
+        if not concept and not source:
+            raise ToolError(
+                "Provide either 'source' (a slug, comma-separated slugs, or '*') "
+                "or 'concept' (a canonical concept name like 'Condition')."
+            )
+        if concept:
+            if file_path is not None:
+                raise ToolError("file_path is not supported with concept queries.")
+            if doc_section is not None:
+                raise ToolError(
+                    "doc_section is not supported with concept queries. "
+                    "Concept queries derive per-source filters from the ontology."
+                )
+            if scope_entity_id is not None:
+                raise ToolError(
+                    "scope_entity_id is not supported with concept queries."
+                )
+
+        if concept:
+            try:
+                merged, source_mappings = retrieval_concept_query(
+                    concept=concept,
+                    query_text=query,
+                    session=session,
+                    top_k=top_k,
+                )
+            except ConceptNotMappedError as exc:
+                raise ToolError(
+                    f"Concept {concept!r} has no queryable source mappings. "
+                    f"Use describe_ontology to browse available concepts."
+                ) from exc
+
+            request_id = merged[0].request_id if merged else str(uuid.uuid4())
+
+            hits = [
+                RetrievalHit(
+                    chunk_id=r.chunk_id,
+                    text=r.text,
+                    score=r.score,
+                    doc_title=r.doc_title,
+                    doc_url=r.doc_url,
+                    doc_section=r.doc_section,
+                    chunk_index=r.chunk_index,
+                    source_slug=r.source_slug,
+                )
+                for r in merged
+            ]
+
+            per_source_meta: dict[str, SourceRetrievalMetadata] = {}
+            for slug, _mapping in source_mappings.items():
+                src = session.query(Source).filter(Source.slug == slug).one_or_none()
+                if src is None:
+                    continue
+                emb_model = _resolve_embedding_model(src, session)
+                usage_rules, data_freshness = _extract_usage(src)
+                per_source_meta[slug] = SourceRetrievalMetadata(
+                    embedding_model=emb_model,
+                    usage_rules=usage_rules,
+                    data_freshness=data_freshness,
+                )
+
+            return RetrievalResponse(
+                request_id=request_id,
+                hits=hits,
+                per_source_metadata=per_source_meta if per_source_meta else None,
+            )
+
         slugs = _parse_source_slugs(source, session, identity)
 
         # file_path only works with single-source

@@ -34,6 +34,8 @@ from retrieval_hub_mcp.server import (
     retrieve,
 )
 
+from retrieval_hub.retrieval.api import ConceptNotMappedError
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -2492,3 +2494,185 @@ async def test_describe_ontology_mappings_sorted_by_authority_score():
     assert scores == [1.25, 1.04, 0.72], (
         "Mappings should be sorted by authority_score descending"
     )
+
+
+# ---------------------------------------------------------------------------
+# concept-first retrieval
+# ---------------------------------------------------------------------------
+
+
+def _make_concept_retrieve_session(sources):
+    """Build a mock session for concept-first retrieve tests.
+
+    The concept path iterates ``source_mappings`` and queries Source for each
+    slug to build ``per_source_metadata``.  This session handles those
+    lookups plus the PhysicalIndex/RecipeVersion chain for
+    ``_resolve_embedding_model``.
+    """
+    from retrieval_hub.models import PhysicalIndex as PIModel
+    from retrieval_hub.models import RecipeVersion as RVModel
+    from retrieval_hub.models import Source as SModel
+
+    pi = _make_physical_index()
+    rv = _make_recipe_version(
+        content={"embedding": {"model": "test-model"}},
+    )
+
+    source_iter = iter(sources)
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model is SModel:
+            q = MagicMock()
+
+            def _filter(*args, **kwargs):
+                fq = MagicMock()
+                fq.one_or_none.return_value = next(source_iter, None)
+                return fq
+
+            q.filter = _filter
+            return q
+        if model is PIModel:
+            return _MockQuery(pi)
+        if model is RVModel:
+            return _MockQuery(rv)
+        return _MockQuery(None)
+
+    session.query.side_effect = mock_query
+    return session
+
+
+@pytest.mark.asyncio
+async def test_retrieve_concept_calls_concept_query():
+    """concept= delegates to retrieval_concept_query and builds per_source_metadata."""
+    from retrieval_hub.retrieval.api import ConceptSourceMapping
+
+    mock_results = [
+        SimpleNamespace(
+            chunk_id="chunk-uuid-000",
+            text="Relevant passage text",
+            score=0.92,
+            doc_title="Manual v3",
+            doc_url="https://example.com/manual-v3",
+            doc_section="Chapter 2",
+            chunk_index=0,
+            source_slug="source-a",
+            request_id="req-abc",
+        ),
+        SimpleNamespace(
+            chunk_id="chunk-uuid-001",
+            text="Second hit",
+            score=0.85,
+            doc_title="Manual v4",
+            doc_url="https://example.com/manual-v4",
+            doc_section="Chapter 3",
+            chunk_index=1,
+            source_slug="source-b",
+            request_id="req-abc",
+        ),
+    ]
+    mock_mappings = {
+        "source-a": ConceptSourceMapping(
+            source_slug="source-a",
+            local_names=["Disease"],
+            authority_weight=0.9,
+        ),
+        "source-b": ConceptSourceMapping(
+            source_slug="source-b",
+            local_names=["Condition"],
+            authority_weight=0.7,
+        ),
+    }
+
+    source_a = _make_source(slug="source-a", name="Source A")
+    source_b = _make_source(slug="source-b", name="Source B")
+    session = _make_concept_retrieve_session([source_a, source_b])
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_concept_query",
+        return_value=(mock_results, mock_mappings),
+    ):
+        resp = await retrieve(
+            query="test",
+            concept="Condition",
+            session=session,
+        )
+
+    assert isinstance(resp, RetrievalResponse)
+    assert len(resp.hits) == 2
+    assert resp.per_source_metadata is not None
+    assert resp.embedding_model is None
+
+
+@pytest.mark.asyncio
+async def test_retrieve_concept_and_source_raises():
+    """Providing both source and concept raises ToolError."""
+    session = _make_retrieve_session(_make_source())
+
+    with pytest.raises(ToolError, match="not both"):
+        await retrieve(query="test", source="x", concept="Y", session=session)
+
+
+@pytest.mark.asyncio
+async def test_retrieve_no_source_no_concept_raises():
+    """Omitting both source and concept raises ToolError."""
+    session = _make_retrieve_session(_make_source())
+
+    with pytest.raises(ToolError, match="Provide either"):
+        await retrieve(query="test", session=session)
+
+
+@pytest.mark.asyncio
+async def test_retrieve_concept_not_mapped_raises():
+    """ConceptNotMappedError from the retrieval layer surfaces as ToolError."""
+    session = MagicMock()
+
+    with patch(
+        "retrieval_hub_mcp.server.retrieval_concept_query",
+        side_effect=ConceptNotMappedError("No queryable sources"),
+    ):
+        with pytest.raises(ToolError, match="no queryable source mappings"):
+            await retrieve(query="test", concept="Unknown", session=session)
+
+
+@pytest.mark.asyncio
+async def test_retrieve_concept_with_file_path_raises():
+    """file_path is rejected for concept queries."""
+    session = MagicMock()
+
+    with pytest.raises(ToolError, match="file_path is not supported"):
+        await retrieve(
+            query="test",
+            concept="Condition",
+            file_path="readme.md",
+            session=session,
+        )
+
+
+@pytest.mark.asyncio
+async def test_retrieve_concept_with_doc_section_raises():
+    """doc_section is rejected for concept queries."""
+    session = MagicMock()
+
+    with pytest.raises(ToolError, match="doc_section is not supported"):
+        await retrieve(
+            query="test",
+            concept="Condition",
+            doc_section=["X"],
+            session=session,
+        )
+
+
+@pytest.mark.asyncio
+async def test_retrieve_concept_with_scope_entity_raises():
+    """scope_entity_id is rejected for concept queries."""
+    session = MagicMock()
+
+    with pytest.raises(ToolError, match="scope_entity_id is not supported"):
+        await retrieve(
+            query="test",
+            concept="Condition",
+            scope_entity_id="e1",
+            session=session,
+        )

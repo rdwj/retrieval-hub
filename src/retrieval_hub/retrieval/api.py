@@ -17,7 +17,7 @@ import logging
 import uuid
 from dataclasses import dataclass, replace
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
 
 from retrieval_hub.adapters.base import SourceAdapter
@@ -83,6 +83,15 @@ class ExpansionResult:
     query_terms: list[str]
 
 
+@dataclass(frozen=True)
+class ConceptSourceMapping:
+    """One source's role in a concept query."""
+
+    source_slug: str
+    local_names: list[str]
+    authority_weight: float
+
+
 class SourceNotFoundError(LookupError):
     """Raised when ``query`` cannot find a source by slug."""
 
@@ -93,6 +102,10 @@ class SourceNotQueryableError(RuntimeError):
 
 class UnsupportedFamilyError(RuntimeError):
     """Raised when no adapter exists for the source's family yet."""
+
+
+class ConceptNotMappedError(LookupError):
+    """Raised when a concept has no queryable source mappings."""
 
 
 def _resolve_embedding_endpoint(
@@ -598,17 +611,22 @@ def rrf_merge(
     *,
     k: int = 60,
     top_k: int = 10,
+    source_weights: dict[str, float] | None = None,
 ) -> list[RetrievalResult]:
     """Merge ranked lists from multiple sources using Reciprocal Rank Fusion.
 
     Each source's results are ranked by their original score (highest first).
     The RRF score for each hit is 1/(k + rank), where rank is 1-based.
     Hits are keyed by (source_slug, chunk_id) -- no cross-source dedup.
+
+    When ``source_weights`` is provided, each hit's RRF score is multiplied
+    by the weight for its source (defaulting to 1.0 for unlisted sources).
     """
     merged: list[RetrievalResult] = []
     for source_slug, results in per_source_results.items():
+        weight = source_weights.get(source_slug, 1.0) if source_weights else 1.0
         for rank, result in enumerate(results, start=1):
-            rrf_score = 1.0 / (k + rank)
+            rrf_score = (1.0 / (k + rank)) * weight
             merged.append(replace(result, score=rrf_score, source_slug=source_slug))
     merged.sort(key=lambda r: r.score, reverse=True)
     return merged[:top_k]
@@ -648,3 +666,129 @@ def multi_query(
         except SourceNotQueryableError:
             logger.warning("multi_query: skipping unqueryable source %s", slug)
     return results
+
+
+def resolve_concept_sources(
+    session: Session,
+    concept: str,
+    *,
+    expand_hierarchy: bool = True,
+) -> list[ConceptSourceMapping]:
+    """Resolve a canonical concept to queryable sources with per-source doc_section filters.
+
+    Returns sources sorted by authority_weight descending.
+    Only includes sources with an active physical index.
+    """
+    rows = (
+        session.execute(
+            select(OntologyMapping).where(
+                func.lower(OntologyMapping.canonical_name) == concept.lower()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if expand_hierarchy:
+        initial_canonicals = {r.canonical_name for r in rows}
+        descendants = _expand_concepts_via_hierarchy(session, initial_canonicals)
+        new_canonicals = descendants - initial_canonicals
+        if new_canonicals:
+            extra_rows = (
+                session.execute(
+                    select(OntologyMapping).where(
+                        OntologyMapping.canonical_name.in_(new_canonicals)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            rows = list(rows) + list(extra_rows)
+
+    groups: dict[str, list[OntologyMapping]] = {}
+    for m in rows:
+        groups.setdefault(m.source_slug, []).append(m)
+
+    active_slugs: set[str] = set()
+    if groups:
+        active_sources = (
+            session.execute(
+                select(Source.slug).where(
+                    Source.slug.in_(groups.keys()),
+                    Source.active_physical_index_id.isnot(None),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        active_slugs = set(active_sources)
+
+    mappings = []
+    for slug, group in groups.items():
+        if slug not in active_slugs:
+            continue
+        local_names = sorted({m.local_name for m in group})
+        authority_weight = max(m.authority_score for m in group)
+        mappings.append(
+            ConceptSourceMapping(
+                source_slug=slug,
+                local_names=local_names,
+                authority_weight=authority_weight,
+            )
+        )
+
+    mappings.sort(key=lambda m: m.authority_weight, reverse=True)
+    return mappings
+
+
+def concept_query(
+    concept: str,
+    query_text: str,
+    *,
+    session: Session,
+    top_k: int = 10,
+    vectors_db_url: str | None = None,
+    request_id: str | None = None,
+    expand_hierarchy: bool = True,
+) -> tuple[list[RetrievalResult], dict[str, ConceptSourceMapping]]:
+    """Query by canonical concept, fanning out to all mapped sources.
+
+    Resolves the concept to source slugs via the ontology registry,
+    queries each source with per-source doc_section filters, and merges
+    results using authority-weighted RRF.
+
+    Returns (merged_results, source_mappings_by_slug).
+    Raises ConceptNotMappedError if no queryable sources map to the concept.
+    """
+    mappings = resolve_concept_sources(
+        session, concept, expand_hierarchy=expand_hierarchy
+    )
+    if not mappings:
+        raise ConceptNotMappedError(
+            f"No queryable sources map to concept {concept!r}"
+        )
+
+    effective_request_id = request_id or str(uuid.uuid4())
+
+    per_source: dict[str, list[RetrievalResult]] = {}
+    for mapping in mappings:
+        try:
+            per_source[mapping.source_slug] = query(
+                mapping.source_slug,
+                query_text,
+                session=session,
+                top_k=top_k,
+                vectors_db_url=vectors_db_url,
+                request_id=effective_request_id,
+                doc_section=mapping.local_names,
+            )
+        except SourceNotQueryableError:
+            logger.warning(
+                "concept_query: skipping unqueryable source %s",
+                mapping.source_slug,
+            )
+
+    authority_weights = {m.source_slug: m.authority_weight for m in mappings}
+    merged = rrf_merge(per_source, top_k=top_k, source_weights=authority_weights)
+    mappings_dict = {m.source_slug: m for m in mappings}
+    return merged, mappings_dict
