@@ -7,116 +7,110 @@ eval-driven self-improvement, query success monitoring, concept-first
 retrieval, an onboarding pipeline with HITL, and authority score
 improvements.
 
-Issues: #61 (closed), #62 (closed), #63, #64, #68 (closed)
+Issues: #61 (closed), #62 (closed), #63 (closed), #64, #68 (closed)
 
-## Next: Eval-driven self-improvement (#63)
+## Next: Authority score normalization + query success monitoring (#64)
 
-Build a per-mapping eval pipeline that measures how much each ontology
-mapping improves retrieval, then wire a feedback loop that auto-adjusts
-authority scores and flags low-quality mappings for the doctor.
+Two related pieces: normalize authority scores to [0, 1] so the
+self-improvement pipeline's adjustments are visible, then instrument
+the retrieval path to track per-mapping hit rates for runtime monitoring.
 
-### Implementation steps
+### Part 1: Normalize authority score range
 
-1. **Add per-mapping quality metrics to the benchmark**
+The multiplicative authority formula (`status * family * agreement *
+terminology * coverage * freshness`) produces scores from 0.870 to 1.850
+across 186 mappings. Since the self-improvement ceiling is 1.0, every
+eval-adjusted score clamps to the ceiling and the pipeline can't
+differentiate mappings. Two approaches to consider:
 
-   Extend `scripts/eval_ontology_benchmark.py` to produce per-mapping
-   scores. For each mapping exercised in the cross_source and
-   concept_first dimensions, compute:
-   - `hit_contribution`: how many hits came through this mapping's
-     local_name (compare with-ontology hits by source+doc_section
-     against without-ontology baseline)
-   - `precision_signal`: fraction of hits from this mapping that ranked
-     in the top-k (did this mapping's hits actually surface useful
-     content, or did they get buried?)
-   - `is_dead`: mapping produced zero hits across all queries that
-     should have exercised it
+**Option A — Post-hoc min-max normalization.** After computing raw
+scores, normalize to [0, 1]: `(score - min) / (max - min)`. Preserves
+relative ordering. Downside: adding a single extreme-scoring mapping
+shifts all other scores.
 
-   Output: a `per_mapping_quality` section in `summary.json` keyed by
-   `(canonical_name, source_slug, local_name)` with these metrics.
+**Option B — Cap multiplicative factors.** Reduce factor weights so the
+product stays in [0, 1] by construction. For example, change agreement
+from 1.0-1.3 to 1.0-1.15, terminology from 1.2 to 1.1, etc. Downside:
+requires retuning all constants.
 
-2. **Build the self-improvement pipeline**
+**Recommendation:** Option A is simpler and preserves the factor
+semantics. Add a normalization step at the end of
+`compute_authority_scores()` that maps [min, max] → [0.3, 1.0] (the
+self-improvement bounds). This keeps the factor weights as-is and gives
+the eval pipeline room to adjust.
 
-   New module `src/retrieval_hub/ontology/self_improve.py` with:
-   - `evaluate_mapping_quality(session, benchmark_results) -> list[MappingFinding]`
-     Reads the per-mapping metrics from step 1 and classifies each
-     mapping: `healthy` (positive hit contribution), `underperforming`
-     (low precision), `dead` (zero hits), `missing_coverage` (concept
-     has mappings in some sources but not others).
-   - `adjust_authority_scores(session, findings) -> list[ScoreAdjustment]`
-     For underperforming mappings, reduce authority score by a damping
-     factor (e.g., `score *= 0.9`). For consistently healthy mappings
-     with high precision, apply a small boost (e.g., `score *= 1.05`,
-     capped at 1.0). Returns the list of adjustments made for audit.
-   - `apply_adjustments(session, adjustments)` writes the new scores
-     back to `OntologyMapping.authority_score` with `flag_modified()`.
+**Files:** `src/retrieval_hub/ontology/authority.py`,
+`tests/test_ontology/test_authority.py`
 
-3. **Integrate with the doctor**
+### Part 2: Query success monitoring (#64)
 
-   Wire findings from step 2 into the doctor:
-   - `dead` findings trigger `check_dead_mappings` for confirmation
-     (the eval may have insufficient queries to exercise a mapping;
-     the doctor does an actual retrieval probe)
-   - `missing_coverage` findings feed into `check_coverage_gaps`
-   - Add a new doctor check: `check_eval_flagged_mappings(session,
-     findings)` that reports mappings the eval flagged but the doctor's
-     existing checks wouldn't catch (underperforming but not dead)
+Instrument the retrieval path to emit per-mapping metrics at query time,
+store them, and wire trigger conditions to the self-improvement pipeline.
 
-4. **CLI entry point**
+1. **Metrics table.** New `ontology_query_metrics` table (or lightweight
+   append model) with: `mapping_id`, `query_timestamp`, `hit_count`,
+   `source_slug`, `concept`. Alembic migration.
 
-   Add a `scripts/run_self_improvement.py` that orchestrates:
-   benchmark run -> evaluate_mapping_quality -> adjust_authority_scores
-   -> doctor validation. Should be runnable as a one-shot or as a
-   CronJob in the cluster.
+2. **Instrumentation.** In `retrieval_hub.retrieval.api`, after
+   `concept_query()` and `expand_doc_section_via_registry()` resolve
+   mappings, emit a metric record per mapping exercised. Lightweight:
+   just INSERT, no blocking. This also provides the real per-query
+   precision data that the batch benchmark can't (solving the
+   "precision always 1.0" limitation from Phase 3).
 
-5. **Test with real data**
+3. **Aggregation query.** Function to compute rolling hit rates per
+   mapping (e.g., last 7 days). Used by the doctor and the
+   self-improvement pipeline.
 
-   Run the pipeline against the dev database. Verify:
-   - Per-mapping metrics appear in benchmark output
-   - At least one mapping gets a score adjustment (use a known
-     low-quality mapping if needed)
-   - Doctor picks up eval-flagged findings
-   - Authority scores are persisted correctly
+4. **Trigger integration.** Extend the self-improvement CLI
+   (`scripts/run_self_improvement.py`) to accept `--from-metrics`
+   as an alternative to `--benchmark-dir`. When metrics are available,
+   the pipeline uses observed hit rates instead of benchmark data.
 
-**Sequencing.** Steps 1-2 are the core. Step 3 integrates with existing
-infra. Step 4 wraps it for ops. Step 5 validates end-to-end. Steps 1
-and 2 can be developed together since the eval output schema drives the
-self-improvement input.
+5. **Doctor integration.** New check: `check_low_hit_rate(session)`
+   queries the metrics table for mappings below a hit-rate threshold,
+   reports as WARN.
+
+**Files:** `src/retrieval_hub/models/` (new model),
+`src/retrieval_hub/retrieval/api.py`, `src/retrieval_hub/ontology/doctor.py`,
+`scripts/run_self_improvement.py`, `alembic/versions/` (migration)
+
+**Sequencing.** Part 1 first (targeted change, ~30 min). Part 2 in
+order: migration → instrumentation → aggregation → triggers → doctor.
+Parts 2.4 and 2.5 can be deferred to a follow-up if the session runs
+long — the core value is metrics table + instrumentation.
 
 **Constraints for the session:**
-- `flag_modified()` on `OntologyMapping.authority_score` after writes
-  (CLAUDE.md lesson).
-- The benchmark's `authority_correlation` metric is broken with RRF
-  scores. Don't use it. The new per-mapping metrics replace it as the
-  quality signal.
-- Authority score adjustments must be bounded: no mapping should drop
-  below a floor (0.3) or exceed a ceiling (1.0). Prevents runaway
-  feedback.
-- `compute_authority_scores()` in `ontology/authority.py` computes
-  scores from source metadata (static factors). The self-improvement
-  adjustments are a separate, additive signal from observed retrieval
-  performance. Keep the two mechanisms distinct -- don't merge them
-  into one function.
-- `127.0.0.1` not `localhost` for local DB connections (CLAUDE.md).
+- After normalizing scores, re-run the self-improvement dry-run to
+  verify scores now differentiate (not all clamped to 1.0)
+- The instrumentation must not add latency to the hot retrieval path.
+  Use fire-and-forget writes or batch at the end of `concept_query()`.
+- `127.0.0.1` not `localhost` for local DB connections (CLAUDE.md)
+- `flag_modified()` for any JSON column mutations (CLAUDE.md)
+- Alembic migration must work against both local SQLite (tests) and
+  cluster PostgreSQL
 
 **Session start protocol:**
 - Premise checks (~5 min, report before acting):
-  1. Confirm `concept_query()` is in `retrieval/api.py` and returns
-     `(results, source_mappings)` with authority weights
-  2. Run the benchmark: `python scripts/eval_ontology_benchmark.py`
-     and verify it produces results including the `concept_first`
-     dimension added in session 3
-  3. Confirm the doctor runs clean:
+  1. Port-forward to cluster DB: `oc port-forward retrieval-hub-pg-0
+     5434:5432 --context=gpt-oss-120b -n retrieval-hub`
+  2. Verify self-improvement pipeline runs:
+     `python scripts/run_self_improvement.py --skip-benchmark --dry-run`
+  3. Check current score range:
+     `SELECT min(authority_score), max(authority_score) FROM ontology_mapping`
+  4. Confirm doctor runs clean:
      `python scripts/ontology_doctor.py --skip-retrieval`
 - Rules with history:
-  1. `flag_modified()` for JSON/float column mutations (CLAUDE.md)
+  1. `flag_modified()` for JSON column mutations (CLAUDE.md)
   2. `127.0.0.1` not `localhost` for DB connections (CLAUDE.md)
-  3. Score adjustments must be idempotent -- running the pipeline
-     twice on the same benchmark results should produce the same
-     final scores, not compound the adjustment
-- Stop-and-ask before: deploying the self-improvement pipeline as a
-  CronJob, modifying production authority scores on the cluster DB.
-- Close ritual: session summary + `/plan-next-session ontology-v2` to
-  queue Phase 4 (#64).
+  3. Score normalization must be idempotent — running
+     `compute_authority_scores()` twice produces the same results
+- Stop-and-ask before: modifying production authority scores on the
+  cluster DB, deploying the monitoring instrumentation to the live
+  MCP server.
+- Close ritual: session summary + close #63 + close #64 (if all
+  acceptance criteria met) + `/plan-next-session ontology-v2` or
+  `/retro ontology-v2` if the epic is complete.
 
 ## Remaining epic phases
 
@@ -139,27 +133,32 @@ gpt-oss-120b. 21 new tests, benchmark dimension added.
 
 **Dependencies:** Phase 1 (meaningful scores improve fan-out ranking).
 
-### Phase 3: Eval-driven self-improvement (#63)
+### Phase 3: Eval-driven self-improvement (#63) -- COMPLETE
 
-Build an eval pipeline measuring per-mapping retrieval effectiveness
-with a feedback loop to adjust authority scores and flag dead/stale
-mappings.
+Shipped 2026-09-10. Per-mapping quality metrics in benchmark
+(`per_mapping_quality` in summary.json). Self-improvement module
+(`ontology/self_improve.py`) with evaluate/adjust/apply pipeline.
+Doctor integration (`check_eval_findings`). CLI orchestrator
+(`scripts/run_self_improvement.py`). 22 new tests (103 total ontology).
+Dry-run validated against cluster DB: 19 findings, 14 healthy,
+5 missing_coverage.
 
-**Definition of done:** Eval run produces per-mapping quality scores.
-Auto-adjustment of authority scores based on observed retrieval
-performance. Doctor integration for flagged mappings.
+Known limitation: precision metric is always 1.0 because
+`concept_query()` returns only merged top-k results. Phase 4 runtime
+monitoring provides the real per-query precision data.
 
-**Dependencies:** Phase 2 (concept-first queries generate the per-mapping
+**Dependencies:** Phase 2 (concept-first queries generate per-mapping
 signal data).
 
 ### Phase 4: Query success monitoring (#64)
 
 Instrument the retrieval path to track per-mapping hit rates and
-trigger self-improvement when thresholds are crossed.
+trigger self-improvement when thresholds are crossed. Also normalize
+authority scores to [0, 1] so eval adjustments are visible.
 
-**Definition of done:** Per-mapping metrics stored. Trigger conditions
-fire the doctor or score adjustment when hit rates drop. Dashboard or
-report for ops visibility.
+**Definition of done:** Authority scores normalized to [0, 1]. Per-mapping
+metrics stored at query time. Trigger conditions fire the doctor or
+score adjustment when hit rates drop. Dashboard or report for ops.
 
 **Dependencies:** Phase 3 (self-improvement pipeline must exist for
 triggers to invoke).
@@ -171,52 +170,48 @@ CLI review wizard (review_ontology_proposal.py), pipeline integration
 (Stage 8 of pipeline.ingest()), doctor validation after ontology
 population. All 5 acceptance criteria met.
 
-## What landed last session (2026-09-10, session 3)
+## What landed last session (2026-09-10, session 4)
 
-Concept-first retrieval shipped (Phase 2, #62). Added `concept`
-parameter to the MCP `retrieve` tool, `resolve_concept_sources()` and
-`concept_query()` to the retrieval API, authority-weighted RRF merge
-via `source_weights` on `rrf_merge()`. Benchmark `concept_first`
-dimension with 3 queries. 21 new tests. Deployed to gpt-oss-120b and
-live-tested -- `concept="Condition"` returned results from 3 sources
-(SNOMED, FHIR, Hetionet) with per-source metadata for 5 mapped sources.
-Review-driven fixes: removed false confidence warnings on RRF-scored
-queries, removed dead error handler.
+Eval-driven self-improvement shipped (Phase 3, #63). Per-mapping
+quality metrics in the benchmark, self-improvement module with
+idempotent score adjustment, doctor integration for eval findings,
+CLI orchestrator. 22 new tests. Dry-run against cluster DB validated
+end-to-end: 19 findings (14 healthy, 5 missing_coverage), all score
+adjustments ceiling-clamped to 1.0 (motivating the score normalization
+work in Phase 4).
 
-**Closed:** #62 — Concept-first retrieval with fan-out across sources
-**Closed:** #68 — Authority score improvements (session 2)
+**Closed:** #63 — Eval-driven self-improvement loops for mapping quality
 
-See: `session-summaries/2026-09-10-ontology-v2-concept-first-retrieval.md`
+See: `session-summaries/2026-09-10-ontology-v2-eval-self-improvement.md`
 
 ## Watch out for
 
-- The `semantic_context` JSON column needs `flag_modified()` after mutation
-  (CLAUDE.md lesson).
+- Authority scores currently range 0.870-1.850. After normalization, all
+  existing tests that assert specific score values will need updating.
+  Run the full test suite after changing the formula.
 - The benchmark's authority_correlation metric is structurally broken with
-  RRF-based scores (only 6 distinct similarity values across 57 hits).
-  Don't use it as a quality signal. Per-mapping quality metrics (Phase 3)
-  are the replacement.
-- Authority score adjustments from eval feedback must be bounded (floor
-  0.3, ceiling 1.0) and idempotent to prevent runaway feedback loops.
-- The `_check_confidence` false positive also affects the existing
-  multi-source path (server.py line 856). Not introduced by session 3,
-  but now more visible. Consider fixing for all RRF-scored paths.
+  RRF-based scores. Don't use it as a quality signal.
+- `pubmed-hypertension` uses a different embedding model than vllm-nomic,
+  causing 404s when the benchmark or concept_query fans out to it. This
+  silently drops results. Not blocking but affects monitoring coverage.
+- The `_check_confidence` false positive affects the multi-source path
+  (server.py line 856). Not blocking but worth fixing if touching nearby
+  code.
 
 ## If blocked
 
-- If the benchmark can't run (embedding service down), implement the
-  self-improvement module against mock benchmark results and validate
-  the score adjustment logic with unit tests. Wire to real data later.
-- If the doctor integration is too complex for one session, ship steps
-  1-2 (per-mapping metrics + score adjustment) and defer step 3 (doctor
-  integration) to a follow-up.
+- If the metrics table migration is complex (schema concerns), implement
+  the score normalization first and ship it standalone. The monitoring
+  instrumentation can follow in a separate commit.
+- If the cluster DB port-forward is unstable, develop against the local
+  SQLite test database and validate the Alembic migration separately.
 
 ## What this covers (and what it doesn't)
 
 **In scope:**
 - #61 Onboarding pipeline with HITL (closed)
 - #62 Concept-first retrieval (closed)
-- #63 Eval self-improvement loops
+- #63 Eval self-improvement loops (closed)
 - #64 Query success monitoring
 - #68 Authority score improvements (closed)
 
