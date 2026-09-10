@@ -1,0 +1,51 @@
+Ontology-Assisted vs. Raw Retrieval Benchmark
+==============================================
+Run: 2026-09-10T22:14:41.770804+00:00
+DB: 127.0.0.1:5434/retrievalhub
+Queries: 15 | top_k: 5
+
+Dimension             Queries  Win Rate  Avg Hit Lift  Avg Source Lift  Avg Recall Lift
+----------------------  -------  --------  ------------  ---------------  ---------------
+Cross-source                5     80.0%          +6.2             +1.4            0.476
+Hierarchy                   4    100.0%         +10.2             +0.0            0.507
+Relationship                3    100.0%          +7.0             +0.7            0.382
+Concept-first               3      0.0%          -3.3             -0.7            0.000
+----------------------  -------  --------  ------------  ---------------  ---------------
+Overall                    15     73.3%          +5.5             +0.5            0.370
+
+Authority Score Correlation: r=0.0747, p=0.5807 (n=57)
+
+Per-Query Results:
+  xsrc-01    Condition                   : with= 15 hits (3 src)  without=  5 hits (1 src)  lift=+10
+  xsrc-02    Compound                    : with= 11 hits (3 src)  without=  5 hits (1 src)  lift=+6
+  xsrc-03    Finding                     : with= 15 hits (3 src)  without=  5 hits (1 src)  lift=+10
+  xsrc-04    Anatomy                     : with= 10 hits (2 src)  without=  5 hits (1 src)  lift=+5
+  xsrc-05    Procedure                   : with=  6 hits (2 src)  without=  6 hits (2 src)  lift=+0
+  hier-01    Condition                   : with= 30 hits (1 src)  without=  5 hits (1 src)  lift=+25
+  hier-02    Compound                    : with= 12 hits (1 src)  without=  5 hits (1 src)  lift=+7
+  hier-03    Substance Use Disorder      : with=  6 hits (1 src)  without=  5 hits (1 src)  lift=+1
+  hier-04    Finding                     : with= 18 hits (2 src)  without= 10 hits (2 src)  lift=+8
+  rel-01     Compound                    : with= 16 hits (3 src)  without= 15 hits (3 src)  lift=+1
+  rel-02     Patient                     : with= 20 hits (3 src)  without=  5 hits (1 src)  lift=+15
+  rel-03     Anatomy                     : with= 15 hits (2 src)  without= 10 hits (2 src)  lift=+5
+  cfirst-01  Condition                   : with=  0 hits (0 src)  without=  5 hits (1 src)  lift=-5
+  cfirst-02  Compound                    : with=  0 hits (0 src)  without=  5 hits (1 src)  lift=-5
+  cfirst-03  Aircraft Component          : with=  0 hits (0 src)  without=  0 hits (0 src)  lift=+0
+
+Per-Mapping Quality
+-------------------
+Mapping                                  Queries   Hits  Top-K  Precision  Dead?
+---------------------------------------- -------  -----  -----  ---------  -----
+Anatomy||hetionet-hypertension                 1      5      5     1.0000     No
+Anatomy||snomed-ct-hypertension                1      5      5     1.0000     No
+Compound||fhir-hypertension                    1      5      5     1.0000     No
+Compound||hetionet-hypertension                1      5      5     1.0000     No
+Compound||snomed-ct-hypertension               1      1      1     1.0000     No
+Condition||fhir-hypertension                   1      5      5     1.0000     No
+Condition||hetionet-hypertension               1      5      5     1.0000     No
+Condition||snomed-ct-hypertension              1      5      5     1.0000     No
+Finding||fhir-hypertension                     1      5      5     1.0000     No
+Finding||hetionet-hypertension                 1      5      5     1.0000     No
+Finding||snomed-ct-hypertension                1      5      5     1.0000     No
+Procedure||fhir-hypertension                   1      5      5     1.0000     No
+Procedure||snomed-ct-hypertension              1      1      1     1.0000     No

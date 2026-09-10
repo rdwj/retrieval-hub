@@ -1,0 +1,47 @@
+[
+  {
+    "mapping_id": 116,
+    "canonical_name": "Condition",
+    "source_slug": "clinicaltrials-hypertension",
+    "local_name": "Eligibility Criteria",
+    "category": "missing_coverage",
+    "authority_score": 1.683,
+    "metrics": {}
+  },
+  {
+    "mapping_id": 109,
+    "canonical_name": "Condition",
+    "source_slug": "pubmed-hypertension",
+    "local_name": "Comorbidity",
+    "category": "missing_coverage",
+    "authority_score": 1.513,
+    "metrics": {}
+  },
+  {
+    "mapping_id": 110,
+    "canonical_name": "Procedure",
+    "source_slug": "pubmed-hypertension",
+    "local_name": "Lifestyle Intervention",
+    "category": "missing_coverage",
+    "authority_score": 1.397,
+    "metrics": {}
+  },
+  {
+    "mapping_id": 117,
+    "canonical_name": "Compound",
+    "source_slug": "clinicaltrials-hypertension",
+    "local_name": "Intervention",
+    "category": "missing_coverage",
+    "authority_score": 1.683,
+    "metrics": {}
+  },
+  {
+    "mapping_id": 108,
+    "canonical_name": "Compound",
+    "source_slug": "pubmed-hypertension",
+    "local_name": "Pharmacotherapy",
+    "category": "missing_coverage",
+    "authority_score": 1.513,
+    "metrics": {}
+  }
+]

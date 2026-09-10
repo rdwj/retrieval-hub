@@ -478,3 +478,53 @@ def check_dead_mappings(
             _retrieval_api._resolve_embedding_endpoint = orig_resolve
 
     return findings
+
+
+def check_eval_findings(
+    session: Session,
+    *,
+    eval_findings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Report mappings flagged by the eval self-improvement pipeline."""
+    findings: list[dict[str, Any]] = []
+    for ef in eval_findings:
+        category = ef.get("category", "")
+        if category == "dead":
+            findings.append({
+                "check": "eval_dead_mapping",
+                "severity": "WARN",
+                "canonical_name": ef.get("canonical_name"),
+                "source_slug": ef.get("source_slug"),
+                "local_name": ef.get("local_name"),
+                "message": (
+                    f"Mapping {ef.get('canonical_name')}/{ef.get('source_slug')}/"
+                    f"{ef.get('local_name')} produced zero retrieval hits across "
+                    f"all benchmark queries"
+                ),
+            })
+        elif category == "underperforming":
+            precision = ef.get("metrics", {}).get("precision", 0)
+            findings.append({
+                "check": "eval_underperforming",
+                "severity": "INFO",
+                "canonical_name": ef.get("canonical_name"),
+                "source_slug": ef.get("source_slug"),
+                "local_name": ef.get("local_name"),
+                "message": (
+                    f"Mapping {ef.get('canonical_name')}/{ef.get('source_slug')}/"
+                    f"{ef.get('local_name')} has low precision ({precision:.2f})"
+                ),
+            })
+        elif category == "missing_coverage":
+            findings.append({
+                "check": "eval_missing_coverage",
+                "severity": "INFO",
+                "canonical_name": ef.get("canonical_name"),
+                "source_slug": ef.get("source_slug"),
+                "local_name": ef.get("local_name"),
+                "message": (
+                    f"Mapping {ef.get('canonical_name')}/{ef.get('source_slug')}/"
+                    f"{ef.get('local_name')} was not exercised by any benchmark query"
+                ),
+            })
+    return findings

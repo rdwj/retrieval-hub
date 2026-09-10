@@ -84,6 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--include-retired", action="store_true",
                    help="Include RETIRED sources")
     p.add_argument("--verbose", action="store_true", help="Debug logging")
+    p.add_argument(
+        "--eval-findings",
+        type=str,
+        default=None,
+        help="Path to eval findings JSON file (from run_self_improvement.py). "
+             "Runs check_eval_findings() in addition to standard checks.",
+    )
     return p
 
 
@@ -322,6 +329,18 @@ def main() -> int:
     make_session = sessionmaker(bind=create_engine(args.db_url))
     with make_session() as session:
         results = run_checks(session, args)
+
+        if args.eval_findings:
+            import json as _json
+
+            with open(args.eval_findings) as f:
+                eval_data = _json.load(f)
+            from retrieval_hub.ontology.doctor import check_eval_findings
+
+            eval_results = check_eval_findings(session, eval_findings=eval_data)
+            if eval_results:
+                results["eval_findings"] = eval_results
+
         summary = compute_summary(session, results)
 
         if args.json_file:

@@ -1,0 +1,2527 @@
+[
+  {
+    "id": "xsrc-01",
+    "dimension": "cross_source",
+    "concept": "Condition",
+    "with_ontology": {
+      "total_hits": 15,
+      "sources_with_hits": 3,
+      "hits_per_source": {
+        "hetionet-hypertension": 5,
+        "snomed-ct-hypertension": 5,
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.01811644136901937,
+      "hits": [
+        {
+          "chunk_id": "f1ddab9b-0f7e-4410-a82e-0925697f0a9e",
+          "doc_title": "Disease::DOID:10763",
+          "doc_section": "Disease",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "b2442600-d40b-4149-9d4f-66efa1e7fc70",
+          "doc_title": "Disease::DOID:784",
+          "doc_section": "Disease",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "48efbe2d-93a4-4724-bca6-e074de6203d0",
+          "doc_title": "Disease::DOID:14221",
+          "doc_section": "Disease",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "a7f946fd-26c9-491b-ba6a-923977b916f8",
+          "doc_title": "Disease::DOID:9970",
+          "doc_section": "Disease",
+          "score": 0.015625,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "479009ef-003e-4745-aaf4-5794b0867c40",
+          "doc_title": "Disease::DOID:3953",
+          "doc_section": "Disease",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "f1e68ac9-8206-4080-952f-80438e82771e",
+          "doc_title": "449759005",
+          "doc_section": "Disorder",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "ab60b15a-a0f2-48eb-945d-2422866522d1",
+          "doc_title": "766937004",
+          "doc_section": "Disorder",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "2d5cd858-2b8f-4f75-a18a-1e17cbba19ad",
+          "doc_title": "383813411000119100",
+          "doc_section": "Disorder",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "b3b0c8d7-2262-4574-a66f-b441ad4484b7",
+          "doc_title": "38481006",
+          "doc_section": "Disorder",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "28120a1d-64af-4d2e-ac88-72dff4ec702b",
+          "doc_title": "16055551000119101",
+          "doc_section": "Disorder",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "822f8898-47c7-4f6b-b64d-63e13691aafc",
+          "doc_title": "8cefc41b-95d2-c466-73ac-41f0c520c4df",
+          "doc_section": "Condition",
+          "score": 0.032018442622950824,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "e905343e-3634-4259-a669-b415ed4f2d06",
+          "doc_title": "04869f58-efeb-134f-ea9c-0cdf97432de1",
+          "doc_section": "Condition",
+          "score": 0.03125763125763126,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "0f7f20a5-c7f9-4ab7-9480-7567c4c18f6f",
+          "doc_title": "14a1a051-0d93-b0ee-9ba2-eb13846fd752",
+          "doc_section": "Condition",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "addbb143-93ed-4249-a080-b90846e40e41",
+          "doc_title": "eb791370-fe18-0d71-b765-06bcb6fafc4e",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "17da5395-7290-4651-b879-294386cc8770",
+          "doc_title": "596bb739-0d6a-038d-042f-e282b943a9ee",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.022385516203932386,
+      "hits": [
+        {
+          "chunk_id": "822f8898-47c7-4f6b-b64d-63e13691aafc",
+          "doc_title": "8cefc41b-95d2-c466-73ac-41f0c520c4df",
+          "doc_section": "Condition",
+          "score": 0.032018442622950824,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "e905343e-3634-4259-a669-b415ed4f2d06",
+          "doc_title": "04869f58-efeb-134f-ea9c-0cdf97432de1",
+          "doc_section": "Condition",
+          "score": 0.03125763125763126,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "0f7f20a5-c7f9-4ab7-9480-7567c4c18f6f",
+          "doc_title": "14a1a051-0d93-b0ee-9ba2-eb13846fd752",
+          "doc_section": "Condition",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "addbb143-93ed-4249-a080-b90846e40e41",
+          "doc_title": "eb791370-fe18-0d71-b765-06bcb6fafc4e",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "17da5395-7290-4651-b879-294386cc8770",
+          "doc_title": "596bb739-0d6a-038d-042f-e282b943a9ee",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 10,
+      "source_coverage_lift": 2,
+      "recall_lift": 0.6667,
+      "mean_score_delta": -0.0043
+    },
+    "mapping_hits": {
+      "Condition||hetionet-hypertension": {
+        "canonical_name": "Condition",
+        "source_slug": "hetionet-hypertension",
+        "local_names": [
+          "Disease"
+        ],
+        "authority_score": 1.811,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Condition||snomed-ct-hypertension": {
+        "canonical_name": "Condition",
+        "source_slug": "snomed-ct-hypertension",
+        "local_names": [
+          "Disorder"
+        ],
+        "authority_score": 1.85,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Condition||fhir-hypertension": {
+        "canonical_name": "Condition",
+        "source_slug": "fhir-hypertension",
+        "local_names": [
+          "Condition"
+        ],
+        "authority_score": 1.85,
+        "hit_count": 5,
+        "in_top_k": 5
+      }
+    }
+  },
+  {
+    "id": "xsrc-02",
+    "dimension": "cross_source",
+    "concept": "Compound",
+    "with_ontology": {
+      "total_hits": 11,
+      "sources_with_hits": 3,
+      "hits_per_source": {
+        "hetionet-hypertension": 5,
+        "snomed-ct-hypertension": 1,
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.017417917956654073,
+      "hits": [
+        {
+          "chunk_id": "9fb93cc2-29a7-4f5c-9c2e-b838278e0c46",
+          "doc_title": "Compound::DB00542",
+          "doc_section": "Compound",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "d86b3cea-5785-47ae-aa1a-260854021dd6",
+          "doc_title": "Compound::DB00519",
+          "doc_section": "Compound",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "de57f872-ba88-48f5-adeb-f3736eddfdf3",
+          "doc_title": "Compound::DB00808",
+          "doc_section": "Compound",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "aa0b0aee-3813-45c0-81f0-a729cd5829f7",
+          "doc_title": "Compound::DB01275",
+          "doc_section": "Compound",
+          "score": 0.015625,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "a5f036f7-13f8-4f30-a146-26196dc26c23",
+          "doc_title": "Compound::DB00206",
+          "doc_section": "Compound",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.811
+        },
+        {
+          "chunk_id": "309be097-bcce-4483-83e6-62e447d5a640",
+          "doc_title": "410942007",
+          "doc_section": "Substance",
+          "score": 0.03278688524590164,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "af17c16a-878e-465c-916c-80726eed4597",
+          "doc_title": "841694ba-0eb7-9b52-225a-001d37163936",
+          "doc_section": "MedicationRequest",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "d20c91b3-8d01-43e2-a2bc-d4b9c292e5fa",
+          "doc_title": "f7d2665e-8b17-106b-e29e-24084d96e8cc",
+          "doc_section": "MedicationRequest",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "80c08ee1-e285-44ca-814e-ab7f909a2782",
+          "doc_title": "841694ba-0eb7-9b52-4234-b3749a237a31",
+          "doc_section": "MedicationRequest",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "67388ee0-9632-4c5d-bbfa-24ff1b4cca62",
+          "doc_title": "841694ba-0eb7-9b52-f1c9-492fa88cb2c9",
+          "doc_section": "MedicationRequest",
+          "score": 0.015625,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        },
+        {
+          "chunk_id": "f8fafd88-2690-40f3-b274-0eb891d4d23e",
+          "doc_title": "14a1a051-0d93-b0ee-0b8e-fd92221ae1ba",
+          "doc_section": "MedicationRequest",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension",
+          "authority_score": 1.85
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "hetionet-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "9fb93cc2-29a7-4f5c-9c2e-b838278e0c46",
+          "doc_title": "Compound::DB00542",
+          "doc_section": "Compound",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "d86b3cea-5785-47ae-aa1a-260854021dd6",
+          "doc_title": "Compound::DB00519",
+          "doc_section": "Compound",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "de57f872-ba88-48f5-adeb-f3736eddfdf3",
+          "doc_title": "Compound::DB00808",
+          "doc_section": "Compound",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "aa0b0aee-3813-45c0-81f0-a729cd5829f7",
+          "doc_title": "Compound::DB01275",
+          "doc_section": "Compound",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "a5f036f7-13f8-4f30-a146-26196dc26c23",
+          "doc_title": "Compound::DB00206",
+          "doc_section": "Compound",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 6,
+      "source_coverage_lift": 2,
+      "recall_lift": 0.5455,
+      "mean_score_delta": 0.0015
+    },
+    "mapping_hits": {
+      "Compound||hetionet-hypertension": {
+        "canonical_name": "Compound",
+        "source_slug": "hetionet-hypertension",
+        "local_names": [
+          "Compound"
+        ],
+        "authority_score": 1.811,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Compound||snomed-ct-hypertension": {
+        "canonical_name": "Compound",
+        "source_slug": "snomed-ct-hypertension",
+        "local_names": [
+          "Substance"
+        ],
+        "authority_score": 1.85,
+        "hit_count": 1,
+        "in_top_k": 1
+      },
+      "Compound||fhir-hypertension": {
+        "canonical_name": "Compound",
+        "source_slug": "fhir-hypertension",
+        "local_names": [
+          "MedicationRequest"
+        ],
+        "authority_score": 1.85,
+        "hit_count": 5,
+        "in_top_k": 5
+      }
+    }
+  },
+  {
+    "id": "xsrc-03",
+    "dimension": "cross_source",
+    "concept": "Finding",
+    "with_ontology": {
+      "total_hits": 15,
+      "sources_with_hits": 3,
+      "hits_per_source": {
+        "hetionet-hypertension": 5,
+        "snomed-ct-hypertension": 5,
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "15a4d8e0-93e2-419a-9f03-e2e52025a8cd",
+          "doc_title": "Symptom::D007024",
+          "doc_section": "Symptom",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.671
+        },
+        {
+          "chunk_id": "35b5a734-1c51-49c0-9ea5-c8e7437fa0ea",
+          "doc_title": "Symptom::D011602",
+          "doc_section": "Symptom",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.671
+        },
+        {
+          "chunk_id": "46b5dcfa-6b47-42f3-9843-81807d9a8f45",
+          "doc_title": "Symptom::D004244",
+          "doc_section": "Symptom",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.671
+        },
+        {
+          "chunk_id": "1083b6fe-aedf-42af-8758-6e7a0ca256cc",
+          "doc_title": "Symptom::D007383",
+          "doc_section": "Symptom",
+          "score": 0.015625,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.671
+        },
+        {
+          "chunk_id": "0cbca03f-2e98-493c-a670-a3bc46324f23",
+          "doc_title": "Symptom::D004487",
+          "doc_section": "Symptom",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.671
+        },
+        {
+          "chunk_id": "716e08ed-662c-44f7-9e43-50adff3b52b9",
+          "doc_title": "79654002",
+          "doc_section": "Morphologic Abnormality",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "faa14bcf-4806-4752-a552-7997a227b796",
+          "doc_title": "21829004",
+          "doc_section": "Finding",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "84d544d6-25da-48cc-8b49-c25808e3f7dd",
+          "doc_title": "420134006",
+          "doc_section": "Finding",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "bb51760e-4b7d-4593-a685-82ad64acc9ae",
+          "doc_title": "248982007",
+          "doc_section": "Finding",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "294d440f-160e-40da-88ee-88bcc406aca0",
+          "doc_title": "106063007",
+          "doc_section": "Finding",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "652c6311-1f3a-4224-bfc5-2aa24f326bb2",
+          "doc_title": "8cefc41b-95d2-c466-4184-67febb63c0b7",
+          "doc_section": "Observation",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "5012303f-cc4b-48ca-8dcc-c37eedb4205b",
+          "doc_title": "841694ba-0eb7-9b52-8b0c-c2efac23a2cf",
+          "doc_section": "Observation",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "ddc2af87-a400-4723-802b-75e7830cab4c",
+          "doc_title": "8a502ac0-5a7a-0907-de89-23c07f6ffb31",
+          "doc_section": "Observation",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "0a590c4a-3b51-44e8-9e7f-7eb11649aa3f",
+          "doc_title": "596bb739-0d6a-038d-ca0e-dca47cc7e8b0",
+          "doc_section": "Observation",
+          "score": 0.015625,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "e1e3ca3d-3302-497e-bf7a-355eaf12876f",
+          "doc_title": "8cefc41b-95d2-c466-5c1e-98ecbec27111",
+          "doc_section": "Observation",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "snomed-ct-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "faa14bcf-4806-4752-a552-7997a227b796",
+          "doc_title": "21829004",
+          "doc_section": "Finding",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "84d544d6-25da-48cc-8b49-c25808e3f7dd",
+          "doc_title": "420134006",
+          "doc_section": "Finding",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "bb51760e-4b7d-4593-a685-82ad64acc9ae",
+          "doc_title": "248982007",
+          "doc_section": "Finding",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "294d440f-160e-40da-88ee-88bcc406aca0",
+          "doc_title": "106063007",
+          "doc_section": "Finding",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "8c3870af-5602-4cff-9ec2-59b370978082",
+          "doc_title": "299691001",
+          "doc_section": "Finding",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 10,
+      "source_coverage_lift": 2,
+      "recall_lift": 0.6667,
+      "mean_score_delta": 0.0
+    },
+    "mapping_hits": {
+      "Finding||hetionet-hypertension": {
+        "canonical_name": "Finding",
+        "source_slug": "hetionet-hypertension",
+        "local_names": [
+          "Symptom"
+        ],
+        "authority_score": 1.671,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Finding||snomed-ct-hypertension": {
+        "canonical_name": "Finding",
+        "source_slug": "snomed-ct-hypertension",
+        "local_names": [
+          "Finding",
+          "Observable Entity"
+        ],
+        "authority_score": 1.708,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Finding||fhir-hypertension": {
+        "canonical_name": "Finding",
+        "source_slug": "fhir-hypertension",
+        "local_names": [
+          "Observation"
+        ],
+        "authority_score": 1.708,
+        "hit_count": 5,
+        "in_top_k": 5
+      }
+    }
+  },
+  {
+    "id": "xsrc-04",
+    "dimension": "cross_source",
+    "concept": "Anatomy",
+    "with_ontology": {
+      "total_hits": 10,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "hetionet-hypertension": 5,
+        "snomed-ct-hypertension": 5
+      },
+      "mean_score": 0.019133268715830848,
+      "hits": [
+        {
+          "chunk_id": "d936b6e0-2c7a-46a5-bb2e-bc7c200724b7",
+          "doc_title": "Anatomy::UBERON:0002082",
+          "doc_section": "Anatomy",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.532
+        },
+        {
+          "chunk_id": "e9784b7a-808c-4683-8c39-21c365e97ca4",
+          "doc_title": "Anatomy::UBERON:0002494",
+          "doc_section": "Anatomy",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.532
+        },
+        {
+          "chunk_id": "8ceac32e-6a3c-4bae-b92c-2e4e292fbf54",
+          "doc_title": "Anatomy::UBERON:0001515",
+          "doc_section": "Anatomy",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.532
+        },
+        {
+          "chunk_id": "a275783f-8f83-4490-94ba-d65eb0f8b66a",
+          "doc_title": "Anatomy::UBERON:0004535",
+          "doc_section": "Anatomy",
+          "score": 0.015625,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.532
+        },
+        {
+          "chunk_id": "ab55cc39-6818-47ad-ad92-ea904dc17fc9",
+          "doc_title": "Anatomy::UBERON:0001398",
+          "doc_section": "Anatomy",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension",
+          "authority_score": 1.532
+        },
+        {
+          "chunk_id": "0459143d-55ba-4dd8-bc5d-79e58609b39d",
+          "doc_title": "113257007",
+          "doc_section": "Body Structure",
+          "score": 0.031754032258064516,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.565
+        },
+        {
+          "chunk_id": "d8eac7d4-7433-40d2-a627-be2b69dd3537",
+          "doc_title": "51840005",
+          "doc_section": "Body Structure",
+          "score": 0.03125763125763126,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.565
+        },
+        {
+          "chunk_id": "9f1e7aa1-5585-4471-9a1c-ec3a3d4ee33a",
+          "doc_title": "80891009",
+          "doc_section": "Body Structure",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.565
+        },
+        {
+          "chunk_id": "019ef383-1cc9-4452-aaec-eaa10507a115",
+          "doc_title": "118970008",
+          "doc_section": "Body Structure",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.565
+        },
+        {
+          "chunk_id": "67073075-68ec-4a47-a840-31941e8fcfc3",
+          "doc_title": "409708007",
+          "doc_section": "Body Structure",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.565
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "hetionet-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "d936b6e0-2c7a-46a5-bb2e-bc7c200724b7",
+          "doc_title": "Anatomy::UBERON:0002082",
+          "doc_section": "Anatomy",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "e9784b7a-808c-4683-8c39-21c365e97ca4",
+          "doc_title": "Anatomy::UBERON:0002494",
+          "doc_section": "Anatomy",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "8ceac32e-6a3c-4bae-b92c-2e4e292fbf54",
+          "doc_title": "Anatomy::UBERON:0001515",
+          "doc_section": "Anatomy",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "a275783f-8f83-4490-94ba-d65eb0f8b66a",
+          "doc_title": "Anatomy::UBERON:0004535",
+          "doc_section": "Anatomy",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ab55cc39-6818-47ad-ad92-ea904dc17fc9",
+          "doc_title": "Anatomy::UBERON:0001398",
+          "doc_section": "Anatomy",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 5,
+      "source_coverage_lift": 1,
+      "recall_lift": 0.5,
+      "mean_score_delta": 0.0033
+    },
+    "mapping_hits": {
+      "Anatomy||hetionet-hypertension": {
+        "canonical_name": "Anatomy",
+        "source_slug": "hetionet-hypertension",
+        "local_names": [
+          "Anatomy"
+        ],
+        "authority_score": 1.532,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Anatomy||snomed-ct-hypertension": {
+        "canonical_name": "Anatomy",
+        "source_slug": "snomed-ct-hypertension",
+        "local_names": [
+          "Body Structure"
+        ],
+        "authority_score": 1.565,
+        "hit_count": 5,
+        "in_top_k": 5
+      }
+    }
+  },
+  {
+    "id": "xsrc-05",
+    "dimension": "cross_source",
+    "concept": "Procedure",
+    "with_ontology": {
+      "total_hits": 6,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "fhir-hypertension": 5,
+        "snomed-ct-hypertension": 1
+      },
+      "mean_score": 0.01596642479359957,
+      "hits": [
+        {
+          "chunk_id": "0e4ecf15-edf4-46df-9ffc-3379941c845a",
+          "doc_title": "eb8f1d2f-831f-55f0-eb1f-e625e9331112",
+          "doc_section": "Procedure",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "2f9250be-bf84-4eaf-a472-d8b51bcbb370",
+          "doc_title": "544c2dba-84c6-797b-b4c4-19d8e9a748db",
+          "doc_section": "Procedure",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "adf96cdc-2369-4efe-9b25-a6f42a3a5e63",
+          "doc_title": "544c2dba-84c6-797b-7504-476d68fd8815",
+          "doc_section": "Procedure",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "4bd1ecfa-f8a8-4987-bfd0-143cd4957a98",
+          "doc_title": "20ca94ac-93bf-604d-53b4-2a484d1ec19c",
+          "doc_section": "Procedure",
+          "score": 0.015625,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "a2e5ac29-198f-4b25-87e5-dc618b0f2c38",
+          "doc_title": "4c89f812-bc46-49a8-eadb-d90d072148ae",
+          "doc_section": "Procedure",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension",
+          "authority_score": 1.708
+        },
+        {
+          "chunk_id": "0b9b3ed9-9b72-4021-ab72-7d395b5b1933",
+          "doc_title": "61928009",
+          "doc_section": "Procedure",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension",
+          "authority_score": 1.708
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 6,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "fhir-hypertension": 5,
+        "snomed-ct-hypertension": 1
+      },
+      "mean_score": 0.01596642479359957,
+      "hits": [
+        {
+          "chunk_id": "0e4ecf15-edf4-46df-9ffc-3379941c845a",
+          "doc_title": "eb8f1d2f-831f-55f0-eb1f-e625e9331112",
+          "doc_section": "Procedure",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "2f9250be-bf84-4eaf-a472-d8b51bcbb370",
+          "doc_title": "544c2dba-84c6-797b-b4c4-19d8e9a748db",
+          "doc_section": "Procedure",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "adf96cdc-2369-4efe-9b25-a6f42a3a5e63",
+          "doc_title": "544c2dba-84c6-797b-7504-476d68fd8815",
+          "doc_section": "Procedure",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "4bd1ecfa-f8a8-4987-bfd0-143cd4957a98",
+          "doc_title": "20ca94ac-93bf-604d-53b4-2a484d1ec19c",
+          "doc_section": "Procedure",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "a2e5ac29-198f-4b25-87e5-dc618b0f2c38",
+          "doc_title": "4c89f812-bc46-49a8-eadb-d90d072148ae",
+          "doc_section": "Procedure",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "0b9b3ed9-9b72-4021-ab72-7d395b5b1933",
+          "doc_title": "61928009",
+          "doc_section": "Procedure",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 0,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.0,
+      "mean_score_delta": 0.0
+    },
+    "mapping_hits": {
+      "Procedure||fhir-hypertension": {
+        "canonical_name": "Procedure",
+        "source_slug": "fhir-hypertension",
+        "local_names": [
+          "Procedure"
+        ],
+        "authority_score": 1.708,
+        "hit_count": 5,
+        "in_top_k": 5
+      },
+      "Procedure||snomed-ct-hypertension": {
+        "canonical_name": "Procedure",
+        "source_slug": "snomed-ct-hypertension",
+        "local_names": [
+          "Procedure"
+        ],
+        "authority_score": 1.708,
+        "hit_count": 1,
+        "in_top_k": 1
+      }
+    }
+  },
+  {
+    "id": "hier-01",
+    "dimension": "hierarchy",
+    "concept": "Condition",
+    "with_ontology": {
+      "total_hits": 30,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 30
+      },
+      "mean_score": 0.016834406363755917,
+      "hits": [
+        {
+          "chunk_id": "1e3edcd2-2369-4a23-839f-a73b7a8f8b05",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "doc_section": "A. EMBASE and Medline Embase.com Syntax",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "c8ab24a7-453d-4505-ae47-7af7ef035a45",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE PRIMARY CARE MANAGEMENT OF CHRONIC KIDNEY DISEASE",
+          "doc_section": "Recommendations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "3dec862c-9030-43d4-8b7a-fc8b4c2ae091",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "doc_section": "A. Module A: Screening and Diagnosis",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "6c15d64a-94c8-4508-a8b5-06e0c8cab181",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF POSTTRAUMATIC STRESS DISORDER AND ACUTE STRESS DISORDER",
+          "doc_section": "C. Diagnosis of Posttraumatic Stress Disorder",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "3eba9f2e-2176-45ae-8e9d-dfe0a4f615c0",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF UPPER LIMB AMPUTATION REHABILITATION",
+          "doc_section": "D. Surgical Procedures and Medical Interventions",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "3be09d57-eaf7-49d9-b725-aa317fe2d825",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT AND REHABILITATION OF POST-ACUTE MILD TRAUMATIC BRAIN INJURY",
+          "doc_section": "a. Clinical Guidance",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "6fced514-7f91-436b-a8dc-a34ad143ba82",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "Sidebar 2: DSM-5 Criteria",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ba30ef4e-ddbf-45dd-bf09-77a38adf135b",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+          "doc_section": "C. Patients with Co-occurring Conditions",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d56adf3e-963c-46c5-bfda-4ecbb75ae5df",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "Appendix J: Pharmacotherapy",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "152cffbf-1b6b-4461-9048-6a741f1c013f",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC OBSTRUCTIVE PULMONARY DISEASE",
+          "doc_section": "Sidebar 1: Definition of Exacerbations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "a54175b2-52d9-49b8-86da-a4a7def11504",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF TYPE 2 DIABETES MELLITUS",
+          "doc_section": "Social Determinant Considerations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d563eb38-6c92-4e5d-85ed-2b9bed27e552",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC OBSTRUCTIVE PULMONARY DISEASE",
+          "doc_section": "Appendix I: Literature Review Search Terms and Strategy",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "36cc6aa6-d5e2-443e-a900-b5b82d433437",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+          "doc_section": "Obesity-Related Complications",
+          "score": 0.03200204813108039,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ff562d7b-e1c2-42e6-8ea8-7f17f6e0476c",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+          "doc_section": "Sidebar 3: Assessment of Factors Associated with Obesity",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "34ba3911-e525-4a4b-8597-ffd821b1950e",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+          "doc_section": "Introduction",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "6d2575e9-5c54-4288-ac7a-72bb55e183d4",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF TYPE 2 DIABETES MELLITUS",
+          "doc_section": "Table of Contents",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "e60e2100-4228-48d5-9fd3-7516bddf1505",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF TYPE 2 DIABETES MELLITUS",
+          "doc_section": "Recommendations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "83b69fd7-da7b-4626-8a6b-509dbbaf1653",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF TYPE 2 DIABETES MELLITUS",
+          "doc_section": "Module B:  Self-Management Education and Support",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "db4d7bd6-a302-4df4-a19d-bbfb02531717",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC INSOMNIA DISORDER AND OBSTRUCTIVE SLEEP APNEA",
+          "doc_section": "a.  Alternate Names",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "82c4ee8c-1984-42d9-8358-94c8795429f5",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF BIPOLAR DISORDER",
+          "doc_section": "Sidebar 4: Maintenance Treatment/Rehabilitation and Recovery",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "316ae83c-1987-4463-9936-ebd6a9571ebe",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC INSOMNIA DISORDER AND OBSTRUCTIVE SLEEP APNEA",
+          "doc_section": "Sidebar 1. Clinical Features of OSA and Chronic Insomnia Disorder",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "31854fee-24ad-45c2-aba2-63140dfe0295",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND TREATMENT OF LOW BACK PAIN",
+          "doc_section": "Module A:  Initial Evaluation of Low Back Pain",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "4697ab1d-9dac-4445-8596-03dbb03f3bf3",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "c.  Secondary Headache Disorders",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "8144a296-657a-4e3b-830e-7d84050fab3a",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND TREATMENT OF LOW BACK PAIN",
+          "doc_section": "A. Module A: Initial Evaluation of Low Back Pain",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ff284a4d-31bc-4072-8683-44f4c9ea349b",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT AND REHABILITATION OF POST-ACUTE MILD TRAUMATIC BRAIN INJURY",
+          "doc_section": "Appendix L: Abbreviations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d629ad70-ede6-44ce-80b3-a0aaff41d865",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "c.  Secondary Headache Disorders",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "01adca22-2d9a-4673-ae65-7127dc68d437",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT AND REHABILITATION OF POST-ACUTE MILD TRAUMATIC BRAIN INJURY",
+          "doc_section": "B. Module B: Management of Symptoms Persisting &gt;7 Days After Mild Traumatic Brain Injury",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "9695a1d0-2f11-4be4-8712-257a31163a84",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE USE OF OPIOIDS IN THE MANAGEMENT OF CHRONIC PAIN",
+          "doc_section": "b. Interventions",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d51b4e68-f74f-48d9-8c4d-01dc444ae0fb",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE USE OF OPIOIDS IN THE MANAGEMENT OF CHRONIC PAIN",
+          "doc_section": "Sidebar J: Tapering Treatment",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "b13356c3-4cf6-4955-bc34-5ebda563b445",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT AND REHABILITATION OF POST-ACUTE MILD TRAUMATIC BRAIN INJURY",
+          "doc_section": "C. Medication",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 5
+      },
+      "mean_score": 0.01618359312700931,
+      "hits": [
+        {
+          "chunk_id": "c8c1b0fa-9130-4ff6-8774-eef8b27acf86",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF PREGNANCY",
+          "doc_section": "A. Advanced Prenatal Care Provider",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "448c2899-247e-4c95-adb9-e8bcced29b82",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE USE OF OPIOIDS IN THE MANAGEMENT OF CHRONIC PAIN",
+          "doc_section": "A. Developing Key Questions to Guide the Systematic Evidence Review",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ff562d7b-e1c2-42e6-8ea8-7f17f6e0476c",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+          "doc_section": "Sidebar 3: Assessment of Factors Associated with Obesity",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "c8ab24a7-453d-4505-ae47-7af7ef035a45",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE PRIMARY CARE MANAGEMENT OF CHRONIC KIDNEY DISEASE",
+          "doc_section": "Recommendations",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "32d29635-0631-4ae3-ab03-3d0922a95e8a",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND TREATMENT OF LOW BACK PAIN",
+          "doc_section": "A. Module A: Initial Evaluation of Low Back Pain",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 25,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.8333,
+      "mean_score_delta": 0.0007
+    }
+  },
+  {
+    "id": "hier-02",
+    "dimension": "hierarchy",
+    "concept": "Compound",
+    "with_ontology": {
+      "total_hits": 12,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 12
+      },
+      "mean_score": 0.01626193693882747,
+      "hits": [
+        {
+          "chunk_id": "00f09695-ac65-4569-83ae-1a466e16b394",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE PRIMARY CARE MANAGEMENT OF CHRONIC KIDNEY DISEASE",
+          "doc_section": "b.  Interventions and Comparators",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "1813bb1a-c1a1-47aa-82bd-9456cf94ac08",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF TYPE 2 DIABETES MELLITUS",
+          "doc_section": "Discussion",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "461cf0fc-e2db-47da-ba98-22b99c3a2a58",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC MULTISYMPTOM ILLNESS",
+          "doc_section": "b. Interventions",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "731596f8-d165-4b71-a3a9-6e19b26ba9de",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "doc_section": "Appendix D:  2014 Recommendation Categorization Table",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "00eea72d-fba2-4e41-800f-287a05c661e1",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "Appendix J:  Literature Review Search Terms and Strategy",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "1c69e137-7056-4b44-9ee2-808ae81400bd",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND MANAGEMENT OF HYPERTENSION IN THE PRIMARY CARE SETTING",
+          "doc_section": "Specific Populations:",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "19c5c893-a7e5-4db0-b02b-7d6937e157a8",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "A. EMBASE and MEDLINE with EMBASE.com syntax (all questions)",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "e3934944-33df-49f5-b2bc-321492dcf4f2",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "Discussion",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "746af248-ace0-4c4e-955c-37c9f9d2d8e0",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF STROKE REHABILITATION",
+          "doc_section": "Appendix I: Literature Review Search Terms and Strategy",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "6f25ed6b-1b69-4481-bef2-311f89a69bb4",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE ON LIPID MANAGEMENT FOR CARDIOVASCULAR DISEASE RISK REDUCTION",
+          "doc_section": "Sidebar 4: Very High-Risk CVD Patients",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d950980d-cb53-4495-9dde-05adfb3c5c35",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE PRIMARY CARE MANAGEMENT OF CHRONIC KIDNEY DISEASE",
+          "doc_section": "A. Testing and Risk Assessment/Reduction",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ff1e0de4-9716-4b99-a17d-f5e3540484b3",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE ON LIPID MANAGEMENT FOR CARDIOVASCULAR DISEASE RISK REDUCTION",
+          "doc_section": "Pharmacotherapy",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 5
+      },
+      "mean_score": 0.01618359312700931,
+      "hits": [
+        {
+          "chunk_id": "5b89e116-12b3-4683-a0c1-1d836dc698e0",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF ADULT OVERWEIGHT AND OBESITY",
+          "doc_section": "b.  Interventions and Comparators",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "af83a342-bfdf-4f32-aa96-c8c40ad73c5c",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF FIRST-EPISODE PSYCHOSIS AND SCHIZOPHRENIA",
+          "doc_section": "Discussion",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "461cf0fc-e2db-47da-ba98-22b99c3a2a58",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC MULTISYMPTOM ILLNESS",
+          "doc_section": "b. Interventions",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "6731716f-d503-4ecf-932f-ca58e53a5833",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF FIRST-EPISODE PSYCHOSIS AND SCHIZOPHRENIA",
+          "doc_section": "Discussion",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "0290007f-b568-468e-a57b-9e3a31800a58",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF CHRONIC OBSTRUCTIVE PULMONARY DISEASE",
+          "doc_section": "b. Interventions",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 7,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.5833,
+      "mean_score_delta": 0.0001
+    }
+  },
+  {
+    "id": "hier-03",
+    "dimension": "hierarchy",
+    "concept": "Substance Use Disorder",
+    "with_ontology": {
+      "total_hits": 6,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 6
+      },
+      "mean_score": 0.016305305834655386,
+      "hits": [
+        {
+          "chunk_id": "ad5d88dc-3300-4aa5-a3c7-99475a199966",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "G. Management of Substance Use Disorders in Department of Defense Healthcare Settings",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "dc583488-17eb-47d9-a5b8-e039ae2e3673",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "C. Factors Affecting Risk of Substance Use Disorders",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "bf553240-6dc2-465f-8a62-bef0e014adba",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "A. Description of Substance Use Disorders",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "c099ba23-4d1f-464b-aa5e-d902986b75c1",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "Alcohol Use Disorder",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "dc583488-17eb-47d9-a5b8-e039ae2e3673",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "C. Factors Affecting Risk of Substance Use Disorders",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "4974e49d-41b1-492a-8008-e7c142eb836c",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE USE OF OPIOIDS IN THE MANAGEMENT OF CHRONIC PAIN",
+          "doc_section": "Module A: Determination of Appropriateness for Opioids for Chronic Pain",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 5
+      },
+      "mean_score": 0.01618359312700931,
+      "hits": [
+        {
+          "chunk_id": "8260023e-1561-45ae-875d-ba0e5c6beb39",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF FIRST-EPISODE PSYCHOSIS AND SCHIZOPHRENIA",
+          "doc_section": "Appendix I: Literature Review Search Terms and Strategy",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "dc583488-17eb-47d9-a5b8-e039ae2e3673",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "C. Factors Affecting Risk of Substance Use Disorders",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ad5d88dc-3300-4aa5-a3c7-99475a199966",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "G. Management of Substance Use Disorders in Department of Defense Healthcare Settings",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "3893f00a-f0b6-4a33-a8cb-4c06fd83ddc4",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF POSTTRAUMATIC STRESS DISORDER AND ACUTE STRESS DISORDER",
+          "doc_section": "Arousal Symptoms",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "fb0e4da7-285c-4c00-a14a-38124102885d",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "Appendix J: Abbreviations",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 1,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.1667,
+      "mean_score_delta": 0.0001
+    }
+  },
+  {
+    "id": "hier-04",
+    "dimension": "hierarchy",
+    "concept": "Finding",
+    "with_ontology": {
+      "total_hits": 18,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 15,
+        "snomed-ct-hypertension": 3
+      },
+      "mean_score": 0.018025372203055966,
+      "hits": [
+        {
+          "chunk_id": "70de9c9c-e0e4-4819-abf7-ab6ebbaf671e",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "b.  Share",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "7b57000c-0783-4d34-a5d6-4f75e2d6701d",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "IX. Recommendations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ce6c3c71-3428-4a82-a382-f1bae6c524f5",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "References",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "7843f8ea-206c-48dd-af9a-7e0bfb3d8d23",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "References",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "18a58ad2-9333-4372-9d0b-b7d24634487f",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR TINNITUS",
+          "doc_section": "Appendix M: Glossary",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "8b17c350-1dd7-417a-bc5c-4dc5449e6475",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "Appendix H:  Glossary",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d91acf96-bbc6-405a-8420-6c96b974bddc",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF POSTTRAUMATIC STRESS DISORDER AND ACUTE STRESS DISORDER",
+          "doc_section": "Appendix I: Abbreviations",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "84506ee1-102d-4048-b662-92d63828abf7",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF POSTTRAUMATIC STRESS DISORDER AND ACUTE STRESS DISORDER",
+          "doc_section": "c.  Outcomes",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "ce6c3c71-3428-4a82-a382-f1bae6c524f5",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF MAJOR DEPRESSIVE DISORDER",
+          "doc_section": "References",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "0fcee251-4909-4f02-9352-2cf00e92ea3d",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "Discussion",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "678c845e-a113-4a75-86e8-3b7a18212af1",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF HEADACHE",
+          "doc_section": "Module A:  Evaluation and Treatment of Headache",
+          "score": 0.01639344262295082,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "330bfa40-ae7b-4675-8b86-25c7e303bc99",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT OF SUBSTANCE USE DISORDERS",
+          "doc_section": "Appendix E: 2015 Recommendation Categorization Table",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "5250858f-a26e-4b6d-bb4b-078092f4630f",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR ASSESSMENT AND MANAGEMENT OF PATIENTS AT RISK FOR SUICIDE",
+          "doc_section": "b. Interventions and Comparators",
+          "score": 0.03278688524590164,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "10ca86a0-6a0e-4b4e-8122-98fff6e01484",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF BIPOLAR DISORDER",
+          "doc_section": "Sidebar 2: Safety Assessment",
+          "score": 0.03200204813108039,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "0b062a1d-587f-407b-85dc-fa11ac694f7c",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR ASSESSMENT AND MANAGEMENT OF PATIENTS AT RISK FOR SUICIDE",
+          "doc_section": "Discussion",
+          "score": 0.016129032258064516,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "25b47640-c66d-4c21-9862-95058dcedce7",
+          "doc_title": "11182007",
+          "doc_section": "Morphologic Abnormality",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "a40b1b8d-7cae-4271-98d0-57b8ffe52cd9",
+          "doc_title": "25723000",
+          "doc_section": "Morphologic Abnormality",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "716e08ed-662c-44f7-9e43-50adff3b52b9",
+          "doc_title": "79654002",
+          "doc_section": "Morphologic Abnormality",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 10,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "va-cpg-clinical-guidelines": 5,
+        "snomed-ct-hypertension": 5
+      },
+      "mean_score": 0.019182108764670903,
+      "hits": [
+        {
+          "chunk_id": "a687749c-1eb4-4f21-8f7d-02df29122e60",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF FIRST-EPISODE PSYCHOSIS AND SCHIZOPHRENIA",
+          "doc_section": "Discussion",
+          "score": 0.03278688524590164,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "e6cc3b37-4511-416b-8b96-fb77c02d12ee",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE USE OF OPIOIDS IN THE MANAGEMENT OF CHRONIC PAIN",
+          "doc_section": "A. EMBASE and Medline in EMBASE.com syntax (all KQs)",
+          "score": 0.03225806451612903,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "c245b50d-4217-44b9-aaf2-3e42766ccfe1",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE DIAGNOSIS AND TREATMENT OF LOW BACK PAIN",
+          "doc_section": "Table of Contents",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "4220f4b8-d21c-4a40-a4a2-fb21e2b28069",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR THE MANAGEMENT AND REHABILITATION OF POST-ACUTE MILD TRAUMATIC BRAIN INJURY",
+          "doc_section": "Kathryn Tortorice, PharmD, BCPS",
+          "score": 0.015873015873015872,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "d950e014-0cfd-4dcf-baa7-78ff436142b3",
+          "doc_title": "VA/DoD CLINICAL PRACTICE GUIDELINE FOR MANAGEMENT OF FIRST-EPISODE PSYCHOSIS AND SCHIZOPHRENIA",
+          "doc_section": "Appendix I: Literature Review Search Terms and Strategy",
+          "score": 0.015625,
+          "source": "va-cpg-clinical-guidelines"
+        },
+        {
+          "chunk_id": "8c3870af-5602-4cff-9ec2-59b370978082",
+          "doc_title": "299691001",
+          "doc_section": "Finding",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "0b9b3ed9-9b72-4021-ab72-7d395b5b1933",
+          "doc_title": "61928009",
+          "doc_section": "Procedure",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "bb51760e-4b7d-4593-a685-82ad64acc9ae",
+          "doc_title": "248982007",
+          "doc_section": "Finding",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "faa14bcf-4806-4752-a552-7997a227b796",
+          "doc_title": "21829004",
+          "doc_section": "Finding",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "19e7ad2c-e955-454b-9d88-664194bea0ef",
+          "doc_title": "91175000",
+          "doc_section": "Finding",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 8,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.4444,
+      "mean_score_delta": -0.0012
+    }
+  },
+  {
+    "id": "rel-01",
+    "dimension": "relationship",
+    "concept": "Compound",
+    "with_ontology": {
+      "total_hits": 16,
+      "sources_with_hits": 3,
+      "hits_per_source": {
+        "snomed-ct-hypertension": 1,
+        "fhir-hypertension": 5,
+        "hetionet-hypertension": 10
+      },
+      "mean_score": 0.01591304756493066,
+      "hits": [
+        {
+          "chunk_id": "309be097-bcce-4483-83e6-62e447d5a640",
+          "doc_title": "410942007",
+          "doc_section": "Substance",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "e4c15df2-d6cf-4c8f-9074-d44a06322d55",
+          "doc_title": "e9e80bc7-081e-d007-2629-b6458ddab0c7",
+          "doc_section": "MedicationRequest",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "46332d65-cf2e-4ba4-a7ac-ceef66248cbd",
+          "doc_title": "841694ba-0eb7-9b52-a6a4-b29e40b9b0f7",
+          "doc_section": "MedicationRequest",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "5b2a8504-9bc2-4bbd-a701-0d587f688648",
+          "doc_title": "841694ba-0eb7-9b52-26b0-b441c8b2fe14",
+          "doc_section": "MedicationRequest",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "3a4d93a2-20a7-43af-b13a-9acd36f483e1",
+          "doc_title": "e9e80bc7-081e-d007-c318-c0ef470495d3",
+          "doc_section": "MedicationRequest",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "8a00c67f-8a7d-46fc-b60a-a362b694b48a",
+          "doc_title": "e9e80bc7-081e-d007-b686-ededcf742e6c",
+          "doc_section": "MedicationRequest",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "a5f036f7-13f8-4f30-a146-26196dc26c23",
+          "doc_title": "Compound::DB00206",
+          "doc_section": "Compound",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "8422bc63-8a8f-4ada-8bf8-22bd989460c8",
+          "doc_title": "Compound::DB00384",
+          "doc_section": "Compound",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "23ec02fc-faf3-49f8-a515-862d265fb1bb",
+          "doc_title": "Compound::DB00968",
+          "doc_section": "Compound",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "f1dbca7b-46c1-4b25-abc3-1b39448e38a6",
+          "doc_title": "Compound::DB00421",
+          "doc_section": "Compound",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "d26e5833-8e7d-4467-97f4-7be03462fafd",
+          "doc_title": "Compound::DB01076",
+          "doc_section": "Compound",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "9ce8eae2-3385-43b4-8f1d-e222891e11ba",
+          "doc_title": "Gene::2152",
+          "doc_section": "Gene",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ba1eedcf-b375-47cf-a614-cf3fd400ca9e",
+          "doc_title": "Gene::481",
+          "doc_section": "Gene",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "0b51a38f-b5e1-45ac-ab7d-52e8b330e5a8",
+          "doc_title": "Gene::2033",
+          "doc_section": "Gene",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "acaa2ad2-e404-4309-9ad8-4cbd474ce554",
+          "doc_title": "Gene::2022",
+          "doc_section": "Gene",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "2b527532-dbc5-4a17-b088-5e7c560197ad",
+          "doc_title": "Gene::3339",
+          "doc_section": "Gene",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 15,
+      "sources_with_hits": 3,
+      "hits_per_source": {
+        "hetionet-hypertension": 5,
+        "snomed-ct-hypertension": 5,
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "9ce8eae2-3385-43b4-8f1d-e222891e11ba",
+          "doc_title": "Gene::2152",
+          "doc_section": "Gene",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ba1eedcf-b375-47cf-a614-cf3fd400ca9e",
+          "doc_title": "Gene::481",
+          "doc_section": "Gene",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "0b51a38f-b5e1-45ac-ab7d-52e8b330e5a8",
+          "doc_title": "Gene::2033",
+          "doc_section": "Gene",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "acaa2ad2-e404-4309-9ad8-4cbd474ce554",
+          "doc_title": "Gene::2022",
+          "doc_section": "Gene",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "2b527532-dbc5-4a17-b088-5e7c560197ad",
+          "doc_title": "Gene::3339",
+          "doc_section": "Gene",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ab60b15a-a0f2-48eb-945d-2422866522d1",
+          "doc_title": "766937004",
+          "doc_section": "Disorder",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "60f95af8-1122-4b59-9bf0-d23fcec76348",
+          "doc_title": "720568003",
+          "doc_section": "Disorder",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "371987c7-aba5-4b23-82c9-00e6fc9bbc0b",
+          "doc_title": "194791005",
+          "doc_section": "Disorder",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "16684b4e-251c-48f7-bfb0-7a67e6b05b1c",
+          "doc_title": "169465000",
+          "doc_section": "Disorder",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "28120a1d-64af-4d2e-ac88-72dff4ec702b",
+          "doc_title": "16055551000119101",
+          "doc_section": "Disorder",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "348c450e-4eb0-4a3c-aa23-002451ae3159",
+          "doc_title": "596bb739-0d6a-038d-14b2-5163ece80d10",
+          "doc_section": "CarePlan",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "c78fc027-59b3-400c-8644-7fd268de7501",
+          "doc_title": "8dce580e-5868-e1a8-6a34-0a5d339f1720",
+          "doc_section": "CarePlan",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "75c5040d-80f5-4bee-81a2-2725f9e864bc",
+          "doc_title": "14a1a051-0d93-b0ee-284f-21882705a11b",
+          "doc_section": "CarePlan",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "fc6e6aef-8234-4c64-be7a-caa1b0b41643",
+          "doc_title": "a5ee4713-87d9-37a4-348d-48488cce2ce7",
+          "doc_section": "CarePlan",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "25cb0836-dc07-49dd-8aa4-18ea8d6a3397",
+          "doc_title": "d49ae207-f025-7bce-d9e5-0372aedefe79",
+          "doc_section": "CarePlan",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 1,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.0625,
+      "mean_score_delta": 0.0
+    }
+  },
+  {
+    "id": "rel-02",
+    "dimension": "relationship",
+    "concept": "Patient",
+    "with_ontology": {
+      "total_hits": 20,
+      "sources_with_hits": 3,
+      "hits_per_source": {
+        "fhir-hypertension": 10,
+        "snomed-ct-hypertension": 5,
+        "hetionet-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "a1700e00-8968-4515-8ba7-bc41f8a15cad",
+          "doc_title": "14a1a051-0d93-b0ee-ff3a-ae4b127f1034",
+          "doc_section": "Patient",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "7d498e12-acad-4ff0-b34c-4e2247f6b8ad",
+          "doc_title": "507e7486-a61b-08e3-7fa6-19d5e336623a",
+          "doc_section": "Patient",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "bb262432-bc0c-4af0-b616-94470193f850",
+          "doc_title": "596bb739-0d6a-038d-5160-7f870f9cea7a",
+          "doc_section": "Patient",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "9986d424-3ebb-4471-916e-41005f85bea0",
+          "doc_title": "c9126fbf-eebf-41ee-0b5f-ef703c7c0ea8",
+          "doc_section": "Patient",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "dbf1f6a5-7046-45dd-b8be-2089d95f1ce1",
+          "doc_title": "a9ed8b41-547a-cd23-b0ee-405c59629ce0",
+          "doc_section": "Patient",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "63111803-d0d2-4258-b5c0-d65e869c422f",
+          "doc_title": "712832005",
+          "doc_section": "Disorder",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "a0e786a2-416b-4f99-adbe-1743ca190338",
+          "doc_title": "59621000",
+          "doc_section": "Disorder",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "d2c5ad89-fc7d-4506-b136-cf5c5398464a",
+          "doc_title": "70272006",
+          "doc_section": "Disorder",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "59f9b7cc-916c-4560-9d5b-79beeded3a4f",
+          "doc_title": "38341003",
+          "doc_section": "Disorder",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "5e37fa2f-315d-4048-b26e-213422fc06dd",
+          "doc_title": "123799005",
+          "doc_section": "Disorder",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "f8579114-1937-4bbb-9c50-b1e8b4932f1e",
+          "doc_title": "d49ae207-f025-7bce-d4d7-ab8258cb41e5",
+          "doc_section": "Condition",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "e905343e-3634-4259-a669-b415ed4f2d06",
+          "doc_title": "04869f58-efeb-134f-ea9c-0cdf97432de1",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "d2649aa2-c8cb-45ae-9bf4-60f48338dbcd",
+          "doc_title": "88f2f56a-cdea-f832-9c7a-a0c0b7e68c6d",
+          "doc_section": "Condition",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "365e531f-363e-4185-8f13-03b305a1aa49",
+          "doc_title": "8dce580e-5868-e1a8-ddea-9b8dfd9482b8",
+          "doc_section": "Condition",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "9b27f8e3-40da-4242-9e91-c915835752d5",
+          "doc_title": "a5ee4713-87d9-37a4-96bf-9d65774ccddf",
+          "doc_section": "Condition",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "f1ddab9b-0f7e-4410-a82e-0925697f0a9e",
+          "doc_title": "Disease::DOID:10763",
+          "doc_section": "Disease",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "5c7b7d18-db4a-4f43-9cb6-bed781c8025a",
+          "doc_title": "Disease::DOID:9352",
+          "doc_section": "Disease",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "48efbe2d-93a4-4724-bca6-e074de6203d0",
+          "doc_title": "Disease::DOID:14221",
+          "doc_section": "Disease",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "b2442600-d40b-4149-9d4f-66efa1e7fc70",
+          "doc_title": "Disease::DOID:784",
+          "doc_section": "Disease",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "479009ef-003e-4745-aaf4-5794b0867c40",
+          "doc_title": "Disease::DOID:3953",
+          "doc_section": "Disease",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "f8579114-1937-4bbb-9c50-b1e8b4932f1e",
+          "doc_title": "d49ae207-f025-7bce-d4d7-ab8258cb41e5",
+          "doc_section": "Condition",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "e905343e-3634-4259-a669-b415ed4f2d06",
+          "doc_title": "04869f58-efeb-134f-ea9c-0cdf97432de1",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "d2649aa2-c8cb-45ae-9bf4-60f48338dbcd",
+          "doc_title": "88f2f56a-cdea-f832-9c7a-a0c0b7e68c6d",
+          "doc_section": "Condition",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "365e531f-363e-4185-8f13-03b305a1aa49",
+          "doc_title": "8dce580e-5868-e1a8-ddea-9b8dfd9482b8",
+          "doc_section": "Condition",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "9b27f8e3-40da-4242-9e91-c915835752d5",
+          "doc_title": "a5ee4713-87d9-37a4-96bf-9d65774ccddf",
+          "doc_section": "Condition",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 15,
+      "source_coverage_lift": 2,
+      "recall_lift": 0.75,
+      "mean_score_delta": 0.0
+    }
+  },
+  {
+    "id": "rel-03",
+    "dimension": "relationship",
+    "concept": "Anatomy",
+    "with_ontology": {
+      "total_hits": 15,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "snomed-ct-hypertension": 5,
+        "hetionet-hypertension": 10
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "ebb2a019-e6dc-4d6a-a20a-d9af6d4a683e",
+          "doc_title": "360593009",
+          "doc_section": "Body Structure",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "d8eac7d4-7433-40d2-a627-be2b69dd3537",
+          "doc_title": "51840005",
+          "doc_section": "Body Structure",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "b974e142-a4e9-4d0f-8437-67685ddbc172",
+          "doc_title": "85439003",
+          "doc_section": "Body Structure",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "18f0d2be-e5b0-41c8-a4db-2b003e2c44be",
+          "doc_title": "281157001",
+          "doc_section": "Body Structure",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "67073075-68ec-4a47-a840-31941e8fcfc3",
+          "doc_title": "409708007",
+          "doc_section": "Body Structure",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "0c3b4b6b-3bdd-495e-8ee7-c2e7a7ad9629",
+          "doc_title": "Anatomy::UBERON:0002081",
+          "doc_section": "Anatomy",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "d936b6e0-2c7a-46a5-bb2e-bc7c200724b7",
+          "doc_title": "Anatomy::UBERON:0002082",
+          "doc_section": "Anatomy",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "5e4aad70-19ea-4439-b9cf-5d43589cac48",
+          "doc_title": "Anatomy::UBERON:0000948",
+          "doc_section": "Anatomy",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ca5512c6-b294-44ba-8e46-3161ba2165be",
+          "doc_title": "Anatomy::UBERON:0001637",
+          "doc_section": "Anatomy",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "c50c53e0-e89b-4090-bdab-699e383ff197",
+          "doc_title": "Anatomy::UBERON:0001981",
+          "doc_section": "Anatomy",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ba1eedcf-b375-47cf-a614-cf3fd400ca9e",
+          "doc_title": "Gene::481",
+          "doc_section": "Gene",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "0d096f22-47b3-4a63-9943-fae22fd73568",
+          "doc_title": "Gene::1329",
+          "doc_section": "Gene",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "5ce8aaf4-0e5b-448e-9263-6f537c16c092",
+          "doc_title": "Gene::7412",
+          "doc_section": "Gene",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "495b236d-9815-4132-8501-89aa3e17f106",
+          "doc_title": "Gene::857",
+          "doc_section": "Gene",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "5317730a-7d7b-4c8f-9115-d7db4ab6a459",
+          "doc_title": "Gene::672",
+          "doc_section": "Gene",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        }
+      ]
+    },
+    "without_ontology": {
+      "total_hits": 10,
+      "sources_with_hits": 2,
+      "hits_per_source": {
+        "hetionet-hypertension": 5,
+        "snomed-ct-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "0c3b4b6b-3bdd-495e-8ee7-c2e7a7ad9629",
+          "doc_title": "Anatomy::UBERON:0002081",
+          "doc_section": "Anatomy",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "d936b6e0-2c7a-46a5-bb2e-bc7c200724b7",
+          "doc_title": "Anatomy::UBERON:0002082",
+          "doc_section": "Anatomy",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "5e4aad70-19ea-4439-b9cf-5d43589cac48",
+          "doc_title": "Anatomy::UBERON:0000948",
+          "doc_section": "Anatomy",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "ca5512c6-b294-44ba-8e46-3161ba2165be",
+          "doc_title": "Anatomy::UBERON:0001637",
+          "doc_section": "Anatomy",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "c50c53e0-e89b-4090-bdab-699e383ff197",
+          "doc_title": "Anatomy::UBERON:0001981",
+          "doc_section": "Anatomy",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "cc237b36-a1a9-4499-ba50-fae075376706",
+          "doc_title": "363005004",
+          "doc_section": "Disorder",
+          "score": 0.01639344262295082,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "ebb2a019-e6dc-4d6a-a20a-d9af6d4a683e",
+          "doc_title": "360593009",
+          "doc_section": "Body Structure",
+          "score": 0.016129032258064516,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "60f95af8-1122-4b59-9bf0-d23fcec76348",
+          "doc_title": "720568003",
+          "doc_section": "Disorder",
+          "score": 0.015873015873015872,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "d8eac7d4-7433-40d2-a627-be2b69dd3537",
+          "doc_title": "51840005",
+          "doc_section": "Body Structure",
+          "score": 0.015625,
+          "source": "snomed-ct-hypertension"
+        },
+        {
+          "chunk_id": "b974e142-a4e9-4d0f-8437-67685ddbc172",
+          "doc_title": "85439003",
+          "doc_section": "Body Structure",
+          "score": 0.015384615384615385,
+          "source": "snomed-ct-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": 5,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.3333,
+      "mean_score_delta": 0.0
+    }
+  },
+  {
+    "id": "cfirst-01",
+    "dimension": "concept_first",
+    "concept": "Condition",
+    "with_ontology": {
+      "total_hits": 0,
+      "sources_with_hits": 0,
+      "hits_per_source": {},
+      "mean_score": 0.0,
+      "hits": []
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "fhir-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "822f8898-47c7-4f6b-b64d-63e13691aafc",
+          "doc_title": "8cefc41b-95d2-c466-73ac-41f0c520c4df",
+          "doc_section": "Condition",
+          "score": 0.01639344262295082,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "0f7f20a5-c7f9-4ab7-9480-7567c4c18f6f",
+          "doc_title": "14a1a051-0d93-b0ee-9ba2-eb13846fd752",
+          "doc_section": "Condition",
+          "score": 0.016129032258064516,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "365e531f-363e-4185-8f13-03b305a1aa49",
+          "doc_title": "8dce580e-5868-e1a8-ddea-9b8dfd9482b8",
+          "doc_section": "Condition",
+          "score": 0.015873015873015872,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "d2649aa2-c8cb-45ae-9bf4-60f48338dbcd",
+          "doc_title": "88f2f56a-cdea-f832-9c7a-a0c0b7e68c6d",
+          "doc_section": "Condition",
+          "score": 0.015625,
+          "source": "fhir-hypertension"
+        },
+        {
+          "chunk_id": "e905343e-3634-4259-a669-b415ed4f2d06",
+          "doc_title": "04869f58-efeb-134f-ea9c-0cdf97432de1",
+          "doc_section": "Condition",
+          "score": 0.015384615384615385,
+          "source": "fhir-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": -5,
+      "source_coverage_lift": -1,
+      "recall_lift": 0.0,
+      "mean_score_delta": -0.0159
+    }
+  },
+  {
+    "id": "cfirst-02",
+    "dimension": "concept_first",
+    "concept": "Compound",
+    "with_ontology": {
+      "total_hits": 0,
+      "sources_with_hits": 0,
+      "hits_per_source": {},
+      "mean_score": 0.0,
+      "hits": []
+    },
+    "without_ontology": {
+      "total_hits": 5,
+      "sources_with_hits": 1,
+      "hits_per_source": {
+        "hetionet-hypertension": 5
+      },
+      "mean_score": 0.01588102122772932,
+      "hits": [
+        {
+          "chunk_id": "24178439-d222-41f9-b972-dad06132c688",
+          "doc_title": "Compound::DB00226",
+          "doc_section": "Compound",
+          "score": 0.01639344262295082,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "e3f8a3d4-092a-4d06-85de-82dc6e49a7b1",
+          "doc_title": "Compound::DB01170",
+          "doc_section": "Compound",
+          "score": 0.016129032258064516,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "29c9596f-a37b-4f90-ad38-3341b16e6697",
+          "doc_title": "Compound::DB00381",
+          "doc_section": "Compound",
+          "score": 0.015873015873015872,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "aa0b0aee-3813-45c0-81f0-a729cd5829f7",
+          "doc_title": "Compound::DB01275",
+          "doc_section": "Compound",
+          "score": 0.015625,
+          "source": "hetionet-hypertension"
+        },
+        {
+          "chunk_id": "9a10dc3a-7241-4f65-8828-0f9e8f58b758",
+          "doc_title": "Compound::DB00457",
+          "doc_section": "Compound",
+          "score": 0.015384615384615385,
+          "source": "hetionet-hypertension"
+        }
+      ]
+    },
+    "metrics": {
+      "hit_count_lift": -5,
+      "source_coverage_lift": -1,
+      "recall_lift": 0.0,
+      "mean_score_delta": -0.0159
+    }
+  },
+  {
+    "id": "cfirst-03",
+    "dimension": "concept_first",
+    "concept": "Aircraft Component",
+    "with_ontology": {
+      "total_hits": 0,
+      "sources_with_hits": 0,
+      "hits_per_source": {},
+      "mean_score": 0.0,
+      "hits": []
+    },
+    "without_ontology": {
+      "total_hits": 0,
+      "sources_with_hits": 0,
+      "hits_per_source": {},
+      "mean_score": 0.0,
+      "hits": []
+    },
+    "metrics": {
+      "hit_count_lift": 0,
+      "source_coverage_lift": 0,
+      "recall_lift": 0.0,
+      "mean_score_delta": 0.0
+    }
+  }
+]

@@ -10,6 +10,7 @@ import pytest
 from retrieval_hub.ontology.doctor import (
     check_dangling_relationships,
     check_duplicate_mappings,
+    check_eval_findings,
     check_family_mismatches,
     check_missing_mappings,
     check_orphan_concepts,
@@ -345,3 +346,78 @@ def test_score_clustering_no_within_concept_diff():
 def test_score_clustering_empty():
     session = _session_with_queries([])
     assert check_score_clustering(session) == []
+
+
+# ---------------------------------------------------------------------------
+# check_eval_findings
+# ---------------------------------------------------------------------------
+
+
+def test_check_eval_findings_dead():
+    """Dead eval finding produces WARN."""
+    session = MagicMock()
+    findings_data = [{
+        "category": "dead",
+        "canonical_name": "Condition",
+        "source_slug": "test-source",
+        "local_name": "Disease",
+        "metrics": {"is_dead": True, "total_hits": 0},
+    }]
+    results = check_eval_findings(session, eval_findings=findings_data)
+    assert len(results) == 1
+    assert results[0]["check"] == "eval_dead_mapping"
+    assert results[0]["severity"] == "WARN"
+    assert results[0]["canonical_name"] == "Condition"
+
+
+def test_check_eval_findings_underperforming():
+    """Underperforming eval finding produces INFO."""
+    session = MagicMock()
+    findings_data = [{
+        "category": "underperforming",
+        "canonical_name": "Compound",
+        "source_slug": "test-source",
+        "local_name": "Drug",
+        "metrics": {"precision": 0.15, "total_hits": 3},
+    }]
+    results = check_eval_findings(session, eval_findings=findings_data)
+    assert len(results) == 1
+    assert results[0]["check"] == "eval_underperforming"
+    assert results[0]["severity"] == "INFO"
+
+
+def test_check_eval_findings_healthy_skipped():
+    """Healthy eval findings are not reported."""
+    session = MagicMock()
+    findings_data = [{
+        "category": "healthy",
+        "canonical_name": "Condition",
+        "source_slug": "test-source",
+        "local_name": "Disease",
+        "metrics": {"precision": 0.8},
+    }]
+    results = check_eval_findings(session, eval_findings=findings_data)
+    assert len(results) == 0
+
+
+def test_check_eval_findings_missing_coverage():
+    """Missing coverage eval finding produces INFO."""
+    session = MagicMock()
+    findings_data = [{
+        "category": "missing_coverage",
+        "canonical_name": "Anatomy",
+        "source_slug": "test-source",
+        "local_name": "Body Structure",
+        "metrics": {},
+    }]
+    results = check_eval_findings(session, eval_findings=findings_data)
+    assert len(results) == 1
+    assert results[0]["check"] == "eval_missing_coverage"
+    assert results[0]["severity"] == "INFO"
+
+
+def test_check_eval_findings_empty():
+    """Empty findings list returns empty results."""
+    session = MagicMock()
+    results = check_eval_findings(session, eval_findings=[])
+    assert results == []

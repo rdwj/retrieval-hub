@@ -1,0 +1,226 @@
+{
+  "dimensions": {
+    "concept_first": {
+      "dimension": "concept_first",
+      "query_count": 3,
+      "mean_hit_count_lift": -3.33,
+      "mean_source_coverage_lift": -0.67,
+      "mean_recall_lift": 0.0,
+      "queries_where_ontology_wins": 0,
+      "win_rate": 0.0
+    },
+    "cross_source": {
+      "dimension": "cross_source",
+      "query_count": 5,
+      "mean_hit_count_lift": 6.2,
+      "mean_source_coverage_lift": 1.4,
+      "mean_recall_lift": 0.4758,
+      "queries_where_ontology_wins": 4,
+      "win_rate": 0.8
+    },
+    "hierarchy": {
+      "dimension": "hierarchy",
+      "query_count": 4,
+      "mean_hit_count_lift": 10.25,
+      "mean_source_coverage_lift": 0.0,
+      "mean_recall_lift": 0.5069,
+      "queries_where_ontology_wins": 4,
+      "win_rate": 1.0
+    },
+    "relationship": {
+      "dimension": "relationship",
+      "query_count": 3,
+      "mean_hit_count_lift": 7.0,
+      "mean_source_coverage_lift": 0.67,
+      "mean_recall_lift": 0.3819,
+      "queries_where_ontology_wins": 3,
+      "win_rate": 1.0
+    },
+    "overall": {
+      "dimension": "overall",
+      "query_count": 15,
+      "mean_hit_count_lift": 5.53,
+      "mean_source_coverage_lift": 0.47,
+      "mean_recall_lift": 0.3702,
+      "queries_where_ontology_wins": 11,
+      "win_rate": 0.7333
+    }
+  },
+  "authority_correlation": {
+    "r": 0.0747,
+    "p": 0.5807,
+    "n": 57
+  },
+  "per_mapping_quality": {
+    "Condition||hetionet-hypertension": {
+      "canonical_name": "Condition",
+      "source_slug": "hetionet-hypertension",
+      "local_names": [
+        "Disease"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.811
+    },
+    "Condition||snomed-ct-hypertension": {
+      "canonical_name": "Condition",
+      "source_slug": "snomed-ct-hypertension",
+      "local_names": [
+        "Disorder"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.85
+    },
+    "Condition||fhir-hypertension": {
+      "canonical_name": "Condition",
+      "source_slug": "fhir-hypertension",
+      "local_names": [
+        "Condition"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.85
+    },
+    "Compound||hetionet-hypertension": {
+      "canonical_name": "Compound",
+      "source_slug": "hetionet-hypertension",
+      "local_names": [
+        "Compound"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.811
+    },
+    "Compound||snomed-ct-hypertension": {
+      "canonical_name": "Compound",
+      "source_slug": "snomed-ct-hypertension",
+      "local_names": [
+        "Substance"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 1,
+      "total_in_top_k": 1,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.85
+    },
+    "Compound||fhir-hypertension": {
+      "canonical_name": "Compound",
+      "source_slug": "fhir-hypertension",
+      "local_names": [
+        "MedicationRequest"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.85
+    },
+    "Finding||hetionet-hypertension": {
+      "canonical_name": "Finding",
+      "source_slug": "hetionet-hypertension",
+      "local_names": [
+        "Symptom"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.671
+    },
+    "Finding||snomed-ct-hypertension": {
+      "canonical_name": "Finding",
+      "source_slug": "snomed-ct-hypertension",
+      "local_names": [
+        "Finding",
+        "Observable Entity"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.708
+    },
+    "Finding||fhir-hypertension": {
+      "canonical_name": "Finding",
+      "source_slug": "fhir-hypertension",
+      "local_names": [
+        "Observation"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.708
+    },
+    "Anatomy||hetionet-hypertension": {
+      "canonical_name": "Anatomy",
+      "source_slug": "hetionet-hypertension",
+      "local_names": [
+        "Anatomy"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.532
+    },
+    "Anatomy||snomed-ct-hypertension": {
+      "canonical_name": "Anatomy",
+      "source_slug": "snomed-ct-hypertension",
+      "local_names": [
+        "Body Structure"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.565
+    },
+    "Procedure||fhir-hypertension": {
+      "canonical_name": "Procedure",
+      "source_slug": "fhir-hypertension",
+      "local_names": [
+        "Procedure"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 5,
+      "total_in_top_k": 5,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.708
+    },
+    "Procedure||snomed-ct-hypertension": {
+      "canonical_name": "Procedure",
+      "source_slug": "snomed-ct-hypertension",
+      "local_names": [
+        "Procedure"
+      ],
+      "queries_exercised": 1,
+      "total_hits": 1,
+      "total_in_top_k": 1,
+      "precision": 1.0,
+      "is_dead": false,
+      "mean_authority_score": 1.708
+    }
+  }
+}

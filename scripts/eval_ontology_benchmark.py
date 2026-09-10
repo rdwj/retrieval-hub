@@ -240,6 +240,7 @@ def run_cross_source(
 
     onto = describe_ontology_db(db_session, concept=concept)
     with_hits: list[dict] = []
+    mapping_hits: dict[str, dict] = {}
     if onto["concepts"]:
         info = onto["concepts"][0]
         for src_slug in sources:
@@ -261,6 +262,39 @@ def run_cross_source(
                 h["authority_score"] = avg_auth
             with_hits.extend(hits)
 
+            key = f"{concept}||{src_slug}"
+            mapping_hits[key] = {
+                "canonical_name": concept,
+                "source_slug": src_slug,
+                "local_names": local_names,
+                "authority_score": avg_auth,
+                "hit_count": len(hits),
+                "in_top_k": len(hits),
+            }
+
+        # Include sources with mappings but zero hits
+        for src_slug in sources:
+            key = f"{concept}||{src_slug}"
+            if key in mapping_hits:
+                continue
+            src_mappings = [
+                m for m in info["source_mappings"]
+                if m["source_slug"] == src_slug
+            ]
+            if src_mappings:
+                local_names = [m["local_name"] for m in src_mappings]
+                avg_auth = sum(
+                    m["authority_score"] for m in src_mappings
+                ) / len(src_mappings)
+                mapping_hits[key] = {
+                    "canonical_name": concept,
+                    "source_slug": src_slug,
+                    "local_names": local_names,
+                    "authority_score": avg_auth,
+                    "hit_count": 0,
+                    "in_top_k": 0,
+                }
+
     without_hits: list[dict] = []
     for src_slug in sources:
         hits = do_retrieve(
@@ -270,7 +304,10 @@ def run_cross_source(
         )
         without_hits.extend(hits)
 
-    return _build_result(q, "cross_source", with_hits, without_hits)
+    return _build_result(
+        q, "cross_source", with_hits, without_hits,
+        mapping_hits=mapping_hits or None,
+    )
 
 
 def run_hierarchy(
@@ -367,6 +404,7 @@ def run_relationship(
 def _build_result(
     q: dict, dimension: str,
     with_hits: list[dict], without_hits: list[dict],
+    mapping_hits: dict | None = None,
 ) -> dict:
     w = summarize_hits(with_hits)
     wo = summarize_hits(without_hits)
@@ -378,7 +416,7 @@ def _build_result(
     recall_lift = (w_total - wo_total) / w_total if w_total > 0 else 0.0
     score_delta = w["mean_score"] - wo["mean_score"]
 
-    return {
+    result = {
         "id": q.get("id", "unknown"),
         "dimension": dimension,
         "concept": q.get("concept", q.get("start_concept", "")),
@@ -391,6 +429,9 @@ def _build_result(
             "mean_score_delta": round(score_delta, 4),
         },
     }
+    if mapping_hits is not None:
+        result["mapping_hits"] = mapping_hits
+    return result
 
 
 def run_concept_first(
@@ -403,6 +444,7 @@ def run_concept_first(
 
     # WITH ontology: concept_query fans out to all mapped sources
     with_hits: list[dict] = []
+    mapping_hits: dict[str, dict] = {}
     try:
         from retrieval_hub.retrieval.api import concept_query
 
@@ -423,6 +465,26 @@ def run_concept_first(
                 "source": r.source_slug,
                 "authority_score": mapping.authority_weight if mapping else 1.0,
             })
+
+        # Build mapping_hits from source_mappings and with_hits.
+        # NOTE: in_top_k == hit_count here because concept_query() returns
+        # only merged top-k results — per-source pre-merge counts aren't
+        # available.  Precision is always 1.0 for sources with hits, making
+        # the "underperforming" category unreachable.  Phase 4 (runtime
+        # monitoring) will provide real per-query precision data.
+        for source_slug, mapping in source_mappings.items():
+            key = f"{concept}||{source_slug}"
+            hit_count = sum(
+                1 for h in with_hits if h["source"] == source_slug
+            )
+            mapping_hits[key] = {
+                "canonical_name": concept,
+                "source_slug": source_slug,
+                "local_names": list(mapping.local_names),
+                "authority_score": mapping.authority_weight,
+                "hit_count": hit_count,
+                "in_top_k": hit_count,
+            }
     except Exception as exc:
         logger.warning("concept_query(%s) failed: %s", concept, exc)
 
@@ -436,7 +498,10 @@ def run_concept_first(
         )
         without_hits.extend(hits)
 
-    return _build_result(q, "concept_first", with_hits, without_hits)
+    return _build_result(
+        q, "concept_first", with_hits, without_hits,
+        mapping_hits=mapping_hits or None,
+    )
 
 
 DIMENSION_RUNNERS = {
@@ -487,6 +552,50 @@ def aggregate_by_dimension(results: list[dict]) -> dict:
         "win_rate": round(all_wins / len(results), 4) if results else 0.0,
     }
     return summaries
+
+
+def aggregate_mapping_quality(results: list[dict]) -> dict:
+    """Aggregate per-mapping hit data across all queries."""
+    agg: dict[str, dict] = {}
+    for r in results:
+        mh = r.get("mapping_hits")
+        if not mh:
+            continue
+        for key, data in mh.items():
+            if key not in agg:
+                agg[key] = {
+                    "canonical_name": data["canonical_name"],
+                    "source_slug": data["source_slug"],
+                    "local_names": set(),
+                    "queries_exercised": 0,
+                    "total_hits": 0,
+                    "total_in_top_k": 0,
+                    "authority_scores": [],
+                }
+            entry = agg[key]
+            entry["local_names"].update(data["local_names"])
+            entry["queries_exercised"] += 1
+            entry["total_hits"] += data["hit_count"]
+            entry["total_in_top_k"] += data["in_top_k"]
+            entry["authority_scores"].append(data["authority_score"])
+
+    # Finalize
+    for _key, entry in agg.items():
+        entry["local_names"] = sorted(entry["local_names"])
+        entry["precision"] = round(
+            entry["total_in_top_k"] / entry["total_hits"]
+            if entry["total_hits"] > 0 else 0.0, 4
+        )
+        entry["is_dead"] = (
+            entry["total_hits"] == 0 and entry["queries_exercised"] > 0
+        )
+        entry["mean_authority_score"] = round(
+            sum(entry["authority_scores"]) / len(entry["authority_scores"])
+            if entry["authority_scores"] else 0.0, 4
+        )
+        del entry["authority_scores"]  # don't need the raw list in output
+
+    return agg
 
 
 def compute_authority_correlation(results: list[dict]) -> dict:
@@ -546,6 +655,7 @@ def _fmt_row(label: str, s: dict) -> str:
 def generate_report(
     summaries: dict, results: list[dict], config: dict,
     authority_corr: dict,
+    per_mapping: dict | None = None,
 ) -> str:
     header = (
         f"{'Dimension':<22}{'Queries':>7}  {'Win Rate':>8}  {'Avg Hit Lift':>12}"
@@ -595,6 +705,30 @@ def generate_report(
             f"without={wo['total_hits']:>3} hits ({wo['sources_with_hits']} src)  "
             f"lift={'+' if lift >= 0 else ''}{lift}"
         )
+    if per_mapping:
+        lines.append("")
+        lines.append("Per-Mapping Quality")
+        lines.append("-" * 19)
+        map_hdr = (
+            f"{'Mapping':<40} {'Queries':>7}  {'Hits':>5}"
+            f"  {'Top-K':>5}  {'Precision':>9}  {'Dead?':>5}"
+        )
+        lines.append(map_hdr)
+        lines.append(
+            f"{'-' * 40} {'-' * 7}  {'-' * 5}"
+            f"  {'-' * 5}  {'-' * 9}  {'-' * 5}"
+        )
+        for key in sorted(per_mapping):
+            m = per_mapping[key]
+            dead = "Yes" if m["is_dead"] else "No"
+            lines.append(
+                f"{key:<40} {m['queries_exercised']:>7}"
+                f"  {m['total_hits']:>5}"
+                f"  {m['total_in_top_k']:>5}"
+                f"  {m['precision']:>9.4f}"
+                f"  {dead:>5}"
+            )
+
     lines.append("")
     return "\n".join(lines)
 
@@ -704,15 +838,20 @@ def run_benchmark(args: argparse.Namespace) -> int:
         json.dumps(results, indent=2) + "\n", encoding="utf-8",
     )
 
+    per_mapping = aggregate_mapping_quality(results)
+
     summary_data = {
         "dimensions": summaries,
         "authority_correlation": authority_corr,
+        "per_mapping_quality": per_mapping,
     }
     (output_dir / "summary.json").write_text(
         json.dumps(summary_data, indent=2) + "\n", encoding="utf-8",
     )
 
-    report = generate_report(summaries, results, config, authority_corr)
+    report = generate_report(
+        summaries, results, config, authority_corr, per_mapping,
+    )
     (output_dir / "report.txt").write_text(report, encoding="utf-8")
 
     print(report)
