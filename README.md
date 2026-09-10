@@ -37,6 +37,8 @@ Open http://localhost:5173. The landing page has a guided tour that walks throug
 
 **[Catalog data model](docs/catalog.md)** specifies sources, recipes, physical indexes, rewriter metadata, eval results, and agent write policies. This is the heart of the platform.
 
+**[Data owner's guide](docs/guide-data-owner.md)** walks through onboarding a dataset: preparing your corpus, defining governance rules, writing evaluation queries, configuring the semantic layer, and handing off to ops.
+
 ## Understand where it's going
 
 **[Vision and roadmap](docs/vision-and-roadmap.md)** is the full positioning document: the organizational case, provenance posture, MCP design, data residency, source onboarding, and phased build plan. Start here for the big picture.

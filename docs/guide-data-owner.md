@@ -157,6 +157,13 @@ The semantic layer improves retrieval for sources with specialized
 terminology. It has two parts: vocabulary mappings for the query rewriter,
 and entity definitions for cross-reference navigation.
 
+The platform auto-discovers entity definitions during ingestion (see
+Step 5), so you do not need to define entities from scratch. However,
+vocabulary mappings, abbreviation expansions, relationships, and metrics
+still benefit from manual configuration. Review the auto-discovered
+entities after ingestion and refine any that need better definitions,
+types, or aliases.
+
 **Vocabulary mappings.** If your users might search with different
 terminology than your documents use, define lay-to-canonical term mappings.
 The query rewriter uses these to translate user queries before retrieval.
@@ -176,7 +183,34 @@ This step is optional for the initial onboarding. You can add the semantic
 layer after the source is live and you have seen which queries perform
 poorly.
 
-## Step 5: Choose chunking and embedding
+## Step 5: What the platform does automatically
+
+Several features run during ingestion without any action from the data
+owner. Understanding what is automated helps you know what to review
+afterward and what to leave alone.
+
+**Hybrid search.** The platform enables BM25 lexical search alongside
+vector similarity search on every source by default. Results are fused
+using Reciprocal Rank Fusion. No action is required from the data owner.
+This improves retrieval for exact-term queries, acronyms, and
+definitional lookups.
+
+**Entity discovery (when LLM available).** When the ingestion pipeline
+has access to an LLM endpoint, it samples chunks from the newly ingested
+source, extracts entity definitions (conditions, treatments, procedures,
+instruments, and similar), and populates the ontology registry. The
+discovered entities enable cross-source retrieval and query rewriting.
+Data owners should review the auto-discovered entities on their source's
+`semantic_context` after ingestion and refine them if needed, paying
+particular attention to entity types, aliases, and definitions.
+
+**Ontology mapping.** Discovered entities are matched against the
+platform's existing canonical concepts by name and alias. If an entity
+in a new source matches an entity from another source, they are linked,
+enabling cross-source queries. New entities that do not match existing
+concepts become new canonical concepts.
+
+## Step 6: Choose chunking and embedding
 
 The platform team will help you run experiments to find the best chunking
 strategy and embedding model for your data. Your involvement is reviewing
@@ -211,7 +245,7 @@ model name, its memory footprint, and any prefix conventions it requires.
 Ops is responsible for hosting the model. Consuming agents never see which
 model is used.
 
-## Step 6: Review evaluation results
+## Step 7: Review evaluation results
 
 After ingestion with the chosen configuration, the platform runs a formal
 evaluation using your queries. The eval pipeline measures:
@@ -231,7 +265,7 @@ If results are below your quality bar, the platform team can iterate on
 chunking, embedding model, or semantic layer configuration. The eval
 pipeline makes this a structured comparison, not guesswork.
 
-## Step 7: Hand off to ops
+## Step 8: Hand off to ops
 
 Once you approve the eval results, provide ops with:
 
