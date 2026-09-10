@@ -7,94 +7,116 @@ eval-driven self-improvement, query success monitoring, concept-first
 retrieval, an onboarding pipeline with HITL, and authority score
 improvements.
 
-Issues: #61 (closed), #62, #63, #64, #68 (closed)
+Issues: #61 (closed), #62 (closed), #63, #64, #68 (closed)
 
-## Next: Concept-first retrieval (#62)
+## Next: Eval-driven self-improvement (#63)
 
-Add `retrieve(concept="Condition")` — query by canonical concept instead of
-naming a specific source. The system fans out to all sources mapped to that
-concept, queries each, and merges results weighted by authority scores.
-
-### Prerequisites (all met)
-
-- Ontology registry with hierarchy: shipped
-- Authority scoring with meaningful differentiation: shipped (#68), range 0.98
-- `expand_doc_section_via_registry` walks the concept tree: shipped
-- Benchmark harness exists: `scripts/eval_ontology_benchmark.py`
+Build a per-mapping eval pipeline that measures how much each ontology
+mapping improves retrieval, then wire a feedback loop that auto-adjusts
+authority scores and flags low-quality mappings for the doctor.
 
 ### Implementation steps
 
-1. **Add `concept_query()` to `retrieval/api.py`**
-   New function: `concept_query(concept: str, query_text: str, *, session,
-   top_k=10, ...)`. Resolves the concept to mapped sources, fans out
-   `query()` calls, merges and re-ranks results weighted by authority score.
-   - Look up all `OntologyMapping` rows for the canonical concept (and
-     children via `_expand_concepts_via_hierarchy`)
-   - Group mappings by `source_slug`
-   - Call `query()` per source with the mapping's `local_name` as
-     `doc_section`
-   - Weight each hit's score by its source's authority score
-   - Merge, deduplicate by chunk_id, sort by weighted score, return top_k
+1. **Add per-mapping quality metrics to the benchmark**
 
-2. **Wire into the MCP server**
-   The MCP `retrieve` tool (`retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`)
-   currently requires `source`. Add an optional `concept` parameter. When
-   `concept` is provided and `source` is not, call `concept_query()` instead
-   of `query()`. Validate that exactly one of `source` or `concept` is
-   provided.
+   Extend `scripts/eval_ontology_benchmark.py` to produce per-mapping
+   scores. For each mapping exercised in the cross_source and
+   concept_first dimensions, compute:
+   - `hit_contribution`: how many hits came through this mapping's
+     local_name (compare with-ontology hits by source+doc_section
+     against without-ontology baseline)
+   - `precision_signal`: fraction of hits from this mapping that ranked
+     in the top-k (did this mapping's hits actually surface useful
+     content, or did they get buried?)
+   - `is_dead`: mapping produced zero hits across all queries that
+     should have exercised it
 
-3. **Handle authority-weighted scoring**
-   Decide the merge formula: `final_score = hit.score * authority_score`
-   (multiplicative) or `final_score = rrf_rank(hit) * authority_score`
-   (rank-based). Since BM25 hybrid retrieval uses RRF, the scores are
-   already rank-based (1/(rank+k)). Multiplicative weighting should work:
-   higher-authority sources' hits float up in the merged list.
+   Output: a `per_mapping_quality` section in `summary.json` keyed by
+   `(canonical_name, source_slug, local_name)` with these metrics.
 
-4. **Add benchmark dimension**
-   Extend `eval_ontology_benchmark.py` with concept-first queries that
-   compare single-source retrieval against concept-based fan-out. Measure:
-   source coverage (how many sources contribute hits), recall improvement.
+2. **Build the self-improvement pipeline**
 
-5. **Test with real queries**
-   - `retrieve(concept="Condition")` should hit SNOMED, FHIR, Hetionet,
-     ClinicalTrials, PubMed, VA-CPG
-   - `retrieve(concept="Aircraft Component")` should hit aircraft-maintenance,
-     aircraft-sb-test, aircraft-sb-process
-   - Verify deduplication works when the same chunk is returned by ontology
-     expansion and direct match
+   New module `src/retrieval_hub/ontology/self_improve.py` with:
+   - `evaluate_mapping_quality(session, benchmark_results) -> list[MappingFinding]`
+     Reads the per-mapping metrics from step 1 and classifies each
+     mapping: `healthy` (positive hit contribution), `underperforming`
+     (low precision), `dead` (zero hits), `missing_coverage` (concept
+     has mappings in some sources but not others).
+   - `adjust_authority_scores(session, findings) -> list[ScoreAdjustment]`
+     For underperforming mappings, reduce authority score by a damping
+     factor (e.g., `score *= 0.9`). For consistently healthy mappings
+     with high precision, apply a small boost (e.g., `score *= 1.05`,
+     capped at 1.0). Returns the list of adjustments made for audit.
+   - `apply_adjustments(session, adjustments)` writes the new scores
+     back to `OntologyMapping.authority_score` with `flag_modified()`.
 
-**Sequencing.** Step 1 is the core logic. Step 2 wires it into the MCP
-server. Step 3 is a design decision to make during step 1. Steps 4-5
-validate. All can run locally.
+3. **Integrate with the doctor**
+
+   Wire findings from step 2 into the doctor:
+   - `dead` findings trigger `check_dead_mappings` for confirmation
+     (the eval may have insufficient queries to exercise a mapping;
+     the doctor does an actual retrieval probe)
+   - `missing_coverage` findings feed into `check_coverage_gaps`
+   - Add a new doctor check: `check_eval_flagged_mappings(session,
+     findings)` that reports mappings the eval flagged but the doctor's
+     existing checks wouldn't catch (underperforming but not dead)
+
+4. **CLI entry point**
+
+   Add a `scripts/run_self_improvement.py` that orchestrates:
+   benchmark run -> evaluate_mapping_quality -> adjust_authority_scores
+   -> doctor validation. Should be runnable as a one-shot or as a
+   CronJob in the cluster.
+
+5. **Test with real data**
+
+   Run the pipeline against the dev database. Verify:
+   - Per-mapping metrics appear in benchmark output
+   - At least one mapping gets a score adjustment (use a known
+     low-quality mapping if needed)
+   - Doctor picks up eval-flagged findings
+   - Authority scores are persisted correctly
+
+**Sequencing.** Steps 1-2 are the core. Step 3 integrates with existing
+infra. Step 4 wraps it for ops. Step 5 validates end-to-end. Steps 1
+and 2 can be developed together since the eval output schema drives the
+self-improvement input.
 
 **Constraints for the session:**
-- Keep `concept_query()` in `retrieval/api.py` alongside `query()`. Reuse
-  the existing `query()` for per-source calls — don't duplicate retrieval
-  logic.
-- The MCP server change should be backward-compatible — existing callers
-  that pass `source=` must work unchanged.
-- Authority scores are already in the DB. Read them at query time from
-  `OntologyMapping.authority_score`, don't recompute.
-- The benchmark's authority_correlation metric is broken with RRF scores
-  (see session 2 notes). Don't use it as a quality signal. Use hit count
-  lift and source coverage instead.
+- `flag_modified()` on `OntologyMapping.authority_score` after writes
+  (CLAUDE.md lesson).
+- The benchmark's `authority_correlation` metric is broken with RRF
+  scores. Don't use it. The new per-mapping metrics replace it as the
+  quality signal.
+- Authority score adjustments must be bounded: no mapping should drop
+  below a floor (0.3) or exceed a ceiling (1.0). Prevents runaway
+  feedback.
+- `compute_authority_scores()` in `ontology/authority.py` computes
+  scores from source metadata (static factors). The self-improvement
+  adjustments are a separate, additive signal from observed retrieval
+  performance. Keep the two mechanisms distinct -- don't merge them
+  into one function.
+- `127.0.0.1` not `localhost` for local DB connections (CLAUDE.md).
 
 **Session start protocol:**
 - Premise checks (~5 min, report before acting):
-  1. Confirm `query()` in `retrieval/api.py` still has the signature
-     `query(source_slug, query_text, *, session, top_k, ...)`
-  2. Confirm MCP `retrieve` tool in `server.py` requires `source` parameter
-  3. Run a quick `retrieve(source="hetionet-hypertension", concept query)`
-     to verify the local stack (DB + embedding service) works
+  1. Confirm `concept_query()` is in `retrieval/api.py` and returns
+     `(results, source_mappings)` with authority weights
+  2. Run the benchmark: `python scripts/eval_ontology_benchmark.py`
+     and verify it produces results including the `concept_first`
+     dimension added in session 3
+  3. Confirm the doctor runs clean:
+     `python scripts/ontology_doctor.py --skip-retrieval`
 - Rules with history:
-  1. `flag_modified()` for `semantic_context` mutations (CLAUDE.md)
+  1. `flag_modified()` for JSON/float column mutations (CLAUDE.md)
   2. `127.0.0.1` not `localhost` for DB connections (CLAUDE.md)
-  3. Port-forward to embedding service may be stale — check before running
-     queries
-- Stop-and-ask before: modifying the MCP server's public tool signatures,
-  deploying to cluster.
-- Close ritual: session summary + `/plan-next-session ontology-v2` to queue
-  Phase 3 (#63).
+  3. Score adjustments must be idempotent -- running the pipeline
+     twice on the same benchmark results should produce the same
+     final scores, not compound the adjustment
+- Stop-and-ask before: deploying the self-improvement pipeline as a
+  CronJob, modifying production authority scores on the cluster DB.
+- Close ritual: session summary + `/plan-next-session ontology-v2` to
+  queue Phase 4 (#64).
 
 ## Remaining epic phases
 
@@ -108,15 +130,12 @@ but retrieval quality metrics held or improved.
 
 **Dependencies:** None.
 
-### Phase 2: Concept-first retrieval (#62)
+### Phase 2: Concept-first retrieval (#62) -- COMPLETE
 
-`retrieve(concept="Condition")` without naming a source. Fan-out to
-all sources with that concept, merge results weighted by authority
-scores.
-
-**Definition of done:** API accepts `concept=` parameter. Fan-out
-queries all mapped sources and merges results. Benchmark validates
-cross-source recall.
+Shipped 2026-09-10. `retrieve(concept="Condition")` fans out to all
+mapped sources, queries each with per-source doc_section filters, and
+merges via authority-weighted RRF. Deployed and live-tested on
+gpt-oss-120b. 21 new tests, benchmark dimension added.
 
 **Dependencies:** Phase 1 (meaningful scores improve fan-out ranking).
 
@@ -152,28 +171,22 @@ CLI review wizard (review_ontology_proposal.py), pipeline integration
 (Stage 8 of pipeline.ingest()), doctor validation after ontology
 population. All 5 acceptance criteria met.
 
-## What landed last session (2026-09-10, session 2)
+## What landed last session (2026-09-10, session 3)
 
-Authority score range widened (Phase 1, #68). Added 3 new scoring signals
-to the 6-factor formula: formal terminology (1.2x boost for SNOMED, FHIR,
-Hetionet, ClinicalTrials), log2-scaled entity coverage, and data freshness
-(no-op while `last_refresh_at` is null). Score range: 0.632 → 0.980,
-distinct scores: 11 → 29, clustering findings: 17 → 1. Doctor WARN count
-unchanged (29). Retrieval quality held (overall hit lift +7.75 → +8.5).
+Concept-first retrieval shipped (Phase 2, #62). Added `concept`
+parameter to the MCP `retrieve` tool, `resolve_concept_sources()` and
+`concept_query()` to the retrieval API, authority-weighted RRF merge
+via `source_weights` on `rrf_merge()`. Benchmark `concept_first`
+dimension with 3 queries. 21 new tests. Deployed to gpt-oss-120b and
+live-tested -- `concept="Condition"` returned results from 3 sources
+(SNOMED, FHIR, Hetionet) with per-source metadata for 5 mapped sources.
+Review-driven fixes: removed false confidence warnings on RRF-scored
+queries, removed dead error handler.
 
-Benchmark authority_correlation dropped (r=0.358 → 0.096) but this is
-caused by BM25 hybrid retrieval (#65) changing similarity scores to
-RRF-based values (only 6 distinct scores across 57 hits). The metric is
-structurally unable to discriminate with rank-based RRF scores.
+**Closed:** #62 — Concept-first retrieval with fan-out across sources
+**Closed:** #68 — Authority score improvements (session 2)
 
-## What landed (2026-09-10, session 1)
-
-HITL onboarding pipeline shipped (Phase 5, #61). Entity discovery via LLM,
-CLI review wizard, pipeline integration as Stage 8, doctor validation.
-`flag_modified` fix for JSON column persistence. Retro ran covering
-platform-quality + onboarding pipeline.
-
-**Closed:** #61 — Onboarding pipeline with HITL — all 5 acceptance criteria met
+See: `session-summaries/2026-09-10-ontology-v2-concept-first-retrieval.md`
 
 ## Watch out for
 
@@ -181,27 +194,28 @@ platform-quality + onboarding pipeline.
   (CLAUDE.md lesson).
 - The benchmark's authority_correlation metric is structurally broken with
   RRF-based scores (only 6 distinct similarity values across 57 hits).
-  Don't use it as a quality signal. Use hit count lift and source coverage.
-- Fan-out query performance: calling `query()` per-source sequentially
-  could be slow with many sources. Consider whether to parallelize or
-  just document the expected latency.
-- The MCP `retrieve` tool signature change must be backward-compatible.
-  Existing callers pass `source=` and must continue to work.
+  Don't use it as a quality signal. Per-mapping quality metrics (Phase 3)
+  are the replacement.
+- Authority score adjustments from eval feedback must be bounded (floor
+  0.3, ceiling 1.0) and idempotent to prevent runaway feedback loops.
+- The `_check_confidence` false positive also affects the existing
+  multi-source path (server.py line 856). Not introduced by session 3,
+  but now more visible. Consider fixing for all RRF-scored paths.
 
 ## If blocked
 
-- If the local catalog DB is missing ontology data, re-run
-  `scripts/onboard_ontology_sources.py` to repopulate.
-- If the embedding service is down, re-establish port-forward:
-  `oc port-forward svc/retrieval-hub-embedding 8081:8080 --context=gpt-oss-120b -n retrieval-hub`
-- If concept_query fan-out is too slow, start with serial calls and add a
-  note about async fan-out as a follow-up. Correctness before performance.
+- If the benchmark can't run (embedding service down), implement the
+  self-improvement module against mock benchmark results and validate
+  the score adjustment logic with unit tests. Wire to real data later.
+- If the doctor integration is too complex for one session, ship steps
+  1-2 (per-mapping metrics + score adjustment) and defer step 3 (doctor
+  integration) to a follow-up.
 
 ## What this covers (and what it doesn't)
 
 **In scope:**
 - #61 Onboarding pipeline with HITL (closed)
-- #62 Concept-first retrieval
+- #62 Concept-first retrieval (closed)
 - #63 Eval self-improvement loops
 - #64 Query success monitoring
 - #68 Authority score improvements (closed)
