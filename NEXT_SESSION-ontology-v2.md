@@ -7,74 +7,94 @@ eval-driven self-improvement, query success monitoring, concept-first
 retrieval, an onboarding pipeline with HITL, and authority score
 improvements.
 
-Issues: #61 (closed), #62, #63, #64, #68
+Issues: #61 (closed), #62, #63, #64, #68 (closed)
 
-## Next: Widen authority score range (#68)
+## Next: Concept-first retrieval (#62)
 
-The current scoring formula in `authority.py` compresses all 77 mappings
-into a 1.04–1.248 range — too narrow for concept-first retrieval (Phase 2)
-to rank sources meaningfully. The benchmark shows weak positive correlation
-(r=0.36) that should improve with a wider, more informative score range.
+Add `retrieve(concept="Condition")` — query by canonical concept instead of
+naming a specific source. The system fans out to all sources mapped to that
+concept, queries each, and merges results weighted by authority scores.
 
-1. **Add formal terminology signal**
-   Sources backed by a formal terminology standard (SNOMED, FHIR, Hetionet)
-   should score higher than informal sources (tale-of-two-cities). Add a
-   `formal_terminology: true/false` flag to `semantic_context` for each
-   source, and wire it into `compute_authority_scores()` as a multiplier.
-   The flag values require judgment per source — set them in the scoring
-   function or in `semantic_context` during onboarding.
+### Prerequisites (all met)
 
-2. **Add entity count coverage signal**
-   A mapping where the source has 500 entities of a type should score higher
-   than one with 3. `discover_entities()` already computes `entity_count` in
-   its output. Wire a coverage weight into the formula — e.g., log-scaled
-   entity count so large sources don't dominate linearly.
+- Ontology registry with hierarchy: shipped
+- Authority scoring with meaningful differentiation: shipped (#68), range 0.98
+- `expand_doc_section_via_registry` walks the concept tree: shipped
+- Benchmark harness exists: `scripts/eval_ontology_benchmark.py`
 
-3. **Consider data freshness signal**
-   `Source.last_refresh_at` exists in the model. Sources refreshed recently
-   should get a modest boost over stale ones. This is lower priority than
-   signals 1-2 — include if the range still needs widening after the first
-   two, skip if the range is already well-differentiated.
+### Implementation steps
 
-4. **Re-seed scores and verify with doctor**
-   Run `seed_authority_scores.py` (or the recompute path in
-   `onboard_ontology_sources.py`). Run `ontology_doctor.py --skip-retrieval`
-   and confirm: score range spans at least 0.5, no new score clustering
-   warnings, no regressions in other checks.
+1. **Add `concept_query()` to `retrieval/api.py`**
+   New function: `concept_query(concept: str, query_text: str, *, session,
+   top_k=10, ...)`. Resolves the concept to mapped sources, fans out
+   `query()` calls, merges and re-ranks results weighted by authority score.
+   - Look up all `OntologyMapping` rows for the canonical concept (and
+     children via `_expand_concepts_via_hierarchy`)
+   - Group mappings by `source_slug`
+   - Call `query()` per source with the mapping's `local_name` as
+     `doc_section`
+   - Weight each hit's score by its source's authority score
+   - Merge, deduplicate by chunk_id, sort by weighted score, return top_k
 
-5. **Re-run ontology benchmark**
-   Run `eval_ontology_benchmark.py` and compare score-quality correlation
-   against the baseline (r=0.36, range 1.04–1.248). The definition of done
-   is: range ≥ 0.5, correlation improves or holds.
+2. **Wire into the MCP server**
+   The MCP `retrieve` tool (`retrieval-hub-mcp/src/retrieval_hub_mcp/server.py`)
+   currently requires `source`. Add an optional `concept` parameter. When
+   `concept` is provided and `source` is not, call `concept_query()` instead
+   of `query()`. Validate that exactly one of `source` or `concept` is
+   provided.
 
-**Sequencing.** Steps 1-3 are formula changes in `authority.py` (can be
-developed together). Step 4 verifies. Step 5 validates against retrieval
-quality. All can run locally against the local catalog DB.
+3. **Handle authority-weighted scoring**
+   Decide the merge formula: `final_score = hit.score * authority_score`
+   (multiplicative) or `final_score = rrf_rank(hit) * authority_score`
+   (rank-based). Since BM25 hybrid retrieval uses RRF, the scores are
+   already rank-based (1/(rank+k)). Multiplicative weighting should work:
+   higher-authority sources' hits float up in the merged list.
+
+4. **Add benchmark dimension**
+   Extend `eval_ontology_benchmark.py` with concept-first queries that
+   compare single-source retrieval against concept-based fan-out. Measure:
+   source coverage (how many sources contribute hits), recall improvement.
+
+5. **Test with real queries**
+   - `retrieve(concept="Condition")` should hit SNOMED, FHIR, Hetionet,
+     ClinicalTrials, PubMed, VA-CPG
+   - `retrieve(concept="Aircraft Component")` should hit aircraft-maintenance,
+     aircraft-sb-test, aircraft-sb-process
+   - Verify deduplication works when the same chunk is returned by ontology
+     expansion and direct match
+
+**Sequencing.** Step 1 is the core logic. Step 2 wires it into the MCP
+server. Step 3 is a design decision to make during step 1. Steps 4-5
+validate. All can run locally.
 
 **Constraints for the session:**
-- The formula is in `src/retrieval_hub/ontology/authority.py` (95 lines).
-  Keep it a single function — don't over-engineer into a plugin system.
-- The doctor's `_check_score_clustering()` (doctor.py:319) is the existing
-  diagnostic. It should pass after the range widens.
-- The benchmark baseline is in `eval/ontology_benchmark/runs/20260908-220904/`.
-  Compare against that run.
-- `semantic_context` is a JSON column — remember `flag_modified()` if
-  updating it via SQLAlchemy (CLAUDE.md lesson).
+- Keep `concept_query()` in `retrieval/api.py` alongside `query()`. Reuse
+  the existing `query()` for per-source calls — don't duplicate retrieval
+  logic.
+- The MCP server change should be backward-compatible — existing callers
+  that pass `source=` must work unchanged.
+- Authority scores are already in the DB. Read them at query time from
+  `OntologyMapping.authority_score`, don't recompute.
+- The benchmark's authority_correlation metric is broken with RRF scores
+  (see session 2 notes). Don't use it as a quality signal. Use hit count
+  lift and source coverage instead.
 
 **Session start protocol:**
-- Premise checks (before step 1, ~5 min, report before acting):
-  Confirm `authority.py` still has the 3-factor formula (status × family ×
-  agreement). Run `ontology_doctor.py --skip-retrieval` to get current score
-  distribution. Check that the benchmark baseline run still exists at the
-  expected path.
+- Premise checks (~5 min, report before acting):
+  1. Confirm `query()` in `retrieval/api.py` still has the signature
+     `query(source_slug, query_text, *, session, top_k, ...)`
+  2. Confirm MCP `retrieve` tool in `server.py` requires `source` parameter
+  3. Run a quick `retrieve(source="hetionet-hypertension", concept query)`
+     to verify the local stack (DB + embedding service) works
 - Rules with history:
-  1. `flag_modified()` required for any `semantic_context` mutations (burned
-     us once — CLAUDE.md).
-  2. Use `127.0.0.1` not `localhost` for any DB connections (CLAUDE.md).
-- Stop-and-ask before: running score updates against the cluster catalog DB.
-  Local-only work is fine without asking.
+  1. `flag_modified()` for `semantic_context` mutations (CLAUDE.md)
+  2. `127.0.0.1` not `localhost` for DB connections (CLAUDE.md)
+  3. Port-forward to embedding service may be stale — check before running
+     queries
+- Stop-and-ask before: modifying the MCP server's public tool signatures,
+  deploying to cluster.
 - Close ritual: session summary + `/plan-next-session ontology-v2` to queue
-  Phase 2 (#62).
+  Phase 3 (#63).
 
 ## Remaining epic phases
 
@@ -157,31 +177,34 @@ platform-quality + onboarding pipeline.
 
 ## Watch out for
 
-- The `semantic_context` JSON column needs `flag_modified()` after mutation.
-  If adding `formal_terminology` flags to sources, use the ORM carefully.
-- The doctor's score clustering check uses a threshold that may need
-  adjustment once the range widens — currently it flags when the range is
-  "too narrow," but the threshold definition lives in doctor.py:319.
-- The benchmark runs against local data. If the local catalog DB is out of
-  sync with the cluster, scores and correlations may differ. Sync before
-  drawing conclusions.
+- The `semantic_context` JSON column needs `flag_modified()` after mutation
+  (CLAUDE.md lesson).
+- The benchmark's authority_correlation metric is structurally broken with
+  RRF-based scores (only 6 distinct similarity values across 57 hits).
+  Don't use it as a quality signal. Use hit count lift and source coverage.
+- Fan-out query performance: calling `query()` per-source sequentially
+  could be slow with many sources. Consider whether to parallelize or
+  just document the expected latency.
+- The MCP `retrieve` tool signature change must be backward-compatible.
+  Existing callers pass `source=` and must continue to work.
 
 ## If blocked
 
 - If the local catalog DB is missing ontology data, re-run
   `scripts/onboard_ontology_sources.py` to repopulate.
-- If the benchmark harness has issues, the doctor's score distribution
-  check (step 4) is sufficient to verify range widening — the benchmark
-  correlation check (step 5) can be deferred.
+- If the embedding service is down, re-establish port-forward:
+  `oc port-forward svc/retrieval-hub-embedding 8081:8080 --context=gpt-oss-120b -n retrieval-hub`
+- If concept_query fan-out is too slow, start with serial calls and add a
+  note about async fan-out as a follow-up. Correctness before performance.
 
 ## What this covers (and what it doesn't)
 
 **In scope:**
-- #61 Onboarding pipeline with HITL
+- #61 Onboarding pipeline with HITL (closed)
 - #62 Concept-first retrieval
 - #63 Eval self-improvement loops
 - #64 Query success monitoring
-- #68 Authority score improvements
+- #68 Authority score improvements (closed)
 
 **Out of scope:**
 - Platform ops (NEXT_SESSION-platform-ops.md): #27, #66, #67, #70
