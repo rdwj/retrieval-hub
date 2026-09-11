@@ -35,6 +35,7 @@ def _create_table_sql(table: str, dimension: int) -> str:
         "doc_title TEXT,"
         "doc_url TEXT,"
         "doc_section TEXT,"
+        "doc_id TEXT,"
         "chunk_index INT NOT NULL,"
         f"embedding VECTOR({dimension}) NOT NULL,"
         "chunk_tsvector TSVECTOR"
@@ -48,6 +49,11 @@ def _create_gin_index_sql(table: str) -> str:
         f"CREATE INDEX IF NOT EXISTS {table}_tsvector_idx "
         f"ON {table} USING GIN (chunk_tsvector)"
     )
+
+
+def _create_doc_id_index_sql(table: str) -> str:
+    """Return the DDL for the partial index on doc_id."""
+    return f"CREATE INDEX IF NOT EXISTS {table}_doc_id_idx ON {table} (doc_id) WHERE doc_id IS NOT NULL"
 
 
 @dataclass
@@ -77,6 +83,7 @@ def ensure_pgvector_schema(vectors_db_url: str, table: str, dimension: int) -> N
             cur.execute(CREATE_EXTENSION_SQL)
             cur.execute(_create_table_sql(table, dimension))
             cur.execute(_create_gin_index_sql(table))
+            cur.execute(_create_doc_id_index_sql(table))
         conn.commit()
     logger.info(
         "write.ensure_pgvector_schema table=%s dimension=%d ok", table, dimension
@@ -113,8 +120,8 @@ def write_chunks(
             insert_sql = (
                 f"INSERT INTO {table} "
                 "(id, chunk_text, chunk_tokens, doc_title, doc_url, "
-                "doc_section, chunk_index, embedding, chunk_tsvector) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, to_tsvector('english', %s))"
+                "doc_section, doc_id, chunk_index, embedding, chunk_tsvector) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, to_tsvector('english', %s))"
             )
             for chunk, vector in zip(chunks, embeddings, strict=True):
                 cur.execute(
@@ -126,6 +133,7 @@ def write_chunks(
                         chunk.doc_title,
                         chunk.doc_url,
                         chunk.doc_section,
+                        chunk.doc_id,
                         chunk.chunk_index,
                         vector,
                         chunk.text,
@@ -190,8 +198,8 @@ def write_chunk_batch(
             insert_sql = (
                 f"INSERT INTO {table} "
                 "(id, chunk_text, chunk_tokens, doc_title, doc_url, "
-                "doc_section, chunk_index, embedding, chunk_tsvector) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, to_tsvector('english', %s))"
+                "doc_section, doc_id, chunk_index, embedding, chunk_tsvector) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, to_tsvector('english', %s))"
             )
             for chunk, vector in zip(chunks, embeddings, strict=True):
                 cur.execute(
@@ -203,6 +211,7 @@ def write_chunk_batch(
                         chunk.doc_title,
                         chunk.doc_url,
                         chunk.doc_section,
+                        chunk.doc_id,
                         chunk.chunk_index,
                         vector,
                         chunk.text,

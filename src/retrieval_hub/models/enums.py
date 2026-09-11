@@ -21,6 +21,7 @@ class SourceFamily(StrEnum):
     TABULAR = "tabular"
     GRAPH = "graph"
     PROCESS = "process"
+    GOOGLE_DOCS = "google_docs"
     EXTERNAL = "external"
 
 
@@ -94,6 +95,7 @@ class EvalSuiteFamily(StrEnum):
     TABULAR = "tabular"
     GRAPH = "graph"
     PROCESS = "process"
+    GOOGLE_DOCS = "google_docs"
     EXTERNAL = "external"
 
 

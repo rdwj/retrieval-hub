@@ -48,6 +48,7 @@ _PROCESS_FAMILIES = {"process"}
 _CODE_FAMILIES = {"code"}
 _TABULAR_FAMILIES = {"tabular"}
 _GRAPH_FAMILIES = {"graph"}
+_GDOCS_FAMILIES = {"google_docs"}
 
 _FILE_EXTENSIONS = {
     ".md": "text/markdown",
@@ -65,6 +66,7 @@ _FAMILY_ENUM_MAP: dict[str, SourceFamily] = {
     "code": SourceFamily.CODE,
     "tabular": SourceFamily.TABULAR,
     "graph": SourceFamily.GRAPH,
+    "google_docs": SourceFamily.GOOGLE_DOCS,
 }
 
 _SKIP_STEMS = frozenset({
@@ -207,7 +209,8 @@ def _make_recipe(
 
 def ingest(
     *,
-    data_dir: Path,
+    data_dir: Path | None = None,
+    documents: list[FetchedDocument] | None = None,
     slug: str,
     name: str,
     family: str,
@@ -280,13 +283,16 @@ def ingest(
         Number of chunks to embed and write per checkpoint batch.
         Controls how much work is lost on interruption.
     """
-    data_dir = Path(data_dir)
+    if data_dir is None and family not in _GDOCS_FAMILIES:
+        raise ValueError("data_dir is required for non-google_docs families")
+    if data_dir is not None:
+        data_dir = Path(data_dir)
     owner_contacts = owner_contacts or []
     table_name = _make_table_name(slug, table_suffix)
 
     all_families = (
         _DOCUMENT_FAMILIES | _PROCESS_FAMILIES | _CODE_FAMILIES
-        | _TABULAR_FAMILIES | _GRAPH_FAMILIES
+        | _TABULAR_FAMILIES | _GRAPH_FAMILIES | _GDOCS_FAMILIES
     )
     if family not in all_families:
         raise ValueError(
@@ -393,10 +399,35 @@ def ingest(
             slug, graph_stats.nodes_written, graph_stats.edges_written,
         )
 
+    elif family in _GDOCS_FAMILIES:
+        if documents is None:
+            raise ValueError(
+                "family='google_docs' requires pre-fetched documents. "
+                "Use fetch_google_docs() and pass the result as documents=."
+            )
+        doc_count = len(documents)
+        for doc in documents:
+            parsed = parse_document(doc)
+            normalized = normalize_document(parsed)
+            if normalized is None:
+                logger.warning("pipeline.ingest skip_short_doc title=%s", doc.title)
+                doc_count -= 1
+                continue
+            doc_chunks = chunk_document(
+                normalized,
+                chunk_tokens=chunk_tokens,
+                overlap_tokens=overlap_tokens,
+            )
+            google_doc_id = doc.metadata.get("google_doc_id")
+            for chunk in doc_chunks:
+                chunk.doc_id = google_doc_id
+            chunks.extend(doc_chunks)
+
     if not chunks:
+        source_desc = str(data_dir) if data_dir else "provided documents"
         raise ValueError(
-            f"No chunks produced from {data_dir}. Check that the directory "
-            f"contains supported files for the {family!r} family."
+            f"No chunks produced from {source_desc}. Check that the "
+            f"input contains supported content for the {family!r} family."
         )
 
     logger.info(

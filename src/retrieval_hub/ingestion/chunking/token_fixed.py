@@ -47,6 +47,7 @@ class Chunk:
     doc_url: str
     doc_title: str
     doc_section: str | None
+    doc_id: str | None = None
 
 
 def chunk_document(

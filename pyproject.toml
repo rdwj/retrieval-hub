@@ -50,6 +50,10 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML>=6.0",
 ]
+gdocs = [
+    "google-api-python-client>=2.0",
+    "google-auth>=2.0",
+]
 # Heavy runtime deps for real ingestion runs. Not required for `make test`
 # or `make lint` — tests mock sentence-transformers and Docling. Install
 # with `pip install -e '.[ingest]'` before running the step 4 scripts.
