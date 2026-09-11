@@ -77,14 +77,14 @@ vLLM instance and configure the MCP server to call it remotely.
 
 **Memory sizing reference** (from production experience):
 
-| Model | On-disk | In-memory | MCP pod limit |
-|---|---|---|---|
-| PubMedBERT (768-dim) | ~400MB | ~1.2GB | 2Gi (in-pod TEI) |
-| Nomic v1.5 (768-dim) | ~550MB | ~1.5GB | 2Gi (remote vLLM) |
+| Model | On-disk | In-memory | Pod limit | Deployment |
+|---|---|---|---|---|
+| Nomic v1.5 (768-dim) | ~550MB | ~1.5GB | 4Gi | vLLM (single GPU) |
 
-Nomic v1.5 is served by a dedicated vLLM deployment (`vllm-nomic-embedding`)
-on a single-GPU node, not loaded in the MCP server pod. The MCP server calls
-it via HTTP at query time. PubMedBERT still runs in-pod via TEI.
+Nomic v1.5 is the current production embedding model, served by a dedicated
+vLLM deployment (`vllm-nomic-embedding`) on a single-GPU node. The MCP server
+calls it via HTTP at query time. The MCP server pod itself requires 4Gi to
+handle the model's in-memory footprint during local fallback scenarios.
 
 If a new source requires a model that doesn't fit alongside existing models,
 deploy it on a dedicated vLLM instance and configure the ingestion to use the
