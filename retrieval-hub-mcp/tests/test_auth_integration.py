@@ -81,7 +81,7 @@ def _make_physical_index(id="pi-001", document_count=42, build_metadata=None):
     )
 
 
-def _agent_identity(groups=(), scopes=("sources.read",)):
+def _agent_identity(groups=(), scopes=("sources.read", "sources.list", "sources.query")):
     return Identity(
         sub="agent:test-agent",
         kind="agent",
@@ -659,46 +659,62 @@ def test_get_current_identity_defaults(mock_get_token):
 @patch("retrieval_hub_mcp.auth.get_access_token")
 def test_google_token_extracts_identity(mock_get_token):
     """Google OAuth token produces a user Identity with email."""
-    mock_get_token.return_value = AccessToken(
-        token="google-opaque-token",
-        client_id="google-client",
-        scopes=["openid", "email", "profile"],
-        subject="112233445566",
-        claims={
-            "sub": "112233445566",
-            "email": "alice@redhat.com",
-            "email_verified": True,
-            "name": "Alice Smith",
-        },
-    )
+    from retrieval_hub_mcp import auth
+    original = auth._ALLOWED_DOMAINS
+    try:
+        # Configure to allow @redhat.com
+        auth._ALLOWED_DOMAINS = frozenset({"redhat.com"})
 
-    identity = get_current_identity()
-    assert identity is not None
-    assert identity.sub == "google:112233445566"
-    assert identity.kind == "user"
-    assert identity.email == "alice@redhat.com"
-    assert identity.email_domain == "redhat.com"
-    assert identity.groups == ()
-    assert "openid" in identity.scopes
+        mock_get_token.return_value = AccessToken(
+            token="google-opaque-token",
+            client_id="google-client",
+            scopes=["openid", "email", "profile"],
+            subject="112233445566",
+            claims={
+                "sub": "112233445566",
+                "email": "alice@redhat.com",
+                "email_verified": True,
+                "name": "Alice Smith",
+            },
+        )
+
+        identity = get_current_identity()
+        assert identity is not None
+        assert identity.sub == "google:112233445566"
+        assert identity.kind == "user"
+        assert identity.email == "alice@redhat.com"
+        assert identity.email_domain == "redhat.com"
+        assert identity.groups == ()
+        assert "openid" in identity.scopes
+    finally:
+        auth._ALLOWED_DOMAINS = original
 
 
 @patch("retrieval_hub_mcp.auth.get_access_token")
 def test_google_token_rejects_non_redhat_domain(mock_get_token):
-    """Google OAuth rejects emails not from @redhat.com."""
-    mock_get_token.return_value = AccessToken(
-        token="google-opaque-token",
-        client_id="google-client",
-        scopes=["openid", "email"],
-        subject="999",
-        claims={
-            "sub": "999",
-            "email": "user@gmail.com",
-            "email_verified": True,
-        },
-    )
+    """Google OAuth rejects emails not from allowed domains."""
+    from retrieval_hub_mcp import auth
+    original = auth._ALLOWED_DOMAINS
+    try:
+        # Configure to only allow @redhat.com
+        auth._ALLOWED_DOMAINS = frozenset({"redhat.com"})
 
-    with pytest.raises(PermissionError, match="@redhat.com"):
-        get_current_identity()
+        mock_get_token.return_value = AccessToken(
+            token="google-opaque-token",
+            client_id="google-client",
+            scopes=["openid", "email"],
+            subject="999",
+            claims={
+                "sub": "999",
+                "email": "user@gmail.com",
+                "email_verified": True,
+            },
+        )
+
+        with pytest.raises(PermissionError, match="not in the allowed domains"):
+            get_current_identity()
+    finally:
+        auth._ALLOWED_DOMAINS = original
 
 
 @patch("retrieval_hub_mcp.auth.get_access_token")
@@ -743,3 +759,64 @@ def test_jwt_token_still_works_with_google_support(mock_get_token):
     assert identity.groups == ("team-x",)
     assert identity.tenant == "acme"
     assert identity.email is None
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth domain allowlist configuration
+# ---------------------------------------------------------------------------
+
+
+class TestGoogleDomainAllowlist:
+    """Tests for configurable Google OAuth domain allowlist."""
+
+    def test_allowed_domain_accepted(self):
+        """Email from allowed domain is accepted."""
+        from retrieval_hub_mcp import auth
+        original = auth._ALLOWED_DOMAINS
+        try:
+            auth._ALLOWED_DOMAINS = frozenset({"redhat.com"})
+            claims = {"email": "alice@redhat.com", "email_verified": True, "sub": "123"}
+            token = SimpleNamespace(scopes={"openid", "email"})
+            identity = auth._identity_from_google(claims, token, "alice@redhat.com")
+            assert identity.email == "alice@redhat.com"
+        finally:
+            auth._ALLOWED_DOMAINS = original
+
+    def test_disallowed_domain_rejected(self):
+        """Email from non-allowed domain is rejected."""
+        from retrieval_hub_mcp import auth
+        original = auth._ALLOWED_DOMAINS
+        try:
+            auth._ALLOWED_DOMAINS = frozenset({"redhat.com"})
+            claims = {"email": "alice@gmail.com", "email_verified": True, "sub": "123"}
+            token = SimpleNamespace(scopes={"openid", "email"})
+            with pytest.raises(PermissionError, match="not in the allowed domains"):
+                auth._identity_from_google(claims, token, "alice@gmail.com")
+        finally:
+            auth._ALLOWED_DOMAINS = original
+
+    def test_empty_allowlist_accepts_any_domain(self):
+        """Empty domain allowlist allows all domains (open mode)."""
+        from retrieval_hub_mcp import auth
+        original = auth._ALLOWED_DOMAINS
+        try:
+            auth._ALLOWED_DOMAINS = frozenset()
+            claims = {"email": "alice@gmail.com", "email_verified": True, "sub": "123"}
+            token = SimpleNamespace(scopes={"openid", "email"})
+            identity = auth._identity_from_google(claims, token, "alice@gmail.com")
+            assert identity.email == "alice@gmail.com"
+        finally:
+            auth._ALLOWED_DOMAINS = original
+
+    def test_multiple_allowed_domains(self):
+        """Multiple domains in allowlist all work."""
+        from retrieval_hub_mcp import auth
+        original = auth._ALLOWED_DOMAINS
+        try:
+            auth._ALLOWED_DOMAINS = frozenset({"redhat.com", "google.com"})
+            claims = {"email": "alice@google.com", "email_verified": True, "sub": "123"}
+            token = SimpleNamespace(scopes={"openid", "email"})
+            identity = auth._identity_from_google(claims, token, "alice@google.com")
+            assert identity.email == "alice@google.com"
+        finally:
+            auth._ALLOWED_DOMAINS = original

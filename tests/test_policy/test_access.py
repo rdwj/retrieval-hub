@@ -241,3 +241,93 @@ def test_machine_identity_denied_for_email_only_restricted(
     )
     identity = make_identity(kind="agent")
     assert can_access(identity, src, "query") is False
+
+
+# ---------------------------------------------------------------------------
+# Scope enforcement
+# ---------------------------------------------------------------------------
+
+
+def test_scope_enforcement_allows_matching_scope(session: Session) -> None:
+    """Identity with the required scope can perform the action."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.PUBLIC,
+    )
+    identity = make_identity(
+        kind="agent", scopes=frozenset({"sources.query", "sources.list"}),
+    )
+    assert can_access(identity, src, "query") is True
+
+
+def test_scope_enforcement_denies_missing_scope(session: Session) -> None:
+    """Identity without the required scope is denied."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.PUBLIC,
+    )
+    identity = make_identity(
+        kind="agent", scopes=frozenset({"sources.list"}),
+    )
+    assert can_access(identity, src, "query") is False
+
+
+def test_scope_enforcement_skipped_for_google_oauth(session: Session) -> None:
+    """Google OAuth identity (non-RH scopes) is not affected by scope enforcement."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.PUBLIC,
+    )
+    identity = make_identity(
+        sub="google:123",
+        kind="user",
+        scopes=frozenset({"openid", "email", "profile"}),
+        email="alice@example.com",
+    )
+    assert can_access(identity, src, "query") is True
+
+
+def test_scope_enforcement_skipped_for_empty_scopes(session: Session) -> None:
+    """Identity with no scopes (auth disabled path) is not affected."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.PUBLIC,
+    )
+    identity = make_identity(kind="agent", scopes=frozenset())
+    assert can_access(identity, src, "query") is True
+
+
+def test_admin_read_scope_covers_read_actions(session: Session) -> None:
+    """admin.read scope allows list, read, and query actions."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.PUBLIC,
+    )
+    identity = make_identity(
+        kind="user", scopes=frozenset({"admin.read"}),
+    )
+    assert can_access(identity, src, "list") is True
+    assert can_access(identity, src, "read") is True
+    assert can_access(identity, src, "query") is True
+    assert can_access(identity, src, "rewrite") is False
+
+
+def test_admin_write_scope_covers_all_actions(session: Session) -> None:
+    """admin.write scope allows all actions."""
+    src = make_source(
+        session,
+        status=SourceStatus.PUBLISHED,
+        visibility=AccessVisibility.PUBLIC,
+    )
+    identity = make_identity(
+        kind="user", scopes=frozenset({"admin.write"}),
+    )
+    assert can_access(identity, src, "list") is True
+    assert can_access(identity, src, "read") is True
+    assert can_access(identity, src, "query") is True
+    assert can_access(identity, src, "rewrite") is True

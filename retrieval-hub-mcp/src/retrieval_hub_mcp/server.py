@@ -110,6 +110,10 @@ if _auth_jwks_uri:
         audience=_auth_audience,
     )
 
+_google_base_scopes = ["openid", "email", "profile"]
+_google_extra = os.environ.get("RETRIEVAL_HUB_GOOGLE_EXTRA_SCOPES", "")
+_google_extra_scopes = [s.strip() for s in _google_extra.split(",") if s.strip()]
+
 _google_provider = None
 if _google_client_id and _google_client_secret and _google_base_url:
     from fastmcp.server.auth.providers.google import GoogleProvider
@@ -118,7 +122,7 @@ if _google_client_id and _google_client_secret and _google_base_url:
         client_id=_google_client_id,
         client_secret=_google_client_secret,
         base_url=_google_base_url,
-        required_scopes=["openid", "email", "profile"],
+        required_scopes=_google_base_scopes + _google_extra_scopes,
     )
 
 if _google_provider and _jwt_verifier:
@@ -378,12 +382,9 @@ def _check_source_access(
 ) -> None:
     """Raise ``ToolError`` if the identity cannot perform ``action`` on ``source``.
 
-    Round 1: access decisions are based on identity kind, groups, and source
-    visibility only. Scope-based enforcement (e.g., requiring ``sources.query``
-    to call retrieve) is deferred to a future iteration.
-
-    When auth is disabled (identity is None) or the source is None (will be
-    handled by downstream not-found logic), all access is allowed.
+    Enforcement covers identity kind, groups, source visibility, and OAuth
+    scopes. When auth is disabled (identity is None) or the source is None
+    (will be handled by downstream not-found logic), all access is allowed.
     """
     if identity is None or source is None:
         return

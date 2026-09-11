@@ -110,6 +110,43 @@ The distinction between `sources.write` and `admin.write` is the load-bearing pa
 
 `sources.write` is issued to agent identities only when an explicit IdP-side rule allows it, and even then it only takes effect for sources whose owners have set `agent_write_policy.allowed = true`. Two gates, both required.
 
+### Scope enforcement
+
+The `can_access()` function enforces scope requirements for identities that carry retrieval-hub scopes. The mapping from action to required scope:
+
+| Action | Required scope |
+|--------|---------------|
+| list | sources.list |
+| read | sources.read |
+| query | sources.query |
+| rewrite | rewrite.invoke |
+
+**Backward compatibility:** Scope enforcement only activates when the identity carries at least one retrieval-hub scope (prefixed with `sources.`, `admin.`, or `rewrite.`). Google OAuth identities (whose scopes are `openid`, `email`, `profile`) and auth-disabled callers (empty scopes) are unaffected.
+
+**Admin fallback:** `admin.read` implies `sources.list`, `sources.read`, and `sources.query`. `admin.write` implies all scopes.
+
+### Google OAuth configuration
+
+The MCP server supports Google OAuth for user authentication. Configuration is via environment variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `RETRIEVAL_HUB_GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
+| `RETRIEVAL_HUB_GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `RETRIEVAL_HUB_GOOGLE_BASE_URL` | Yes | MCP server's public URL (for OAuth redirect) |
+| `RETRIEVAL_HUB_GOOGLE_ALLOWED_DOMAINS` | No | Comma-separated email domain allowlist. Empty = allow all domains |
+| `RETRIEVAL_HUB_GOOGLE_EXTRA_SCOPES` | No | Comma-separated additional OAuth scopes beyond `openid`, `email`, `profile` |
+
+**Domain allowlist examples:**
+
+- `RETRIEVAL_HUB_GOOGLE_ALLOWED_DOMAINS="redhat.com"` -- restrict to Red Hat accounts
+- `RETRIEVAL_HUB_GOOGLE_ALLOWED_DOMAINS="redhat.com,ibm.com"` -- multiple orgs
+- `RETRIEVAL_HUB_GOOGLE_ALLOWED_DOMAINS=""` or unset -- allow all domains (dev/open mode)
+
+**Extra scopes:** For Google Docs integration, deployers will need to add `https://www.googleapis.com/auth/drive.metadata.readonly` to enable query-time access verification against Google Drive.
+
+**Token passthrough:** The user's raw Google access token is available via FastMCP's `AccessToken.token` field. This enables downstream Drive API calls at query time without a separate token exchange.
+
 ## The pluggable IdP backend
 
 Inside `retrieval-hub-auth/`, the part that says "yes, this caller is authentic, and here are the claims" is a backend trait. v1 ships **four** implementations:
@@ -336,6 +373,25 @@ The policy lookup, in pseudocode:
 
 ```
 def can_access(identity: Identity, source: Source, action: Action) -> bool:
+    # Scope gate (only enforced for identities with retrieval-hub scopes)
+    if identity.has_retrieval_hub_scopes():
+        scope_map = {
+            "list": "sources.list",
+            "read": "sources.read",
+            "query": "sources.query",
+            "rewrite": "rewrite.invoke"
+        }
+        required_scope = scope_map.get(action)
+        if required_scope and required_scope not in identity.scopes:
+            # Check admin fallback
+            if not ("admin.read" in identity.scopes or "admin.write" in identity.scopes):
+                return False
+
+    # Lifecycle gate
+    if source.lifecycle not in {"curated", "published"}:
+        return False
+
+    # Visibility gate
     if source.access.visibility == "public":
         return action in {"list", "read", "query", "rewrite"}
 

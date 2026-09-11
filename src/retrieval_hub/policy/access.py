@@ -32,6 +32,15 @@ _AGENT_VISIBLE_STATUSES: frozenset[SourceStatus] = frozenset(
 )
 _AGENT_KINDS: frozenset[str] = frozenset({"agent", "service", "client"})
 
+SCOPE_REQUIREMENTS: dict[str, str] = {
+    "list": "sources.list",
+    "read": "sources.read",
+    "query": "sources.query",
+    "rewrite": "rewrite.invoke",
+}
+
+_RH_SCOPE_PREFIXES = ("sources.", "admin.", "rewrite.")
+
 
 def _is_admin_user(identity: Identity) -> bool:
     """Return True if ``identity`` is a human user with the ``admin`` group."""
@@ -72,6 +81,11 @@ def _visibility(source: Source) -> AccessVisibility:
     return source.visibility
 
 
+def _has_rh_scopes(identity: Identity) -> bool:
+    """Return True if the identity carries retrieval-hub scopes."""
+    return any(s.startswith(p) for s in identity.scopes for p in _RH_SCOPE_PREFIXES)
+
+
 def can_access(identity: Identity, source: Source, action: Action) -> bool:
     """Return True if ``identity`` may perform ``action`` on ``source``.
 
@@ -92,6 +106,17 @@ def can_access(identity: Identity, source: Source, action: Action) -> bool:
     # Lifecycle gate: agents only see Curated/Published sources.
     if identity.kind in _AGENT_KINDS and source.status not in _AGENT_VISIBLE_STATUSES:
         return False
+
+    # Scope gate: enforce scope requirements for retrieval-hub JWT identities.
+    # Google OAuth tokens carry scopes like "openid"/"email" which are not
+    # retrieval-hub scopes. Auth-disabled callers have empty scopes. Both
+    # cases skip this gate for backward compatibility.
+    if identity.scopes and _has_rh_scopes(identity):
+        required = SCOPE_REQUIREMENTS.get(action)
+        if required and not identity.has_scope(required):
+            if not (identity.has_scope("admin.read") and action in {"list", "read", "query"}):
+                if not identity.has_scope("admin.write"):
+                    return False
 
     visibility = _visibility(source)
 

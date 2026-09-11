@@ -8,6 +8,7 @@ dataclass so the policy module can make access decisions.
 from __future__ import annotations
 
 import logging
+import os
 
 from fastmcp.server.dependencies import get_access_token
 
@@ -15,7 +16,10 @@ from retrieval_hub.models.identity import Identity
 
 logger = logging.getLogger(__name__)
 
-_ALLOWED_EMAIL_DOMAIN = "redhat.com"
+_raw_domains = os.environ.get("RETRIEVAL_HUB_GOOGLE_ALLOWED_DOMAINS", "")
+_ALLOWED_DOMAINS: frozenset[str] = frozenset(
+    d.strip().lower() for d in _raw_domains.split(",") if d.strip()
+)
 
 
 def get_current_identity() -> Identity | None:
@@ -42,15 +46,15 @@ def _identity_from_google(
 ) -> Identity:
     """Build an Identity from a Google OAuth token."""
     domain = email.rsplit("@", 1)[-1].lower() if "@" in email else ""
-    if domain != _ALLOWED_EMAIL_DOMAIN:
+    if _ALLOWED_DOMAINS and domain not in _ALLOWED_DOMAINS:
         logger.warning(
-            "Google OAuth login rejected: email %s not in domain %s",
+            "Google OAuth login rejected: email %s not in allowed domains %s",
             email,
-            _ALLOWED_EMAIL_DOMAIN,
+            _ALLOWED_DOMAINS,
         )
         raise PermissionError(
-            f"Only @{_ALLOWED_EMAIL_DOMAIN} accounts may authenticate. "
-            f"Got: {email}"
+            f"Email domain @{domain} is not in the allowed domains list. "
+            f"Allowed: {', '.join(sorted(_ALLOWED_DOMAINS))}"
         )
 
     email_verified = claims.get("email_verified")
