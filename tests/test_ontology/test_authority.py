@@ -10,6 +10,8 @@ import pytest
 from retrieval_hub.ontology.authority import (
     DEFAULT_FAMILY_WEIGHT,
     DEFAULT_STATUS_WEIGHT,
+    NORMALIZED_CEILING,
+    NORMALIZED_FLOOR,
     _agreement_bonus,
     compute_authority_scores,
 )
@@ -244,7 +246,7 @@ def test_explicit_authority_weight_overrides_family():
 
 
 def test_missing_source_uses_defaults():
-    """When source record is missing, default weights are used."""
+    """When source record is missing, single mapping gets ceiling score."""
     mappings = [_make_mapping(1, "Orphan", "missing-src")]
 
     session = MagicMock()
@@ -257,8 +259,8 @@ def test_missing_source_uses_defaults():
     session.query.side_effect = mock_query
 
     scores = dict(compute_authority_scores(session))
-    expected = round(DEFAULT_STATUS_WEIGHT * DEFAULT_FAMILY_WEIGHT * 1.0, 3)
-    assert scores[1] == pytest.approx(expected)
+    # Single mapping gets normalized to ceiling
+    assert scores[1] == pytest.approx(NORMALIZED_CEILING)
 
 
 def test_empty_mappings_returns_empty():
@@ -290,3 +292,115 @@ def test_scores_are_rounded():
     scores = dict(compute_authority_scores(session))
     score_str = f"{scores[1]:.3f}"
     assert scores[1] == float(score_str)
+
+
+# ---------------------------------------------------------------------------
+# compute_authority_scores — normalization
+# ---------------------------------------------------------------------------
+
+
+def test_normalized_scores_within_bounds():
+    """All normalized scores fall within [NORMALIZED_FLOOR, NORMALIZED_CEILING]."""
+    mappings = [
+        _make_mapping(1, "Condition", "graph-src"),
+        _make_mapping(2, "Condition", "clin-src"),
+        _make_mapping(3, "Condition", "doc-src"),
+        _make_mapping(4, "Treatment", "draft-src"),
+    ]
+    sources = [
+        _make_source("graph-src", status="published", family="graph"),
+        _make_source("clin-src", status="curated", family="clinical_document"),
+        _make_source("doc-src", status="curated", family="document"),
+        _make_source("draft-src", status="draft", family="document"),
+    ]
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model.__tablename__ == "ontology_mapping":
+            return _MockQuery(mappings)
+        return _MockQuery(sources)
+
+    session.query.side_effect = mock_query
+
+    scores = dict(compute_authority_scores(session))
+    for mapping_id, score in scores.items():
+        assert score >= NORMALIZED_FLOOR
+        assert score <= NORMALIZED_CEILING
+
+
+def test_normalization_preserves_ordering():
+    """Normalization preserves the relative ordering of raw scores."""
+    mappings = [
+        _make_mapping(1, "Condition", "graph-src"),
+        _make_mapping(2, "Condition", "clin-src"),
+        _make_mapping(3, "Condition", "doc-src"),
+    ]
+    sources = [
+        _make_source("graph-src", status="published", family="graph"),
+        _make_source("clin-src", status="curated", family="clinical_document"),
+        _make_source("doc-src", status="curated", family="document"),
+    ]
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model.__tablename__ == "ontology_mapping":
+            return _MockQuery(mappings)
+        return _MockQuery(sources)
+
+    session.query.side_effect = mock_query
+
+    scores = dict(compute_authority_scores(session))
+    # Graph (published) should score highest
+    assert scores[1] > scores[2]
+    # Clinical document should score higher than general document
+    assert scores[2] > scores[3]
+
+
+def test_single_mapping_gets_ceiling():
+    """A single mapping gets normalized to the ceiling value."""
+    mappings = [_make_mapping(1, "Condition", "src")]
+    sources = [_make_source("src", status="draft", family="document")]
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model.__tablename__ == "ontology_mapping":
+            return _MockQuery(mappings)
+        return _MockQuery(sources)
+
+    session.query.side_effect = mock_query
+
+    scores = dict(compute_authority_scores(session))
+    assert scores[1] == pytest.approx(NORMALIZED_CEILING)
+
+
+def test_identical_raw_scores_get_midpoint():
+    """When all mappings have identical raw scores, they get the midpoint."""
+    mappings = [
+        _make_mapping(1, "Condition", "src-a"),
+        _make_mapping(2, "Treatment", "src-b"),
+        _make_mapping(3, "Procedure", "src-c"),
+    ]
+    # All sources identical -> all raw scores identical
+    sources = [
+        _make_source("src-a", status="curated", family="document"),
+        _make_source("src-b", status="curated", family="document"),
+        _make_source("src-c", status="curated", family="document"),
+    ]
+
+    session = MagicMock()
+
+    def mock_query(model):
+        if model.__tablename__ == "ontology_mapping":
+            return _MockQuery(mappings)
+        return _MockQuery(sources)
+
+    session.query.side_effect = mock_query
+
+    scores = dict(compute_authority_scores(session))
+    expected_mid = round((NORMALIZED_FLOOR + NORMALIZED_CEILING) / 2, 3)
+    assert scores[1] == pytest.approx(expected_mid)
+    assert scores[2] == pytest.approx(expected_mid)
+    assert scores[3] == pytest.approx(expected_mid)

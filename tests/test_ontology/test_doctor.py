@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from retrieval_hub.db.base import Base
+from retrieval_hub.models.query_metrics import OntologyQueryMetric
 from retrieval_hub.ontology.doctor import (
     check_dangling_relationships,
     check_duplicate_mappings,
     check_eval_findings,
     check_family_mismatches,
+    check_low_hit_rate,
     check_missing_mappings,
     check_orphan_concepts,
     check_score_clustering,
@@ -421,3 +427,75 @@ def test_check_eval_findings_empty():
     session = MagicMock()
     results = check_eval_findings(session, eval_findings=[])
     assert results == []
+
+
+# ---------------------------------------------------------------------------
+# check_low_hit_rate
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def db_session():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    make_session = sessionmaker(bind=engine)
+    session = make_session()
+    yield session
+    session.close()
+    engine.dispose()
+
+
+class TestCheckLowHitRate:
+    def test_flags_low_hit_rate(self, db_session):
+        """Mapping with zero hits is flagged."""
+        now = datetime.now(UTC)
+        for _ in range(5):
+            db_session.add(OntologyQueryMetric(
+                mapping_id=1, source_slug="src-a", canonical_name="Condition",
+                hit_count=0, top_score=None, query_timestamp=now,
+            ))
+        db_session.flush()
+
+        findings = check_low_hit_rate(db_session, threshold=0.1)
+        assert len(findings) == 1
+        assert findings[0]["check"] == "low_hit_rate"
+        assert findings[0]["severity"] == "WARN"
+        assert findings[0]["hit_rate"] == 0.0
+
+    def test_healthy_mapping_not_flagged(self, db_session):
+        """Mapping with high hit rate is not flagged."""
+        now = datetime.now(UTC)
+        for _ in range(10):
+            db_session.add(OntologyQueryMetric(
+                mapping_id=1, source_slug="src-a", canonical_name="Condition",
+                hit_count=5, top_score=0.8, query_timestamp=now,
+            ))
+        db_session.flush()
+
+        findings = check_low_hit_rate(db_session, threshold=0.1)
+        assert len(findings) == 0
+
+    def test_empty_metrics_returns_empty(self, db_session):
+        """No metrics returns no findings."""
+        findings = check_low_hit_rate(db_session)
+        assert findings == []
+
+    def test_respects_time_window(self, db_session):
+        """Only considers metrics within the specified time window."""
+        now = datetime.now(UTC)
+        # Old metrics (outside window) - all zeros
+        for _ in range(5):
+            db_session.add(OntologyQueryMetric(
+                mapping_id=1, source_slug="src-a", canonical_name="Condition",
+                hit_count=0, top_score=None, query_timestamp=now - timedelta(days=10),
+            ))
+        # Recent metrics (within window) - all hits
+        for _ in range(5):
+            db_session.add(OntologyQueryMetric(
+                mapping_id=1, source_slug="src-a", canonical_name="Condition",
+                hit_count=5, top_score=0.8, query_timestamp=now,
+            ))
+        db_session.flush()
+
+        findings = check_low_hit_rate(db_session, days=7, threshold=0.1)
+        assert len(findings) == 0  # Only recent (healthy) metrics are considered

@@ -791,4 +791,11 @@ def concept_query(
     authority_weights = {m.source_slug: m.authority_weight for m in mappings}
     merged = rrf_merge(per_source, top_k=top_k, source_weights=authority_weights)
     mappings_dict = {m.source_slug: m for m in mappings}
+
+    try:
+        from retrieval_hub.ontology.monitoring import record_query_metrics
+        record_query_metrics(session, concept, mappings_dict, per_source)
+    except Exception:
+        logger.debug("Query metrics recording failed", exc_info=True)
+
     return merged, mappings_dict

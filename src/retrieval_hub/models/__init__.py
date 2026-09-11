@@ -10,6 +10,7 @@ from retrieval_hub.models.model_endpoint import ModelEndpoint
 from retrieval_hub.models.ontology import OntologyMapping
 from retrieval_hub.models.ontology_concept import OntologyConcept
 from retrieval_hub.models.ontology_relationship import OntologyRelationship
+from retrieval_hub.models.query_metrics import OntologyQueryMetric
 from retrieval_hub.models.recipe import Recipe, RecipeVersion
 from retrieval_hub.models.rewriter import RewritePromptRef
 from retrieval_hub.models.source import (
@@ -30,6 +31,7 @@ __all__ = [
     "ModelEndpoint",
     "OntologyConcept",
     "OntologyMapping",
+    "OntologyQueryMetric",
     "OntologyRelationship",
     "PhysicalIndex",
     "Recipe",

@@ -480,6 +480,45 @@ def check_dead_mappings(
     return findings
 
 
+def check_low_hit_rate(
+    session: Session,
+    *,
+    days: int = 7,
+    threshold: float = 0.1,
+) -> list[dict[str, Any]]:
+    """Find mappings with low query hit rates from runtime monitoring data.
+
+    Queries the ontology_query_metric table for mappings exercised in the
+    last ``days`` days and flags any with a hit_rate below ``threshold``.
+    """
+    from retrieval_hub.ontology.monitoring import get_mapping_hit_rates
+
+    hit_rates = get_mapping_hit_rates(session, days=days)
+    if not hit_rates:
+        return []
+
+    findings: list[dict[str, Any]] = []
+    for entry in hit_rates:
+        if entry["hit_rate"] < threshold:
+            findings.append({
+                "check": "low_hit_rate",
+                "severity": "WARN",
+                "mapping_id": entry["mapping_id"],
+                "source_slug": entry["source_slug"],
+                "canonical_name": entry["canonical_name"],
+                "hit_rate": entry["hit_rate"],
+                "total_queries": entry["total_queries"],
+                "hit_queries": entry["hit_queries"],
+                "message": (
+                    f"Mapping {entry['canonical_name']}/{entry['source_slug']} "
+                    f"has {entry['hit_rate']:.1%} hit rate over last {days} days "
+                    f"({entry['hit_queries']}/{entry['total_queries']} queries)"
+                ),
+            })
+
+    return findings
+
+
 def check_eval_findings(
     session: Session,
     *,

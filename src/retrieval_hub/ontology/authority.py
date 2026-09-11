@@ -42,6 +42,9 @@ FRESHNESS_THRESHOLDS: list[tuple[int, float]] = [
 ]
 FRESHNESS_DEFAULT = 1.0
 
+NORMALIZED_FLOOR = 0.3
+NORMALIZED_CEILING = 1.0
+
 
 def _agreement_bonus(num_sources: int) -> float:
     return min(1.0 + AGREEMENT_BONUS_PER_SOURCE * (num_sources - 1), MAX_AGREEMENT_BONUS)
@@ -78,6 +81,10 @@ def compute_authority_scores(session: Session) -> list[tuple[int, float]]:
     Returns ``[(mapping_id, score), ...]`` where score is a composite of
     source status, family, cross-source agreement, formal terminology,
     entity coverage, and data freshness.
+
+    Raw scores are normalized to ``[NORMALIZED_FLOOR, NORMALIZED_CEILING]``
+    using min-max scaling to preserve relative ordering while ensuring
+    compatibility with downstream score clamping.
     """
     mappings = session.query(OntologyMapping).all()
     if not mappings:
@@ -134,5 +141,28 @@ def compute_authority_scores(session: Session) -> list[tuple[int, float]]:
             3,
         )
         results.append((m.id, score))
+
+    # Normalize scores to [NORMALIZED_FLOOR, NORMALIZED_CEILING]
+    if len(results) <= 1:
+        # Single mapping: place at ceiling
+        if results:
+            results = [(results[0][0], NORMALIZED_CEILING)]
+        return results
+
+    raw_scores = [s for _, s in results]
+    raw_min = min(raw_scores)
+    raw_max = max(raw_scores)
+
+    if raw_max == raw_min:
+        # All scores identical: place at midpoint
+        mid = round((NORMALIZED_FLOOR + NORMALIZED_CEILING) / 2, 3)
+        return [(mapping_id, mid) for mapping_id, _ in results]
+
+    span = raw_max - raw_min
+    norm_span = NORMALIZED_CEILING - NORMALIZED_FLOOR
+    results = [
+        (mapping_id, round(NORMALIZED_FLOOR + (raw - raw_min) / span * norm_span, 3))
+        for mapping_id, raw in results
+    ]
 
     return results

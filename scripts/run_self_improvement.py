@@ -96,6 +96,41 @@ def _print_doctor_findings(doctor_results: list[dict]) -> None:
         print(f"  [{sev}] {r.get('check')}: {r.get('message')}")
 
 
+def _metrics_to_quality(hit_rates: list[dict]) -> dict[str, dict]:
+    """Convert hit rate data to per_mapping_quality format.
+
+    Groups by (canonical_name, source_slug) and synthesizes the
+    precision/is_dead fields that evaluate_mapping_quality expects.
+    """
+    grouped: dict[str, dict] = {}
+    for entry in hit_rates:
+        key = f"{entry['canonical_name']}||{entry['source_slug']}"
+        if key not in grouped:
+            grouped[key] = {
+                "canonical_name": entry["canonical_name"],
+                "source_slug": entry["source_slug"],
+                "local_names": [],
+                "queries_exercised": entry["total_queries"],
+                "total_hits": entry["hit_queries"],
+                "total_in_top_k": entry["hit_queries"],
+                "precision": entry["hit_rate"],
+                "is_dead": entry["hit_rate"] == 0 and entry["total_queries"] > 0,
+                "mean_authority_score": 0.0,
+            }
+        else:
+            # Aggregate across mapping IDs for the same (concept, source)
+            existing = grouped[key]
+            existing["queries_exercised"] += entry["total_queries"]
+            existing["total_hits"] += entry["hit_queries"]
+            existing["total_in_top_k"] += entry["hit_queries"]
+            total = existing["queries_exercised"]
+            hits = existing["total_hits"]
+            existing["precision"] = round(hits / total, 3) if total > 0 else 0.0
+            existing["is_dead"] = hits == 0 and total > 0
+
+    return grouped
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -119,6 +154,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip benchmark and use the latest existing run.",
     )
     parser.add_argument(
+        "--from-metrics", action="store_true",
+        help="Use runtime query metrics instead of benchmark data for quality evaluation.",
+    )
+    parser.add_argument(
+        "--metrics-days", type=int, default=7,
+        help="Number of days of metrics to consider (default: 7, used with --from-metrics).",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true",
         help="Show findings and proposed adjustments without writing to DB.",
     )
@@ -135,6 +178,37 @@ def main() -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)-5s %(name)s: %(message)s",
     )
+
+    # Handle --from-metrics path (runtime monitoring data instead of benchmark).
+    if args.from_metrics:
+        make_session = sessionmaker(bind=create_engine(args.db_url))
+        with make_session() as session:
+            from retrieval_hub.ontology.monitoring import get_mapping_hit_rates
+            hit_rates = get_mapping_hit_rates(session, days=args.metrics_days)
+            if not hit_rates:
+                print("No query metrics found. Run some concept queries first.")
+                return 0
+
+            per_mapping = _metrics_to_quality(hit_rates)
+            print(f"Generated {len(per_mapping)} mapping quality entries from {args.metrics_days}-day metrics")
+
+            findings = evaluate_mapping_quality(session, per_mapping)
+            _print_findings(findings)
+
+            adjustments = adjust_authority_scores(session, findings)
+            _print_adjustments(adjustments)
+
+            if adjustments and not args.dry_run:
+                apply_adjustments(session, adjustments)
+                print(f"\nApplied {len(adjustments)} score adjustments to database.")
+            elif adjustments and args.dry_run:
+                print("\n[DRY RUN] No changes written to database.")
+
+            findings_data = [asdict(f) for f in findings if f.category != "healthy"]
+            doctor_results = check_eval_findings(session, eval_findings=findings_data)
+            _print_doctor_findings(doctor_results)
+
+        return 0
 
     # Resolve benchmark directory.
     bench_dir: Path | None = args.benchmark_dir

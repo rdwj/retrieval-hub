@@ -369,3 +369,52 @@ class TestEdgeCases:
         )
         adjustments = adjust_authority_scores(MagicMock(), [finding])
         assert len(adjustments) == 0
+
+
+# ---------------------------------------------------------------------------
+# _metrics_to_quality
+# ---------------------------------------------------------------------------
+
+
+class TestMetricsToQuality:
+    def test_converts_single_entry(self):
+        from scripts.run_self_improvement import _metrics_to_quality
+        hit_rates = [{
+            "mapping_id": 1,
+            "source_slug": "src-a",
+            "canonical_name": "Condition",
+            "total_queries": 10,
+            "hit_queries": 8,
+            "hit_rate": 0.8,
+            "avg_top_score": 0.7,
+        }]
+        result = _metrics_to_quality(hit_rates)
+        assert len(result) == 1
+        key = "Condition||src-a"
+        assert key in result
+        assert result[key]["precision"] == 0.8
+        assert result[key]["is_dead"] is False
+
+    def test_aggregates_multiple_mappings_same_source(self):
+        from scripts.run_self_improvement import _metrics_to_quality
+        hit_rates = [
+            {"mapping_id": 1, "source_slug": "src-a", "canonical_name": "Condition",
+             "total_queries": 5, "hit_queries": 4, "hit_rate": 0.8, "avg_top_score": 0.7},
+            {"mapping_id": 2, "source_slug": "src-a", "canonical_name": "Condition",
+             "total_queries": 5, "hit_queries": 1, "hit_rate": 0.2, "avg_top_score": 0.3},
+        ]
+        result = _metrics_to_quality(hit_rates)
+        assert len(result) == 1
+        entry = result["Condition||src-a"]
+        assert entry["queries_exercised"] == 10
+        assert entry["total_hits"] == 5
+        assert entry["precision"] == 0.5
+
+    def test_marks_dead_when_zero_hits(self):
+        from scripts.run_self_improvement import _metrics_to_quality
+        hit_rates = [{
+            "mapping_id": 1, "source_slug": "src-a", "canonical_name": "Condition",
+            "total_queries": 10, "hit_queries": 0, "hit_rate": 0.0, "avg_top_score": None,
+        }]
+        result = _metrics_to_quality(hit_rates)
+        assert result["Condition||src-a"]["is_dead"] is True
